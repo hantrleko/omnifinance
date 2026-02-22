@@ -18,7 +18,7 @@ st.set_page_config(page_title="储蓄目标计算器", page_icon="🎯", layout=
 st.markdown("""
 <style>
   .block-container { padding-top: 1.2rem; }
-  .stMetric { background: #0E1117; border: 1px solid #262730; border-radius: 8px; padding: 14px; }
+  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
   .achieved { background: #1b5e20 !important; border-color: #4caf50 !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -216,11 +216,8 @@ c4.metric("🎯 复利贡献占比", f"{interest_ratio:.1f}%")
 st.subheader("📈 资产成长曲线")
 
 LAYOUT_DARK = dict(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict(color="#FAFAFA")),
+                font=dict()),
     margin=dict(t=30, b=40),
     hovermode="x unified",
 )

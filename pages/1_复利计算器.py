@@ -151,14 +151,11 @@ fig.add_trace(go.Scatter(
     hovertemplate="第 %{x} 年<br>年化收益率: %{y:.2f}%<extra></extra>",
 ))
 fig.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117",
     xaxis_title="年份",
     yaxis=dict(title="金额（元）", tickformat=",", side="left"),
     yaxis2=dict(title="年化收益率(%)", overlaying="y", side="right", showgrid=False),
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict(color="#FAFAFA")),
+                font=dict()),
     margin=dict(t=30, b=40),
     hovermode="x unified",
 )
@@ -201,14 +198,11 @@ for label, sched, color in [
         hovertemplate="第 %{x} 年<br>余额: ¥%{y:,.2f}<extra></extra>",
     ))
 fig_sens.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117",
     xaxis_title="年份",
     yaxis_title="金额（元）",
     yaxis_tickformat=",",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict(color="#FAFAFA")),
+                font=dict()),
     margin=dict(t=30, b=40),
     hovermode="x unified",
 )

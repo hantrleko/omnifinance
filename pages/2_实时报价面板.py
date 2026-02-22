@@ -27,10 +27,10 @@ ALL_TICKERS = [t for group in PRESETS.values() for t in group]
 st.markdown("""
 <style>
   .block-container { padding-top: 1.5rem; }
-  .stMetric { background: #0E1117; border: 1px solid #262730; border-radius: 8px; padding: 12px; }
+  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 12px; }
   div[data-testid="stMetricValue"] { font-size: 1.1rem; }
   .time-badge {
-      display: inline-block; background: #1a1a2e; border: 1px solid #333;
+      display: inline-block; background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color);
       border-radius: 6px; padding: 4px 12px; font-size: 13px; color: #aaa;
   }
 </style>

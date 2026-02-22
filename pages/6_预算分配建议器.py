@@ -13,7 +13,7 @@ st.set_page_config(page_title="预算分配建议器", page_icon="💡", layout=
 st.markdown("""
 <style>
   .block-container { padding-top: 1.2rem; }
-  .stMetric { background: #0E1117; border: 1px solid #262730; border-radius: 8px; padding: 14px; }
+  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -99,22 +99,19 @@ fig = go.Figure(data=[go.Pie(
     labels=labels,
     values=values,
     hole=0.55,
-    marker=dict(colors=colors, line=dict(color="#0E1117", width=3)),
+    marker=dict(colors=colors, line=dict(color="white", width=3)),
     textinfo="label+percent",
-    textfont=dict(size=14, color="#FAFAFA"),
+    textfont=dict(size=14),
     hovertemplate="%{label}<br>¥%{value:,.0f}<br>%{percent}<extra></extra>",
 )])
 
 fig.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117",
     showlegend=False,
     margin=dict(t=20, b=20, l=20, r=20),
     height=400,
     annotations=[dict(
         text=f"¥{income:,.0f}<br><span style='font-size:13px;color:#888'>月收入</span>",
-        x=0.5, y=0.5, font_size=22, font_color="#FAFAFA",
+        x=0.5, y=0.5, font_size=22,
         showarrow=False,
     )],
 )

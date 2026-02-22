@@ -16,7 +16,7 @@ st.set_page_config(page_title="贷款计算器", page_icon="🏦", layout="wide"
 st.markdown("""
 <style>
   .block-container { padding-top: 1.2rem; }
-  .stMetric { background: #0E1117; border: 1px solid #262730; border-radius: 8px; padding: 14px; }
+  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -192,11 +192,8 @@ c4.metric("实际年化利率 (APR)", f"{summary['APR(%)']:.4f}%")
 
 # ── 图表公共配置 ──────────────────────────────────────────
 LAYOUT_DARK = dict(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict(color="#FAFAFA")),
+                font=dict()),
     margin=dict(t=30, b=40),
     hovermode="x unified",
 )

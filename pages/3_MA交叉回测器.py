@@ -18,7 +18,7 @@ st.markdown("""
 <style>
   .block-container { padding-top: 1.2rem; }
   .time-badge {
-      display: inline-block; background: #1a1a2e; border: 1px solid #333;
+      display: inline-block; background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color);
       border-radius: 6px; padding: 4px 12px; font-size: 13px; color: #aaa;
   }
 </style>
@@ -222,11 +222,8 @@ c6.metric("胜率", f"{metrics['胜率(%)']:.1f}%")
 
 # ── 图表公共配置 ──────────────────────────────────────────
 LAYOUT_DARK = dict(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict(color="#FAFAFA")),
+                font=dict()),
     margin=dict(t=30, b=40),
     hovermode="x unified",
 )

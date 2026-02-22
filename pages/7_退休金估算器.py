@@ -17,7 +17,7 @@ st.set_page_config(page_title="退休金估算器", page_icon="🏖️", layout=
 st.markdown("""
 <style>
   .block-container { padding-top: 1.2rem; }
-  .stMetric { background: #0E1117; border: 1px solid #262730; border-radius: 8px; padding: 14px; }
+  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -242,11 +242,8 @@ m4.metric("📋 达成评估", prob_labels[1], delta=" | ".join(prob_labels), de
 st.subheader("📈 资产成长曲线")
 
 LAYOUT_DARK = dict(
-    template="plotly_dark",
-    paper_bgcolor="#0E1117",
-    plot_bgcolor="#0E1117",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict(color="#FAFAFA")),
+                font=dict()),
     margin=dict(t=30, b=40),
     hovermode="x unified",
 )
