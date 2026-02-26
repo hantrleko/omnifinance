@@ -24,7 +24,12 @@ def calculate_signals(df: pd.DataFrame, short_window: int, long_window: int) -> 
     return df
 
 
-def simulate_trades(df: pd.DataFrame, initial_capital: float) -> tuple[pd.DataFrame, pd.DataFrame]:
+def simulate_trades(
+    df: pd.DataFrame,
+    initial_capital: float,
+    fee_rate_pct: float = 0.0,
+    slippage_pct: float = 0.0,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """模拟全仓交易，返回 (带净值的 df, 交易明细 df)。"""
     df = df.copy()
     cash = initial_capital
@@ -32,21 +37,56 @@ def simulate_trades(df: pd.DataFrame, initial_capital: float) -> tuple[pd.DataFr
     equity_list: list[float] = []
     trades: list[dict] = []
     entry_price = 0.0
+    total_costs = 0.0
+
+    fee_rate = fee_rate_pct / 100.0
+    slippage_rate = slippage_pct / 100.0
 
     for idx, row in df.iterrows():
         price = row["Close"]
 
         if row["Action"] == "buy" and shares == 0:
-            shares = cash / price
-            entry_price = price
+            buy_price = price * (1 + slippage_rate)
+            gross_shares = cash / buy_price if buy_price > 0 else 0.0
+            fee = gross_shares * buy_price * fee_rate
+            if fee > cash:
+                fee = cash
+            net_cash_for_shares = cash - fee
+            shares = net_cash_for_shares / buy_price if buy_price > 0 else 0.0
+            entry_price = buy_price
             cash = 0.0
-            trades.append({"日期": idx, "操作": "买入", "价格": price, "数量": shares, "盈亏": None, "盈亏率(%)": None})
+            total_costs += fee
+            trades.append(
+                {
+                    "日期": idx,
+                    "操作": "买入",
+                    "价格": buy_price,
+                    "数量": shares,
+                    "手续费": fee,
+                    "盈亏": None,
+                    "盈亏率(%)": None,
+                }
+            )
 
         elif row["Action"] == "sell" and shares > 0:
-            cash = shares * price
-            pnl = (price - entry_price) * shares
-            pnl_pct = (price / entry_price - 1) * 100
-            trades.append({"日期": idx, "操作": "卖出", "价格": price, "数量": shares, "盈亏": pnl, "盈亏率(%)": pnl_pct})
+            sell_price = price * (1 - slippage_rate)
+            gross_value = shares * sell_price
+            fee = gross_value * fee_rate
+            cash = gross_value - fee
+            pnl = (sell_price - entry_price) * shares - fee
+            pnl_pct = (sell_price / entry_price - 1) * 100 if entry_price > 0 else 0.0
+            total_costs += fee
+            trades.append(
+                {
+                    "日期": idx,
+                    "操作": "卖出",
+                    "价格": sell_price,
+                    "数量": shares,
+                    "手续费": fee,
+                    "盈亏": pnl,
+                    "盈亏率(%)": pnl_pct,
+                }
+            )
             shares = 0.0
 
         equity = cash + shares * price
@@ -56,6 +96,10 @@ def simulate_trades(df: pd.DataFrame, initial_capital: float) -> tuple[pd.DataFr
     df["Benchmark"] = initial_capital * (df["Close"] / df["Close"].iloc[0])
 
     trades_df = pd.DataFrame(trades)
+    if not trades_df.empty:
+        trades_df.attrs["total_costs"] = float(trades_df["手续费"].sum())
+    else:
+        trades_df.attrs["total_costs"] = total_costs
     return df, trades_df
 
 
@@ -86,6 +130,8 @@ def compute_metrics(
     wins = len(sell_trades[sell_trades["盈亏"] > 0]) if num_trades > 0 else 0
     win_rate = (wins / num_trades * 100) if num_trades > 0 else 0.0
 
+    total_costs = float(trades_df.attrs.get("total_costs", 0.0))
+
     return {
         "总回报率(%)": total_return,
         "年化回报(%)": annual_return,
@@ -93,4 +139,5 @@ def compute_metrics(
         "夏普比率": sharpe,
         "交易次数": num_trades,
         "胜率(%)": win_rate,
+        "总交易成本": total_costs,
     }

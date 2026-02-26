@@ -238,6 +238,14 @@ for name, (pr, po) in scenarios.items():
     prob_labels.append(f"{name} {tag}")
 m4.metric("📋 达成评估", prob_labels[1], delta=" | ".join(prob_labels), delta_color="off")
 
+st.subheader("🧭 一页结论")
+if result.gap <= 0:
+    st.success("当前退休计划可覆盖退休资金需求，建议继续保持并定期复盘。")
+else:
+    st.warning(
+        f"当前计划预计仍有缺口 ¥{result.gap:,.0f}，建议每月额外增加储蓄约 ¥{result.extra_monthly_needed:,.0f}。"
+    )
+
 # ── 成长曲线 ──────────────────────────────────────────────
 st.subheader("📈 资产成长曲线")
 

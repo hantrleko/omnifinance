@@ -44,6 +44,8 @@ if sma_short >= sma_long:
 
 initial_capital = st.sidebar.number_input("初始资金", min_value=1000.0, value=100000.0, step=10000.0, format="%.0f")
 risk_free_rate = st.sidebar.number_input("无风险利率（%）", min_value=0.0, max_value=20.0, value=2.0, step=0.1)
+fee_rate = st.sidebar.number_input("单边手续费（%）", min_value=0.0, max_value=2.0, value=0.05, step=0.01)
+slippage_rate = st.sidebar.number_input("单边滑点（%）", min_value=0.0, max_value=2.0, value=0.03, step=0.01)
 
 st.sidebar.divider()
 st.sidebar.caption("数据来源：Yahoo Finance (yfinance)")
@@ -107,19 +109,25 @@ if len(data) < sma_long:
 # ══════════════════════════════════════════════════════════
 
 sig_df = calculate_signals(data, sma_short, sma_long)
-result_df, trades_df = simulate_trades(sig_df, initial_capital)
+result_df, trades_df = simulate_trades(sig_df, initial_capital, fee_rate, slippage_rate)
 metrics = compute_metrics(result_df, trades_df, initial_capital, risk_free_rate)
 
 # ── 绩效卡片 ──────────────────────────────────────────────
 st.subheader("🏆 绩效概览")
 
-c1, c2, c3, c4, c5, c6 = st.columns(6)
+c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
 c1.metric("总回报率", f"{metrics['总回报率(%)']:+.2f}%")
 c2.metric("年化回报", f"{metrics['年化回报(%)']:+.2f}%")
 c3.metric("最大回撤", f"{metrics['最大回撤(%)']:.2f}%")
 c4.metric("夏普比率", f"{metrics['夏普比率']:.2f}")
 c5.metric("交易次数", f"{metrics['交易次数']}")
 c6.metric("胜率", f"{metrics['胜率(%)']:.1f}%")
+c7.metric("总交易成本", f"¥{metrics['总交易成本']:,.2f}")
+
+if metrics["总回报率(%)"] >= 0:
+    st.success(f"结论：在当前参数下，策略净值跑赢初始资金，期间总交易成本约 ¥{metrics['总交易成本']:,.2f}。")
+else:
+    st.warning(f"结论：在当前参数下，策略回报为负；可尝试调整均线窗口或降低交易成本参数。")
 
 # ── 图表公共配置 ──────────────────────────────────────────
 LAYOUT_DARK = dict(
@@ -232,6 +240,8 @@ else:
     display_trades["日期"] = display_trades["日期"].dt.strftime("%Y-%m-%d")
     display_trades["价格"] = display_trades["价格"].apply(lambda v: f"{v:,.2f}")
     display_trades["数量"] = display_trades["数量"].apply(lambda v: f"{v:,.4f}")
+    if "手续费" in display_trades.columns:
+        display_trades["手续费"] = display_trades["手续费"].apply(lambda v: f"¥{v:,.2f}")
     display_trades["盈亏"] = display_trades["盈亏"].apply(lambda v: f"¥{v:+,.2f}" if pd.notna(v) else "—")
     display_trades["盈亏率(%)"] = display_trades["盈亏率(%)"].apply(lambda v: f"{v:+.2f}%" if pd.notna(v) else "—")
 

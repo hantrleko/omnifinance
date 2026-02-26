@@ -57,6 +57,8 @@ def calculate_loan(
     years: int,
     periods_per_year: int,
     method: str,
+    extra_payment_period: int | None = None,
+    extra_payment_amount: float = 0.0,
 ) -> tuple[pd.DataFrame, dict]:
     """Calculate amortization schedule and summary metrics."""
     n = years * periods_per_year
@@ -65,34 +67,66 @@ def calculate_loan(
     rows: list[dict] = []
     balance = principal
 
-    if method == "等额本息":
+    def calc_equal_payment(curr_balance: float, remain_n: int) -> float:
+        if remain_n <= 0:
+            return 0.0
         if r_period == 0:
-            payment = principal / n
-        else:
-            payment = principal * r_period * (1 + r_period) ** n / ((1 + r_period) ** n - 1)
+            return curr_balance / remain_n
+        return curr_balance * r_period * (1 + r_period) ** remain_n / ((1 + r_period) ** remain_n - 1)
 
-        for i in range(1, n + 1):
-            interest = balance * r_period
+    payment = calc_equal_payment(principal, n) if method == "等额本息" else 0.0
+    principal_fixed = principal / n if method == "等额本金" else 0.0
+
+    for i in range(1, n + 1):
+        if balance <= 1e-10:
+            break
+
+        interest = balance * r_period
+        extra = 0.0
+
+        if method == "等额本息":
             principal_part = payment - interest
+            if principal_part < 0:
+                principal_part = 0.0
             if i == n:
                 principal_part = balance
                 payment = principal_part + interest
-            balance -= principal_part
-            if balance < 0:
-                balance = 0.0
-            rows.append({"期数": i, "每期还款": payment, "本金": principal_part, "利息": interest, "剩余本金": balance})
-    else:
-        principal_fixed = principal / n
-        for i in range(1, n + 1):
-            interest = balance * r_period
-            pmt = principal_fixed + interest
-            if i == n:
-                principal_fixed = balance
-                pmt = principal_fixed + interest
-            balance -= principal_fixed
-            if balance < 0:
-                balance = 0.0
-            rows.append({"期数": i, "每期还款": pmt, "本金": principal_fixed, "利息": interest, "剩余本金": balance})
+        else:
+            principal_part = principal_fixed
+            if principal_part > balance:
+                principal_part = balance
+            payment = principal_part + interest
+
+        if extra_payment_period is not None and i == extra_payment_period and extra_payment_amount > 0:
+            extra = min(extra_payment_amount, max(0.0, balance - principal_part))
+
+        total_principal_paid = principal_part + extra
+        if total_principal_paid > balance:
+            total_principal_paid = balance
+            principal_part = balance - extra if extra <= balance else 0.0
+            if principal_part < 0:
+                principal_part = 0.0
+                extra = balance
+
+        payment_actual = interest + total_principal_paid
+        balance -= total_principal_paid
+        if balance < 0:
+            balance = 0.0
+
+        rows.append(
+            {
+                "期数": i,
+                "每期还款": payment_actual,
+                "本金": principal_part,
+                "利息": interest,
+                "提前还款": extra,
+                "剩余本金": balance,
+            }
+        )
+
+        if method == "等额本息" and balance > 0:
+            remain_n = n - i
+            payment = calc_equal_payment(balance, remain_n)
 
     df = pd.DataFrame(rows)
     total_payment = df["每期还款"].sum()
@@ -113,5 +147,7 @@ def calculate_loan(
         "总还款": total_payment,
         "总利息": total_interest,
         "APR(%)": apr,
+        "总提前还款": df["提前还款"].sum(),
+        "实际期数": int(len(df)),
     }
     return df, summary

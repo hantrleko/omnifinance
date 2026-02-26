@@ -48,7 +48,14 @@ st.sidebar.markdown(f"**总期数：{total_periods} 期** （{loan_years} 年 ×
 
 st.sidebar.divider()
 st.sidebar.caption("等额本息：每期还款额固定")
-st.sidebar.caption("等额本金：每期本金固定，利息逐期递减")
+st.sidebar.divider()
+st.sidebar.subheader("💸 提前还款模拟")
+enable_prepay = st.sidebar.checkbox("启用提前还款", value=False)
+prepay_period = None
+prepay_amount = 0.0
+if enable_prepay:
+    prepay_period = st.sidebar.number_input("提前还款发生期数", min_value=1, max_value=total_periods, value=min(24, total_periods), step=1)
+    prepay_amount = st.sidebar.number_input("提前还款金额（元）", min_value=0.0, max_value=loan_amount, value=min(200_000.0, loan_amount), step=10_000.0, format="%.0f")
 
 
 # ══════════════════════════════════════════════════════════
@@ -59,7 +66,11 @@ st.sidebar.caption("等额本金：每期本金固定，利息逐期递减")
 #  执行计算
 # ══════════════════════════════════════════════════════════
 
-schedule, summary = calculate_loan(loan_amount, annual_rate, loan_years, periods_per_year, repay_method)
+schedule, summary = calculate_loan(
+    loan_amount, annual_rate, loan_years, periods_per_year, repay_method,
+    int(prepay_period) if prepay_period is not None else None, prepay_amount,
+)
+base_schedule, base_summary = calculate_loan(loan_amount, annual_rate, loan_years, periods_per_year, repay_method)
 
 # ── 核心指标卡片 ──────────────────────────────────────────
 st.markdown("---")
@@ -67,7 +78,7 @@ st.subheader("📊 核心指标")
 
 freq_name = freq_label.replace("每", "每期（") + "）"
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5 = st.columns(5)
 
 if repay_method == "等额本息":
     c1.metric(f"每期还款（{freq_label}）", f"¥{summary['首期还款']:,.2f}")
@@ -78,6 +89,12 @@ else:
 c2.metric("总还款金额", f"¥{summary['总还款']:,.2f}")
 c3.metric("总利息支出", f"¥{summary['总利息']:,.2f}")
 c4.metric("实际年化利率 (APR)", f"{summary['APR(%)']:.4f}%")
+interest_saved = max(0.0, base_summary["总利息"] - summary["总利息"])
+periods_saved = max(0, base_summary["实际期数"] - summary["实际期数"])
+c5.metric("提前还款节省", f"¥{interest_saved:,.2f}", delta=f"少 {periods_saved} 期")
+
+if enable_prepay and prepay_amount > 0:
+    st.info(f"结论：在第 {int(prepay_period)} 期提前还 ¥{prepay_amount:,.0f}，预计少付利息 ¥{interest_saved:,.2f}，并缩短 {periods_saved} 期。")
 
 # ── 图表公共配置 ──────────────────────────────────────────
 LAYOUT_DARK = dict(
@@ -134,7 +151,7 @@ with tab_bar:
 st.subheader("📋 逐期还款明细")
 
 display = schedule.copy()
-money_cols = ["每期还款", "本金", "利息", "剩余本金"]
+money_cols = ["每期还款", "本金", "利息", "提前还款", "剩余本金"]
 for col in money_cols:
     display[col] = display[col].apply(lambda v: f"¥{v:,.2f}")
 display["期数"] = display["期数"].astype(str)
