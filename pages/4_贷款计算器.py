@@ -5,8 +5,9 @@
 
 import io
 
-import numpy as np
 import pandas as pd
+
+from core.planning import calculate_loan
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -53,118 +54,6 @@ st.sidebar.caption("等额本金：每期本金固定，利息逐期递减")
 # ══════════════════════════════════════════════════════════
 #  核心计算
 # ══════════════════════════════════════════════════════════
-
-def calculate_loan(
-    principal: float,
-    annual_rate_pct: float,
-    years: int,
-    periods_per_year: int,
-    method: str,
-) -> tuple[pd.DataFrame, dict]:
-    """计算还款明细。
-
-    Returns
-    -------
-    schedule : 逐期还款 DataFrame
-    summary  : 汇总指标 dict
-    """
-    n = years * periods_per_year  # 总期数
-    r_period = (annual_rate_pct / 100.0) / periods_per_year  # 每期利率
-
-    rows: list[dict] = []
-    balance = principal
-
-    if method == "等额本息":
-        if r_period == 0:
-            payment = principal / n
-        else:
-            payment = principal * r_period * (1 + r_period) ** n / ((1 + r_period) ** n - 1)
-
-        for i in range(1, n + 1):
-            interest = balance * r_period
-            principal_part = payment - interest
-            # 最后一期修正浮点误差
-            if i == n:
-                principal_part = balance
-                payment = principal_part + interest
-            balance -= principal_part
-            if balance < 0:
-                balance = 0.0
-
-            rows.append({
-                "期数": i,
-                "每期还款": payment,
-                "本金": principal_part,
-                "利息": interest,
-                "剩余本金": balance,
-            })
-
-    else:  # 等额本金
-        principal_fixed = principal / n
-
-        for i in range(1, n + 1):
-            interest = balance * r_period
-            pmt = principal_fixed + interest
-            # 最后一期修正
-            if i == n:
-                principal_fixed = balance
-                pmt = principal_fixed + interest
-            balance -= principal_fixed
-            if balance < 0:
-                balance = 0.0
-
-            rows.append({
-                "期数": i,
-                "每期还款": pmt,
-                "本金": principal_fixed,
-                "利息": interest,
-                "剩余本金": balance,
-            })
-
-    df = pd.DataFrame(rows)
-
-    total_payment = df["每期还款"].sum()
-    total_interest = df["利息"].sum()
-
-    # 实际年化利率 (APR)：基于现金流的 IRR × periods_per_year
-    cash_flows = [-principal] + df["每期还款"].tolist()
-    try:
-        irr = np.irr(cash_flows) if hasattr(np, "irr") else np.nan
-    except Exception:
-        irr = np.nan
-    if np.isnan(irr):
-        # 手动牛顿法求 IRR
-        irr = _solve_irr(cash_flows)
-    apr = irr * periods_per_year * 100 if not np.isnan(irr) else annual_rate_pct
-
-    # 首期与末期还款额（等额本金时不同）
-    first_payment = df["每期还款"].iloc[0]
-    last_payment = df["每期还款"].iloc[-1]
-
-    summary = {
-        "首期还款": first_payment,
-        "末期还款": last_payment,
-        "总还款": total_payment,
-        "总利息": total_interest,
-        "APR(%)": apr,
-    }
-    return df, summary
-
-
-def _solve_irr(cash_flows: list[float], tol: float = 1e-10, max_iter: int = 1000) -> float:
-    """牛顿法求解 IRR。"""
-    rate = 0.005  # 初始猜测
-    for _ in range(max_iter):
-        npv = sum(cf / (1 + rate) ** t for t, cf in enumerate(cash_flows))
-        dnpv = sum(-t * cf / (1 + rate) ** (t + 1) for t, cf in enumerate(cash_flows))
-        if abs(dnpv) < 1e-14:
-            break
-        rate_new = rate - npv / dnpv
-        if abs(rate_new - rate) < tol:
-            return rate_new
-        rate = rate_new
-    return rate
-
 
 # ══════════════════════════════════════════════════════════
 #  执行计算
