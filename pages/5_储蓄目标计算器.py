@@ -212,6 +212,14 @@ c2.metric("💵 总需投入本金", f"¥{result.total_deposited:,.0f}")
 c3.metric("📈 复利贡献金额", f"¥{result.total_interest:,.0f}")
 c4.metric("🎯 复利贡献占比", f"{interest_ratio:.1f}%")
 
+st.subheader("🧭 一页结论")
+if result.months_needed <= 24:
+    st.success(f"按当前计划约 {time_str} 可达成目标，进度较快。")
+elif result.months_needed <= 120:
+    st.info(f"按当前计划约 {time_str} 可达成目标；若希望更快，可提高每月投入。")
+else:
+    st.warning(f"按当前计划需要 {time_str}，建议提高月投入或目标收益率。")
+
 # ── Plotly 资产成长曲线 ───────────────────────────────────
 st.subheader("📈 资产成长曲线")
 

@@ -7,6 +7,8 @@
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.planning import calculate_budget
+
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="预算分配建议器", page_icon="💡", layout="wide")
 
@@ -50,12 +52,13 @@ st.sidebar.metric("储蓄/还债占比", f"{pct_save}%",
                    delta_color="off")
 
 # ── 计算 ──────────────────────────────────────────────────
-amt_needs = income * pct_needs / 100
-amt_wants = income * pct_wants / 100
-amt_save = income * pct_save / 100
-
-remaining_needs = max(0, amt_needs - fixed_expense)
-fixed_pct = (fixed_expense / income * 100) if income > 0 else 0
+plan = calculate_budget(income, fixed_expense, pct_needs, pct_wants)
+amt_needs = plan.amt_needs
+amt_wants = plan.amt_wants
+amt_save = plan.amt_save
+pct_save = plan.pct_save
+remaining_needs = plan.remaining_needs
+fixed_pct = plan.fixed_pct
 
 save_label = "储蓄 / 还债" if has_debt else "储蓄 / 投资"
 
