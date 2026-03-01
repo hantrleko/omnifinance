@@ -1,5 +1,7 @@
 import streamlit as st
 
+VERSION = "v1.1"
+
 st.set_page_config(
     page_title="全能理财家 (OmniFinance)",
     page_icon="🌟",
@@ -7,7 +9,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.title("🌟 全能理财家 (OmniFinance) `v1.0`")
+st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.markdown("---")
 
 st.markdown("""
@@ -22,7 +24,19 @@ st.markdown("""
 5. **🎯 5_储蓄目标计算器**：规划储蓄达成路径
 6. **💡 6_预算分配建议器**：50/30/20 预算分配法则
 7. **🏖️ 7_退休金估算器**：预估退休生活需求
-
----
-***构建您的智能化个人理财体系***
 """)
+
+with st.expander("🆕 最近更新（v1.1）", expanded=True):
+    st.markdown("""
+- 回测器新增**手续费/滑点**参数（进入「3_MA交叉回测器」左侧参数区即可设置），结果更贴近真实交易。
+- 贷款计算器新增**提前还款模拟**（进入「4_贷款计算器」勾选“启用提前还款”），可比较利息与期数变化。
+- 储蓄目标与退休金页面新增**一页结论卡片**（「5_储蓄目标计算器」「7_退休金估算器」指标区下方）。
+- 工程结构升级：核心计算抽离到 `core/`，并增加自动化测试与 CI。
+
+**建议试用参数**
+- 回测器：短期 SMA=20、长期 SMA=60、手续费=0.05%、滑点=0.03%。
+- 贷款器：第 24 期提前还款 ¥200,000，观察“提前还款节省”指标变化。
+""")
+
+st.markdown("---")
+st.caption("***构建您的智能化个人理财体系***")

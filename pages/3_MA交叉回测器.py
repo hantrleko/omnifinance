@@ -5,11 +5,12 @@ SMA 金叉/死叉策略，全仓模拟，Plotly 可视化，Streamlit 前端。
 
 from datetime import date, timedelta
 
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
+
+from core.backtest import calculate_signals, compute_metrics, simulate_trades
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="MA 交叉回测器", page_icon="📈", layout="wide")
@@ -43,10 +44,13 @@ if sma_short >= sma_long:
 
 initial_capital = st.sidebar.number_input("初始资金", min_value=1000.0, value=100000.0, step=10000.0, format="%.0f")
 risk_free_rate = st.sidebar.number_input("无风险利率（%）", min_value=0.0, max_value=20.0, value=2.0, step=0.1)
+fee_rate = st.sidebar.number_input("单边手续费（%）", min_value=0.0, max_value=2.0, value=0.05, step=0.01)
+slippage_rate = st.sidebar.number_input("单边滑点（%）", min_value=0.0, max_value=2.0, value=0.03, step=0.01)
 
 st.sidebar.divider()
 st.sidebar.caption("数据来源：Yahoo Finance (yfinance)")
 st.sidebar.caption("免责声明：仅供学习研究，不构成投资建议。")
+st.sidebar.caption("手续费/滑点说明：均为单边百分比，买入与卖出各计一次。")
 
 
 # ══════════════════════════════════════════════════════════
@@ -68,106 +72,6 @@ def get_data(ticker: str, start: date, end: date) -> pd.DataFrame | None:
         return df
     except Exception:
         return None
-
-
-def calculate_signals(df: pd.DataFrame, short_window: int, long_window: int) -> pd.DataFrame:
-    """计算 SMA 与交叉信号。"""
-    df = df.copy()
-    df["SMA_Short"] = df["Close"].rolling(window=short_window, min_periods=short_window).mean()
-    df["SMA_Long"] = df["Close"].rolling(window=long_window, min_periods=long_window).mean()
-
-    df["Signal"] = 0
-    df.loc[df["SMA_Short"] > df["SMA_Long"], "Signal"] = 1   # 持有
-    df.loc[df["SMA_Short"] <= df["SMA_Long"], "Signal"] = -1  # 空仓
-
-    # 交叉点：信号变化的位置
-    df["CrossOver"] = df["Signal"].diff()
-    # +2 → 金叉买入, -2 → 死叉卖出
-    df["Action"] = "hold"
-    df.loc[df["CrossOver"] == 2, "Action"] = "buy"
-    df.loc[df["CrossOver"] == -2, "Action"] = "sell"
-
-    return df
-
-
-def simulate_trades(
-    df: pd.DataFrame, initial_capital: float
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """模拟全仓交易，返回 (带净值的 df, 交易明细 df)。"""
-    df = df.copy()
-    cash = initial_capital
-    shares = 0.0
-    equity_list: list[float] = []
-    trades: list[dict] = []
-    entry_price = 0.0
-
-    for i, (idx, row) in enumerate(df.iterrows()):
-        price = row["Close"]
-
-        if row["Action"] == "buy" and shares == 0:
-            shares = cash / price
-            entry_price = price
-            cash = 0.0
-            trades.append({"日期": idx, "操作": "买入", "价格": price, "数量": shares,
-                           "盈亏": None, "盈亏率(%)": None})
-
-        elif row["Action"] == "sell" and shares > 0:
-            cash = shares * price
-            pnl = (price - entry_price) * shares
-            pnl_pct = (price / entry_price - 1) * 100
-            trades.append({"日期": idx, "操作": "卖出", "价格": price, "数量": shares,
-                           "盈亏": pnl, "盈亏率(%)": pnl_pct})
-            shares = 0.0
-
-        equity = cash + shares * price
-        equity_list.append(equity)
-
-    df["Equity"] = equity_list
-    # 基准：持有不动
-    df["Benchmark"] = initial_capital * (df["Close"] / df["Close"].iloc[0])
-
-    trades_df = pd.DataFrame(trades)
-    return df, trades_df
-
-
-def compute_metrics(
-    df: pd.DataFrame, trades_df: pd.DataFrame, initial_capital: float, risk_free_pct: float
-) -> dict:
-    """计算绩效指标。"""
-    equity = df["Equity"]
-    total_return = (equity.iloc[-1] / initial_capital - 1) * 100
-
-    trading_days = len(df)
-    years = trading_days / 252
-    annual_return = ((equity.iloc[-1] / initial_capital) ** (1 / years) - 1) * 100 if years > 0 else 0.0
-
-    # 最大回撤
-    cummax = equity.cummax()
-    drawdown = (equity - cummax) / cummax
-    max_drawdown = drawdown.min() * 100
-
-    # 夏普比率（日度 → 年化）
-    daily_returns = equity.pct_change().dropna()
-    if len(daily_returns) > 1 and daily_returns.std() > 0:
-        excess = daily_returns.mean() - (risk_free_pct / 100) / 252
-        sharpe = (excess / daily_returns.std()) * np.sqrt(252)
-    else:
-        sharpe = 0.0
-
-    # 交易统计
-    sell_trades = trades_df[trades_df["操作"] == "卖出"] if not trades_df.empty else pd.DataFrame()
-    num_trades = len(sell_trades)
-    wins = len(sell_trades[sell_trades["盈亏"] > 0]) if num_trades > 0 else 0
-    win_rate = (wins / num_trades * 100) if num_trades > 0 else 0.0
-
-    return {
-        "总回报率(%)": total_return,
-        "年化回报(%)": annual_return,
-        "最大回撤(%)": max_drawdown,
-        "夏普比率": sharpe,
-        "交易次数": num_trades,
-        "胜率(%)": win_rate,
-    }
 
 
 # ══════════════════════════════════════════════════════════
@@ -206,19 +110,25 @@ if len(data) < sma_long:
 # ══════════════════════════════════════════════════════════
 
 sig_df = calculate_signals(data, sma_short, sma_long)
-result_df, trades_df = simulate_trades(sig_df, initial_capital)
+result_df, trades_df = simulate_trades(sig_df, initial_capital, fee_rate, slippage_rate)
 metrics = compute_metrics(result_df, trades_df, initial_capital, risk_free_rate)
 
 # ── 绩效卡片 ──────────────────────────────────────────────
 st.subheader("🏆 绩效概览")
 
-c1, c2, c3, c4, c5, c6 = st.columns(6)
+c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
 c1.metric("总回报率", f"{metrics['总回报率(%)']:+.2f}%")
 c2.metric("年化回报", f"{metrics['年化回报(%)']:+.2f}%")
 c3.metric("最大回撤", f"{metrics['最大回撤(%)']:.2f}%")
 c4.metric("夏普比率", f"{metrics['夏普比率']:.2f}")
 c5.metric("交易次数", f"{metrics['交易次数']}")
 c6.metric("胜率", f"{metrics['胜率(%)']:.1f}%")
+c7.metric("总交易成本", f"¥{metrics['总交易成本']:,.2f}")
+
+if metrics["总回报率(%)"] >= 0:
+    st.success(f"结论：在当前参数下，策略净值跑赢初始资金，期间总交易成本约 ¥{metrics['总交易成本']:,.2f}。")
+else:
+    st.warning("结论：在当前参数下，策略回报为负；可尝试调整均线窗口或降低交易成本参数。")
 
 # ── 图表公共配置 ──────────────────────────────────────────
 LAYOUT_DARK = dict(
@@ -331,6 +241,8 @@ else:
     display_trades["日期"] = display_trades["日期"].dt.strftime("%Y-%m-%d")
     display_trades["价格"] = display_trades["价格"].apply(lambda v: f"{v:,.2f}")
     display_trades["数量"] = display_trades["数量"].apply(lambda v: f"{v:,.4f}")
+    if "手续费" in display_trades.columns:
+        display_trades["手续费"] = display_trades["手续费"].apply(lambda v: f"¥{v:,.2f}")
     display_trades["盈亏"] = display_trades["盈亏"].apply(lambda v: f"¥{v:+,.2f}" if pd.notna(v) else "—")
     display_trades["盈亏率(%)"] = display_trades["盈亏率(%)"].apply(lambda v: f"{v:+.2f}%" if pd.notna(v) else "—")
 
