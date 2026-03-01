@@ -214,11 +214,17 @@ c4.metric("🎯 复利贡献占比", f"{interest_ratio:.1f}%")
 
 st.subheader("🧭 一页结论")
 if result.months_needed <= 24:
-    st.success(f"按当前计划约 {time_str} 可达成目标，进度较快。")
+    st.success("结论：目标可在较短周期内达成。")
+    st.caption(f"原因：按当前参数预计 {time_str} 达成，复利贡献约 ¥{result.total_interest:,.0f}。")
+    st.caption("下一步：保持当前投入节奏，定期复盘收益率假设。")
 elif result.months_needed <= 120:
-    st.info(f"按当前计划约 {time_str} 可达成目标；若希望更快，可提高每月投入。")
+    st.info("结论：目标可达成，但时间中等。")
+    st.caption(f"原因：按当前参数预计 {time_str} 达成。")
+    st.caption("下一步：若希望提前达成，可提高每月投入或下调目标金额。")
 else:
-    st.warning(f"按当前计划需要 {time_str}，建议提高月投入或目标收益率。")
+    st.warning("结论：目标可达成但周期较长。")
+    st.caption(f"原因：按当前参数预计需要 {time_str}。")
+    st.caption("下一步：建议优先提高月投入，其次再考虑调整收益率假设。")
 
 # ── Plotly 资产成长曲线 ───────────────────────────────────
 st.subheader("📈 资产成长曲线")

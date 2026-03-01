@@ -133,13 +133,8 @@ def calculate_loan(
     total_interest = df["利息"].sum()
 
     cash_flows = [-principal] + df["每期还款"].tolist()
-    try:
-        irr = np.irr(cash_flows) if hasattr(np, "irr") else np.nan
-    except Exception:
-        irr = np.nan
-    if np.isnan(irr):
-        irr = solve_irr(cash_flows)
-    apr = irr * periods_per_year * 100 if not np.isnan(irr) else annual_rate_pct
+    irr = solve_irr(cash_flows)
+    apr = irr * periods_per_year * 100
 
     summary = {
         "首期还款": df["每期还款"].iloc[0],

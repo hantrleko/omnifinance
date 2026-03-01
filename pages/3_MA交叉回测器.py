@@ -50,6 +50,7 @@ slippage_rate = st.sidebar.number_input("单边滑点（%）", min_value=0.0, ma
 st.sidebar.divider()
 st.sidebar.caption("数据来源：Yahoo Finance (yfinance)")
 st.sidebar.caption("免责声明：仅供学习研究，不构成投资建议。")
+st.sidebar.caption("手续费/滑点说明：均为单边百分比，买入与卖出各计一次。")
 
 
 # ══════════════════════════════════════════════════════════
@@ -127,7 +128,7 @@ c7.metric("总交易成本", f"¥{metrics['总交易成本']:,.2f}")
 if metrics["总回报率(%)"] >= 0:
     st.success(f"结论：在当前参数下，策略净值跑赢初始资金，期间总交易成本约 ¥{metrics['总交易成本']:,.2f}。")
 else:
-    st.warning(f"结论：在当前参数下，策略回报为负；可尝试调整均线窗口或降低交易成本参数。")
+    st.warning("结论：在当前参数下，策略回报为负；可尝试调整均线窗口或降低交易成本参数。")
 
 # ── 图表公共配置 ──────────────────────────────────────────
 LAYOUT_DARK = dict(

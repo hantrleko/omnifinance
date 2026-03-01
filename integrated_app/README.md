@@ -11,6 +11,8 @@
 
 ## 运行方式
 
+请在**仓库根目录**执行：
+
 ```bash
 streamlit run app.py
 ```

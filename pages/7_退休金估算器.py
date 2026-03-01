@@ -240,11 +240,13 @@ m4.metric("📋 达成评估", prob_labels[1], delta=" | ".join(prob_labels), de
 
 st.subheader("🧭 一页结论")
 if result.gap <= 0:
-    st.success("当前退休计划可覆盖退休资金需求，建议继续保持并定期复盘。")
+    st.success("结论：当前退休计划可覆盖资金需求。")
+    st.caption(f"原因：预计退休时可累积 ¥{result.projected_at_retire:,.0f}，高于所需 ¥{result.total_needed_at_retire:,.0f}。")
+    st.caption("下一步：保持定投并每年复盘通胀和收益率假设。")
 else:
-    st.warning(
-        f"当前计划预计仍有缺口 ¥{result.gap:,.0f}，建议每月额外增加储蓄约 ¥{result.extra_monthly_needed:,.0f}。"
-    )
+    st.warning("结论：当前退休计划仍有资金缺口。")
+    st.caption(f"原因：预计缺口 ¥{result.gap:,.0f}。")
+    st.caption(f"下一步：建议每月额外增加储蓄约 ¥{result.extra_monthly_needed:,.0f}，并结合延后退休年龄评估。")
 
 # ── 成长曲线 ──────────────────────────────────────────────
 st.subheader("📈 资产成长曲线")
