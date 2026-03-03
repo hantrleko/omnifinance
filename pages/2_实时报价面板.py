@@ -8,9 +8,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 import yfinance as yf
+from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh
+
+from core.storage import save_scheme, load_scheme, list_schemes
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="实时报价面板", page_icon="📊", layout="wide")
@@ -59,6 +63,32 @@ if custom_input:
     selected = list(dict.fromkeys(selected + extras))
 
 refresh_interval = st.sidebar.slider("自动刷新间隔（秒）", 30, 300, 60, step=10)
+
+# ── 关注列表持久化 ─────────────────────────────────────────
+st.sidebar.divider()
+st.sidebar.subheader("💾 关注列表管理")
+
+wl_name = st.sidebar.text_input("列表名称", placeholder="如 我的美股组合", key="wl_name")
+if st.sidebar.button("💾 保存当前列表", key="wl_save_btn"):
+    if wl_name.strip() and selected:
+        save_scheme("watchlist", wl_name.strip(), {"tickers": selected})
+        st.sidebar.success(f"已保存「{wl_name.strip()}」")
+        st.rerun()
+    else:
+        st.sidebar.warning("请输入名称并选择至少一个标的")
+
+saved_wls = list_schemes("watchlist")
+if saved_wls:
+    wl_choice = st.sidebar.selectbox("已保存列表", saved_wls, key="wl_load_sel")
+    if st.sidebar.button("📂 加载列表", key="wl_load_btn"):
+        loaded_wl = load_scheme("watchlist", wl_choice)
+        if loaded_wl and "tickers" in loaded_wl:
+            st.session_state["wl_loaded"] = loaded_wl["tickers"]
+            st.rerun()
+
+# 如果刚加载了关注列表，覆盖 selected
+if "wl_loaded" in st.session_state:
+    selected = st.session_state.pop("wl_loaded")
 
 st.sidebar.divider()
 st.sidebar.caption("数据来源：Yahoo Finance（yfinance）")
@@ -198,6 +228,97 @@ st.dataframe(
     hide_index=True,
     height=(len(display_df) + 1) * 38 + 10,
 )
+
+# ── K线图 & 技术指标 ─────────────────────────────────────
+st.markdown("---")
+st.markdown("## 📈 K线图 & 技术指标")
+
+kline_ticker = st.selectbox("选择标的", selected, key="kline_ticker")
+
+if kline_ticker:
+    with st.spinner(f"正在下载 {kline_ticker} 近6个月历史数据…"):
+        hist = yf.download(kline_ticker, period="6mo", progress=False, auto_adjust=True)
+
+    # 处理 MultiIndex 列（yfinance 返回多标的时为 MultiIndex）
+    if isinstance(hist.columns, pd.MultiIndex):
+        hist.columns = hist.columns.get_level_values(0)
+
+    if hist.empty:
+        st.warning(f"未能获取 {kline_ticker} 的历史数据。")
+    else:
+        # 技术指标选项
+        col_ma, col_vwap = st.columns(2)
+        show_ma = col_ma.checkbox("显示均线（SMA 20 / SMA 60）", value=True, key="show_ma")
+        has_volume = "Volume" in hist.columns and hist["Volume"].sum() > 0
+        show_vwap = col_vwap.checkbox("显示 VWAP", value=False, key="show_vwap", disabled=not has_volume)
+
+        # 构建子图：K线 + 成交量
+        fig = make_subplots(
+            rows=2, cols=1, shared_xaxes=True,
+            vertical_spacing=0.03,
+            row_heights=[0.75, 0.25],
+        )
+
+        # K线
+        fig.add_trace(
+            go.Candlestick(
+                x=hist.index,
+                open=hist["Open"], high=hist["High"],
+                low=hist["Low"], close=hist["Close"],
+                name="K线",
+            ),
+            row=1, col=1,
+        )
+
+        # MA 均线
+        if show_ma:
+            hist["SMA20"] = hist["Close"].rolling(window=20).mean()
+            hist["SMA60"] = hist["Close"].rolling(window=60).mean()
+            fig.add_trace(
+                go.Scatter(x=hist.index, y=hist["SMA20"], mode="lines",
+                           name="SMA 20", line=dict(width=1, color="#FFA726")),
+                row=1, col=1,
+            )
+            fig.add_trace(
+                go.Scatter(x=hist.index, y=hist["SMA60"], mode="lines",
+                           name="SMA 60", line=dict(width=1, color="#42A5F5")),
+                row=1, col=1,
+            )
+
+        # VWAP
+        if show_vwap and has_volume:
+            typical_price = (hist["High"] + hist["Low"] + hist["Close"]) / 3
+            cum_tp_vol = (typical_price * hist["Volume"]).cumsum()
+            cum_vol = hist["Volume"].cumsum()
+            hist["VWAP"] = cum_tp_vol / cum_vol
+            fig.add_trace(
+                go.Scatter(x=hist.index, y=hist["VWAP"], mode="lines",
+                           name="VWAP", line=dict(width=1, dash="dash", color="#AB47BC")),
+                row=1, col=1,
+            )
+
+        # 成交量柱状图
+        if has_volume:
+            colors = [
+                "#00c853" if c >= o else "#ff1744"
+                for c, o in zip(hist["Close"], hist["Open"])
+            ]
+            fig.add_trace(
+                go.Bar(x=hist.index, y=hist["Volume"], name="成交量",
+                       marker_color=colors, opacity=0.6),
+                row=2, col=1,
+            )
+
+        fig.update_layout(
+            title=f"{kline_ticker} — 近6个月K线图",
+            xaxis_rangeslider_visible=False,
+            height=650,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+        fig.update_yaxes(title_text="价格", row=1, col=1)
+        fig.update_yaxes(title_text="成交量", row=2, col=1)
+
+        st.plotly_chart(fig, use_container_width=True)
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()

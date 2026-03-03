@@ -14,6 +14,8 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from core.compound import add_annualized_return, compute_schedule
+from core.currency import currency_selector, fmt, fmt_delta, get_symbol
+from core.storage import scheme_manager_ui
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="复利计算器", page_icon="💰", layout="centered")
@@ -21,6 +23,7 @@ st.title("💰 复利计算器")
 
 # ── 侧边栏：输入参数 ──────────────────────────────────────
 st.sidebar.header("📋 参数设置")
+currency_selector()
 
 mode = st.sidebar.radio("投资模式", ["一次性投资", "定期定投"], horizontal=True)
 
@@ -40,6 +43,8 @@ if mode == "定期定投":
     contrib_freq_label = st.sidebar.selectbox("定投频率", list(contrib_freq_options.keys()))
     contrib_freq_n = contrib_freq_options[contrib_freq_label]
 
+current_params = {"principal": principal, "annual_rate": annual_rate, "years": years, "freq": freq_label, "mode": mode, "contribution": contribution}
+loaded = scheme_manager_ui("compound", current_params)
 
 schedule = compute_schedule(principal, annual_rate, years, n, contribution, contrib_freq_n)
 schedule = add_annualized_return(schedule)
@@ -52,11 +57,13 @@ schedule_lo = compute_schedule(principal, max(0, annual_rate - 1), years, n, con
 final = schedule.iloc[-1]
 total_interest = final["年末余额"] - final["累计投入"]
 
+st.session_state["dashboard_compound"] = {"final_balance": final["年末余额"], "total_interest": total_interest}
+
 st.divider()
 col1, col2, col3 = st.columns(3)
-col1.metric("最终余额", f"¥{final['年末余额']:,.2f}")
-col2.metric("累计投入", f"¥{final['累计投入']:,.2f}")
-col3.metric("累计收益", f"¥{total_interest:,.2f}")
+col1.metric("最终余额", fmt(final['年末余额']))
+col2.metric("累计投入", fmt(final['累计投入']))
+col3.metric("累计收益", fmt(total_interest))
 
 # ── 增长曲线（深色主题 + 年化收益率） ─────────────────────
 st.subheader("📈 余额增长曲线")
@@ -66,13 +73,13 @@ fig.add_trace(go.Scatter(
     x=schedule["年份"], y=schedule["年末余额"],
     mode="lines+markers", name="年末余额",
     line=dict(width=3, color="#636EFA"),
-    hovertemplate="第 %{x} 年<br>余额: ¥%{y:,.2f}<extra></extra>",
+    hovertemplate="第 %{x} 年<br>余额: " + get_symbol() + "%{y:,.2f}<extra></extra>",
 ))
 fig.add_trace(go.Scatter(
     x=schedule["年份"], y=schedule["累计投入"],
     mode="lines", name="累计投入",
     line=dict(width=2, dash="dash", color="#EF553B"),
-    hovertemplate="第 %{x} 年<br>累计投入: ¥%{y:,.2f}<extra></extra>",
+    hovertemplate="第 %{x} 年<br>累计投入: " + get_symbol() + "%{y:,.2f}<extra></extra>",
 ))
 # 年化收益率放在右 Y 轴
 fig.add_trace(go.Scatter(
@@ -104,18 +111,18 @@ final_mid = final["年末余额"]
 col_a, col_b, col_c = st.columns(3)
 col_a.metric(
     f"利率 {max(0, annual_rate - 1):.2f}%",
-    f"¥{final_lo:,.2f}",
-    f"{final_lo - final_mid:+,.2f}",
+    fmt(final_lo),
+    fmt_delta(final_lo - final_mid),
     delta_color="inverse",
 )
 col_b.metric(
     f"利率 {annual_rate:.2f}%（当前）",
-    f"¥{final_mid:,.2f}",
+    fmt(final_mid),
 )
 col_c.metric(
     f"利率 {annual_rate + 1:.2f}%",
-    f"¥{final_hi:,.2f}",
-    f"{final_hi - final_mid:+,.2f}",
+    fmt(final_hi),
+    fmt_delta(final_hi - final_mid),
 )
 
 fig_sens = go.Figure()
@@ -128,7 +135,7 @@ for label, sched, color in [
         x=sched["年份"], y=sched["年末余额"],
         mode="lines", name=label,
         line=dict(width=2, color=color),
-        hovertemplate="第 %{x} 年<br>余额: ¥%{y:,.2f}<extra></extra>",
+        hovertemplate="第 %{x} 年<br>余额: " + get_symbol() + "%{y:,.2f}<extra></extra>",
     ))
 fig_sens.update_layout(
     xaxis_title="年份",
@@ -147,7 +154,7 @@ st.subheader("📊 每年余额明细")
 display_df = schedule.copy()
 money_cols = ["年初余额", "当年投入", "当年利息", "年末余额", "累计投入"]
 for col in money_cols:
-    display_df[col] = display_df[col].apply(lambda v: f"¥{v:,.2f}")
+    display_df[col] = display_df[col].apply(fmt)
 display_df["年化收益率(%)"] = display_df["年化收益率(%)"].apply(lambda v: f"{v:.2f}%")
 display_df["年份"] = display_df["年份"].astype(str)
 
@@ -205,20 +212,20 @@ tab_month, tab_day = st.tabs(["📆 月度明细", "📋 日度明细"])
 with tab_month:
     fmt_monthly = monthly_df.copy()
     for c in ["月初余额", "当月利息", "当月投入", "月末余额"]:
-        fmt_monthly[c] = fmt_monthly[c].apply(lambda v: f"¥{v:,.2f}")
+        fmt_monthly[c] = fmt_monthly[c].apply(fmt)
     st.dataframe(fmt_monthly, use_container_width=True, hide_index=True)
 
     total_m_interest = monthly_df["当月利息"].sum()
-    st.info(f"第 {detail_year} 年 — 月度利息合计：¥{total_m_interest:,.2f}")
+    st.info(f"第 {detail_year} 年 — 月度利息合计：{fmt(total_m_interest)}")
 
 with tab_day:
     fmt_daily = daily_df.copy()
     for c in ["当日利息", "当日投入", "当日余额"]:
-        fmt_daily[c] = fmt_daily[c].apply(lambda v: f"¥{v:,.2f}")
+        fmt_daily[c] = fmt_daily[c].apply(fmt)
     st.dataframe(fmt_daily, use_container_width=True, hide_index=True, height=400)
 
     total_d_interest = daily_df["当日利息"].sum()
-    st.info(f"第 {detail_year} 年 — 日度利息合计：¥{total_d_interest:,.2f}")
+    st.info(f"第 {detail_year} 年 — 日度利息合计：{fmt(total_d_interest)}")
 
 # ── 导出功能 ──────────────────────────────────────────────
 st.subheader("💾 导出数据")
@@ -238,15 +245,16 @@ col_dl1.download_button(
 # PDF 导出（纯 HTML → PDF，无需额外依赖）
 def build_pdf_html(schedule_df: pd.DataFrame, params: dict) -> str:
     """用 HTML 构建一份可打印的报告，浏览器 / weasyprint 均可渲染。"""
+    sym = get_symbol()
     rows_html = ""
     for _, r in schedule_df.iterrows():
         rows_html += (
             f"<tr><td>{int(r['年份'])}</td>"
-            f"<td>¥{r['年初余额']:,.2f}</td>"
-            f"<td>¥{r['当年投入']:,.2f}</td>"
-            f"<td>¥{r['当年利息']:,.2f}</td>"
-            f"<td>¥{r['年末余额']:,.2f}</td>"
-            f"<td>¥{r['累计投入']:,.2f}</td>"
+            f"<td>{sym}{r['年初余额']:,.2f}</td>"
+            f"<td>{sym}{r['当年投入']:,.2f}</td>"
+            f"<td>{sym}{r['当年利息']:,.2f}</td>"
+            f"<td>{sym}{r['年末余额']:,.2f}</td>"
+            f"<td>{sym}{r['累计投入']:,.2f}</td>"
             f"<td>{r['年化收益率(%)']:.2f}%</td></tr>"
         )
     return f"""<!DOCTYPE html>
@@ -262,18 +270,18 @@ def build_pdf_html(schedule_df: pd.DataFrame, params: dict) -> str:
   .label {{ font-size: 12px; color: #888; }} .value {{ font-size: 20px; font-weight: bold; }}
 </style></head><body>
 <h1>💰 复利计算报告</h1>
-<p>投资模式：{params['mode']} | 本金：¥{params['principal']:,.2f} | 年化利率：{params['rate']:.2f}%
+<p>投资模式：{params['mode']} | 本金：{sym}{params['principal']:,.2f} | 年化利率：{params['rate']:.2f}%
  | 年限：{params['years']}年 | 复利频率：{params['freq']}</p>
-{"<p>定投：每期 ¥" + f"{params['contribution']:,.2f}" + f" × {params['contrib_freq']}次/年</p>" if params['contribution'] > 0 else ""}
+{"<p>定投：每期 " + sym + f"{params['contribution']:,.2f}" + f" × {params['contrib_freq']}次/年</p>" if params['contribution'] > 0 else ""}
 <div class="summary">
-  <div><div class="label">最终余额</div><div class="value">¥{params['final']:,.2f}</div></div>
-  <div><div class="label">累计投入</div><div class="value">¥{params['total_in']:,.2f}</div></div>
-  <div><div class="label">累计收益</div><div class="value">¥{params['interest']:,.2f}</div></div>
+  <div><div class="label">最终余额</div><div class="value">{sym}{params['final']:,.2f}</div></div>
+  <div><div class="label">累计投入</div><div class="value">{sym}{params['total_in']:,.2f}</div></div>
+  <div><div class="label">累计收益</div><div class="value">{sym}{params['interest']:,.2f}</div></div>
 </div>
 <h2>利率敏感性（±1%）</h2>
-<p>利率 {max(0,params['rate']-1):.2f}% → ¥{params['lo']:,.2f} &nbsp;|&nbsp;
-   当前 {params['rate']:.2f}% → ¥{params['final']:,.2f} &nbsp;|&nbsp;
-   利率 {params['rate']+1:.2f}% → ¥{params['hi']:,.2f}</p>
+<p>利率 {max(0,params['rate']-1):.2f}% → {sym}{params['lo']:,.2f} &nbsp;|&nbsp;
+   当前 {params['rate']:.2f}% → {sym}{params['final']:,.2f} &nbsp;|&nbsp;
+   利率 {params['rate']+1:.2f}% → {sym}{params['hi']:,.2f}</p>
 <h2>每年余额明细</h2>
 <table>
 <tr><th>年份</th><th>年初余额</th><th>当年投入</th><th>当年利息</th><th>年末余额</th><th>累计投入</th><th>年化收益率</th></tr>

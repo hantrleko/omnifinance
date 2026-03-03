@@ -7,7 +7,9 @@ import io
 
 import pandas as pd
 
+from core.currency import currency_selector, fmt, fmt_delta
 from core.planning import calculate_loan
+from core.storage import scheme_manager_ui
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -25,6 +27,7 @@ st.title("🏦 贷款计算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 贷款参数")
+currency_selector()
 
 loan_amount = st.sidebar.number_input(
     "贷款金额（元）", min_value=100_000.0, max_value=50_000_000.0,
@@ -48,6 +51,15 @@ st.sidebar.markdown(f"**总期数：{total_periods} 期** （{loan_years} 年 ×
 
 st.sidebar.divider()
 st.sidebar.caption("等额本息：每期还款额固定")
+
+scheme_manager_ui("loan", {
+    "loan_amount": loan_amount,
+    "annual_rate": annual_rate,
+    "loan_years": loan_years,
+    "repay_method": repay_method,
+    "freq_label": freq_label,
+})
+
 st.sidebar.divider()
 st.sidebar.subheader("💸 提前还款模拟")
 enable_prepay = st.sidebar.checkbox("启用提前还款", value=False)
@@ -72,6 +84,11 @@ schedule, summary = calculate_loan(
 )
 base_schedule, base_summary = calculate_loan(loan_amount, annual_rate, loan_years, periods_per_year, repay_method)
 
+st.session_state["dashboard_loan"] = {
+    "total_interest": summary["总利息"],
+    "monthly_payment": summary["首期还款"],
+}
+
 # ── 核心指标卡片 ──────────────────────────────────────────
 st.markdown("---")
 st.subheader("📊 核心指标")
@@ -81,20 +98,20 @@ freq_name = freq_label.replace("每", "每期（") + "）"
 c1, c2, c3, c4, c5 = st.columns(5)
 
 if repay_method == "等额本息":
-    c1.metric(f"每期还款（{freq_label}）", f"¥{summary['首期还款']:,.2f}")
+    c1.metric(f"每期还款（{freq_label}）", fmt(summary['首期还款']))
 else:
-    c1.metric(f"首期还款（{freq_label}）", f"¥{summary['首期还款']:,.2f}",
-              delta=f"末期 ¥{summary['末期还款']:,.2f}", delta_color="inverse")
+    c1.metric(f"首期还款（{freq_label}）", fmt(summary['首期还款']),
+              delta=f"末期 {fmt(summary['末期还款'])}", delta_color="inverse")
 
-c2.metric("总还款金额", f"¥{summary['总还款']:,.2f}")
-c3.metric("总利息支出", f"¥{summary['总利息']:,.2f}")
+c2.metric("总还款金额", fmt(summary['总还款']))
+c3.metric("总利息支出", fmt(summary['总利息']))
 c4.metric("实际年化利率 (APR)", f"{summary['APR(%)']:.4f}%")
 interest_saved = max(0.0, base_summary["总利息"] - summary["总利息"])
 periods_saved = max(0, base_summary["实际期数"] - summary["实际期数"])
-c5.metric("提前还款节省", f"¥{interest_saved:,.2f}", delta=f"少 {periods_saved} 期")
+c5.metric("提前还款节省", fmt(interest_saved), delta=f"少 {periods_saved} 期")
 
 if enable_prepay and prepay_amount > 0:
-    st.info(f"结论：在第 {int(prepay_period)} 期提前还 ¥{prepay_amount:,.0f}，预计少付利息 ¥{interest_saved:,.2f}，并缩短 {periods_saved} 期。")
+    st.info(f"结论：在第 {int(prepay_period)} 期提前还 {fmt(prepay_amount, decimals=0)}，预计少付利息 {fmt(interest_saved)}，并缩短 {periods_saved} 期。")
 
 # ── 图表公共配置 ──────────────────────────────────────────
 LAYOUT_DARK = dict(
@@ -153,7 +170,7 @@ st.subheader("📋 逐期还款明细")
 display = schedule.copy()
 money_cols = ["每期还款", "本金", "利息", "提前还款", "剩余本金"]
 for col in money_cols:
-    display[col] = display[col].apply(lambda v: f"¥{v:,.2f}")
+    display[col] = display[col].apply(lambda v: fmt(v))
 display["期数"] = display["期数"].astype(str)
 
 st.dataframe(display, use_container_width=True, hide_index=True, height=420)

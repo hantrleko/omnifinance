@@ -1,10 +1,12 @@
-"""Core quantitative backtesting functions for MA crossover strategy."""
+"""Core quantitative backtesting functions for multiple strategies."""
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
+
+# ── Strategy: MA Crossover ────────────────────────────────
 
 def calculate_signals(df: pd.DataFrame, short_window: int, long_window: int) -> pd.DataFrame:
     """计算 SMA 与交叉信号。"""
@@ -22,6 +24,112 @@ def calculate_signals(df: pd.DataFrame, short_window: int, long_window: int) -> 
     df.loc[df["CrossOver"] == -2, "Action"] = "sell"
 
     return df
+
+
+# ── Strategy: RSI ─────────────────────────────────────────
+
+def calculate_rsi_signals(
+    df: pd.DataFrame,
+    period: int = 14,
+    oversold: float = 30.0,
+    overbought: float = 70.0,
+) -> pd.DataFrame:
+    """计算 RSI 指标并生成买卖信号。"""
+    df = df.copy()
+    delta = df["Close"].diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = (-delta).where(delta < 0, 0.0)
+
+    avg_gain = gain.rolling(window=period, min_periods=period).mean()
+    avg_loss = loss.rolling(window=period, min_periods=period).mean()
+
+    rs = avg_gain / avg_loss.replace(0, np.nan)
+    df["RSI"] = 100 - (100 / (1 + rs))
+
+    df["Signal"] = 0
+    df.loc[df["RSI"] < oversold, "Signal"] = 1   # oversold → buy signal
+    df.loc[df["RSI"] > overbought, "Signal"] = -1  # overbought → sell signal
+
+    df["Action"] = "hold"
+    prev_signal = df["Signal"].shift(1).fillna(0)
+    df.loc[(df["Signal"] == 1) & (prev_signal != 1), "Action"] = "buy"
+    df.loc[(df["Signal"] == -1) & (prev_signal != -1), "Action"] = "sell"
+
+    return df
+
+
+# ── Strategy: MACD ────────────────────────────────────────
+
+def calculate_macd_signals(
+    df: pd.DataFrame,
+    fast: int = 12,
+    slow: int = 26,
+    signal_period: int = 9,
+) -> pd.DataFrame:
+    """计算 MACD 指标并生成买卖信号。"""
+    df = df.copy()
+    ema_fast = df["Close"].ewm(span=fast, adjust=False).mean()
+    ema_slow = df["Close"].ewm(span=slow, adjust=False).mean()
+
+    df["MACD"] = ema_fast - ema_slow
+    df["MACD_Signal"] = df["MACD"].ewm(span=signal_period, adjust=False).mean()
+    df["MACD_Hist"] = df["MACD"] - df["MACD_Signal"]
+
+    df["Signal"] = 0
+    df.loc[df["MACD"] > df["MACD_Signal"], "Signal"] = 1
+    df.loc[df["MACD"] <= df["MACD_Signal"], "Signal"] = -1
+
+    df["CrossOver"] = df["Signal"].diff()
+    df["Action"] = "hold"
+    df.loc[df["CrossOver"] == 2, "Action"] = "buy"
+    df.loc[df["CrossOver"] == -2, "Action"] = "sell"
+
+    return df
+
+
+# ── Strategy: Bollinger Bands ─────────────────────────────
+
+def calculate_bollinger_signals(
+    df: pd.DataFrame,
+    period: int = 20,
+    num_std: float = 2.0,
+) -> pd.DataFrame:
+    """计算布林带指标并生成买卖信号。"""
+    df = df.copy()
+    df["BB_Mid"] = df["Close"].rolling(window=period, min_periods=period).mean()
+    rolling_std = df["Close"].rolling(window=period, min_periods=period).std()
+    df["BB_Upper"] = df["BB_Mid"] + num_std * rolling_std
+    df["BB_Lower"] = df["BB_Mid"] - num_std * rolling_std
+
+    df["Signal"] = 0
+    df.loc[df["Close"] < df["BB_Lower"], "Signal"] = 1   # below lower → buy
+    df.loc[df["Close"] > df["BB_Upper"], "Signal"] = -1   # above upper → sell
+
+    df["Action"] = "hold"
+    prev_signal = df["Signal"].shift(1).fillna(0)
+    df.loc[(df["Signal"] == 1) & (prev_signal != 1), "Action"] = "buy"
+    df.loc[(df["Signal"] == -1) & (prev_signal != -1), "Action"] = "sell"
+
+    return df
+
+
+# ── Strategy dispatcher ──────────────────────────────────
+
+STRATEGY_NAMES = ["MA 交叉", "RSI", "MACD", "布林带"]
+
+
+def apply_strategy(df: pd.DataFrame, strategy: str, params: dict) -> pd.DataFrame:
+    """Apply the named strategy with given params and return signals df."""
+    if strategy == "MA 交叉":
+        return calculate_signals(df, params["short_window"], params["long_window"])
+    elif strategy == "RSI":
+        return calculate_rsi_signals(df, params.get("period", 14), params.get("oversold", 30), params.get("overbought", 70))
+    elif strategy == "MACD":
+        return calculate_macd_signals(df, params.get("fast", 12), params.get("slow", 26), params.get("signal_period", 9))
+    elif strategy == "布林带":
+        return calculate_bollinger_signals(df, params.get("period", 20), params.get("num_std", 2.0))
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}")
 
 
 def simulate_trades(

@@ -7,7 +7,9 @@
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.currency import currency_selector, fmt, fmt_delta
 from core.planning import calculate_budget
+from core.storage import scheme_manager_ui
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="预算分配建议器", page_icon="💡", layout="wide")
@@ -23,6 +25,7 @@ st.title("💡 50/30/20 预算分配建议器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 收入与支出")
+currency_selector()
 
 income = st.sidebar.number_input(
     "月收入（税后，元）", min_value=10_000.0, max_value=1_000_000.0,
@@ -51,6 +54,14 @@ st.sidebar.metric("储蓄/还债占比", f"{pct_save}%",
                    delta=f"{'✅ 合计 100%' if pct_needs + pct_wants + pct_save == 100 else '❌ 不足 100%'}",
                    delta_color="off")
 
+scheme_manager_ui("budget", {
+    "income": income,
+    "fixed_expense": fixed_expense,
+    "has_debt": has_debt,
+    "pct_needs": pct_needs,
+    "pct_wants": pct_wants,
+})
+
 # ── 计算 ──────────────────────────────────────────────────
 plan = calculate_budget(income, fixed_expense, pct_needs, pct_wants)
 amt_needs = plan.amt_needs
@@ -62,13 +73,19 @@ fixed_pct = plan.fixed_pct
 
 save_label = "储蓄 / 还债" if has_debt else "储蓄 / 投资"
 
+st.session_state["dashboard_budget"] = {
+    "income": income,
+    "amt_save": amt_save,
+    "pct_save": pct_save,
+}
+
 # ── 核心指标 ──────────────────────────────────────────────
 st.markdown("---")
 
 c1, c2, c3 = st.columns(3)
-c1.metric("🏠 必需支出", f"¥{amt_needs:,.0f}", delta=f"{pct_needs}%", delta_color="off")
-c2.metric("🎉 想要支出", f"¥{amt_wants:,.0f}", delta=f"{pct_wants}%", delta_color="off")
-c3.metric(f"💰 {save_label}", f"¥{amt_save:,.0f}", delta=f"{pct_save}%", delta_color="off")
+c1.metric("🏠 必需支出", fmt(amt_needs, decimals=0), delta=f"{pct_needs}%", delta_color="off")
+c2.metric("🎉 想要支出", fmt(amt_wants, decimals=0), delta=f"{pct_wants}%", delta_color="off")
+c3.metric(f"💰 {save_label}", fmt(amt_save, decimals=0), delta=f"{pct_save}%", delta_color="off")
 
 # ── 固定支出超标警示 ──────────────────────────────────────
 if fixed_expense > 0:
@@ -76,19 +93,19 @@ if fixed_expense > 0:
     if fixed_expense > amt_needs:
         over = fixed_expense - amt_needs
         st.error(
-            f"🚨 **固定必需支出（¥{fixed_expense:,.0f}）已超过必需预算（¥{amt_needs:,.0f}）** "
-            f"— 超支 ¥{over:,.0f}（占收入 {fixed_pct:.1f}% > {pct_needs}%）。\n\n"
+            f"🚨 **固定必需支出（{fmt(fixed_expense, decimals=0)}）已超过必需预算（{fmt(amt_needs, decimals=0)}）** "
+            f"— 超支 {fmt(over, decimals=0)}（占收入 {fixed_pct:.1f}% > {pct_needs}%）。\n\n"
             f"建议：降低固定支出、增加收入，或将必需占比上调至 {int(fixed_pct) + 5}% 以上。"
         )
     elif fixed_expense > amt_needs * 0.8:
         st.warning(
-            f"⚠️ 固定支出 ¥{fixed_expense:,.0f} 已占必需预算的 {fixed_expense / amt_needs * 100:.0f}%，"
-            f"仅剩 ¥{remaining_needs:,.0f} 用于其他必需开销（餐饮/交通等）。"
+            f"⚠️ 固定支出 {fmt(fixed_expense, decimals=0)} 已占必需预算的 {fixed_expense / amt_needs * 100:.0f}%，"
+            f"仅剩 {fmt(remaining_needs, decimals=0)} 用于其他必需开销（餐饮/交通等）。"
         )
     else:
         st.success(
-            f"✅ 固定支出 ¥{fixed_expense:,.0f} 占必需预算的 {fixed_expense / amt_needs * 100:.0f}%，"
-            f"剩余 ¥{remaining_needs:,.0f} 可用于其他必需开销。"
+            f"✅ 固定支出 {fmt(fixed_expense, decimals=0)} 占必需预算的 {fixed_expense / amt_needs * 100:.0f}%，"
+            f"剩余 {fmt(remaining_needs, decimals=0)} 可用于其他必需开销。"
         )
 
 # ── 圆环图 ────────────────────────────────────────────────
@@ -113,7 +130,7 @@ fig.update_layout(
     margin=dict(t=20, b=20, l=20, r=20),
     height=400,
     annotations=[dict(
-        text=f"¥{income:,.0f}<br><span style='font-size:13px;color:#888'>月收入</span>",
+        text=f"{fmt(income, decimals=0)}<br><span style='font-size:13px;color:#888'>月收入</span>",
         x=0.5, y=0.5, font_size=22,
         showarrow=False,
     )],
@@ -127,27 +144,27 @@ col_a, col_b, col_c = st.columns(3)
 
 with col_a:
     st.markdown("#### 🏠 必需支出")
-    st.markdown(f"- **预算总额：** ¥{amt_needs:,.0f}")
+    st.markdown(f"- **预算总额：** {fmt(amt_needs, decimals=0)}")
     if fixed_expense > 0:
-        st.markdown(f"- 固定支出：¥{fixed_expense:,.0f}")
-        st.markdown(f"- 弹性必需：¥{remaining_needs:,.0f}")
+        st.markdown(f"- 固定支出：{fmt(fixed_expense, decimals=0)}")
+        st.markdown(f"- 弹性必需：{fmt(remaining_needs, decimals=0)}")
     st.caption("含：房租/房贷、水电煤、保险、交通、基本餐饮")
 
 with col_b:
     st.markdown("#### 🎉 想要支出")
-    st.markdown(f"- **预算总额：** ¥{amt_wants:,.0f}")
+    st.markdown(f"- **预算总额：** {fmt(amt_wants, decimals=0)}")
     st.caption("含：外出餐饮、娱乐、购物、订阅、旅行")
 
 with col_c:
     st.markdown(f"#### 💰 {save_label}")
-    st.markdown(f"- **预算总额：** ¥{amt_save:,.0f}")
+    st.markdown(f"- **预算总额：** {fmt(amt_save, decimals=0)}")
     if has_debt:
-        st.markdown(f"- 🔴 优先还债：¥{amt_save * 0.7:,.0f}（建议 70%）")
-        st.markdown(f"- 应急储蓄：¥{amt_save * 0.3:,.0f}（建议 30%）")
+        st.markdown(f"- 🔴 优先还债：{fmt(amt_save * 0.7, decimals=0)}（建议 70%）")
+        st.markdown(f"- 应急储蓄：{fmt(amt_save * 0.3, decimals=0)}（建议 30%）")
         st.caption("有高利债务时，建议将大部分储蓄用于还债")
     else:
-        st.markdown(f"- 应急基金：¥{amt_save * 0.5:,.0f}（建议 50%）")
-        st.markdown(f"- 长期投资：¥{amt_save * 0.5:,.0f}（建议 50%）")
+        st.markdown(f"- 应急基金：{fmt(amt_save * 0.5, decimals=0)}（建议 50%）")
+        st.markdown(f"- 长期投资：{fmt(amt_save * 0.5, decimals=0)}（建议 50%）")
         st.caption("建议先存满 3–6 个月应急金，再配置投资")
 
 # ── 个性化建议 ────────────────────────────────────────────

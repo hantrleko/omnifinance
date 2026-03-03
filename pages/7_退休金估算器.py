@@ -11,6 +11,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.currency import currency_selector, fmt, fmt_delta
+from core.storage import scheme_manager_ui
+
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="退休金估算器", page_icon="🏖️", layout="wide")
 
@@ -25,6 +28,7 @@ st.title("🏖️ 退休金需求估算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("👤 退休前参数")
+currency_selector()
 
 current_age = st.sidebar.number_input("目前年龄", 18, 80, 35)
 retire_age = st.sidebar.number_input("预计退休年龄", current_age + 1, 90, max(65, current_age + 1))
@@ -51,6 +55,18 @@ inflation = st.sidebar.number_input(
 post_return = st.sidebar.number_input(
     "退休后年化报酬率（%）", 0.0, 15.0, 4.0, step=0.1, format="%.1f",
 )
+
+scheme_manager_ui("retirement", {
+    "current_age": current_age,
+    "retire_age": retire_age,
+    "current_assets": current_assets,
+    "monthly_saving": monthly_saving,
+    "pre_return": pre_return,
+    "life_expectancy": life_expectancy,
+    "monthly_expense": monthly_expense,
+    "inflation": inflation,
+    "post_return": post_return,
+})
 
 
 # ══════════════════════════════════════════════════════════
@@ -192,6 +208,11 @@ result = calculate_retirement(
     inflation, pre_return, post_return,
 )
 
+st.session_state["dashboard_retirement"] = {
+    "gap": result.gap,
+    "extra_monthly": result.extra_monthly_needed,
+}
+
 # ── 成功概率估计（三档） ──────────────────────────────────
 def success_tag(pre_r: float, post_r: float) -> tuple[str, str]:
     r = calculate_retirement(
@@ -216,19 +237,19 @@ st.subheader("📊 核心结果")
 m1, m2, m3, m4 = st.columns(4)
 m1.metric(
     "🎯 退休所需总资产",
-    f"¥{result.total_needed_at_retire:,.0f}",
-    delta=f"退休首年月支出 ¥{result.future_monthly_expense:,.0f}",
+    fmt(result.total_needed_at_retire, decimals=0),
+    delta=f"退休首年月支出 {fmt(result.future_monthly_expense, decimals=0)}",
     delta_color="off",
 )
 m2.metric(
     "📈 当前计划可累积",
-    f"¥{result.projected_at_retire:,.0f}",
-    delta=f"{'✅ 已充足' if result.gap <= 0 else f'缺口 ¥{result.gap:,.0f}'}",
+    fmt(result.projected_at_retire, decimals=0),
+    delta=f"{'✅ 已充足' if result.gap <= 0 else f'缺口 {fmt(result.gap, decimals=0)}'}",
     delta_color="normal" if result.gap <= 0 else "inverse",
 )
 m3.metric(
     "💰 每月还需额外储蓄",
-    f"¥{result.extra_monthly_needed:,.0f}" if result.gap > 0 else "¥0（已充足）",
+    fmt(result.extra_monthly_needed, decimals=0) if result.gap > 0 else f"{fmt(0, decimals=0)}（已充足）",
 )
 
 # 三档成功概率
@@ -241,12 +262,12 @@ m4.metric("📋 达成评估", prob_labels[1], delta=" | ".join(prob_labels), de
 st.subheader("🧭 一页结论")
 if result.gap <= 0:
     st.success("结论：当前退休计划可覆盖资金需求。")
-    st.caption(f"原因：预计退休时可累积 ¥{result.projected_at_retire:,.0f}，高于所需 ¥{result.total_needed_at_retire:,.0f}。")
+    st.caption(f"原因：预计退休时可累积 {fmt(result.projected_at_retire, decimals=0)}，高于所需 {fmt(result.total_needed_at_retire, decimals=0)}。")
     st.caption("下一步：保持定投并每年复盘通胀和收益率假设。")
 else:
     st.warning("结论：当前退休计划仍有资金缺口。")
-    st.caption(f"原因：预计缺口 ¥{result.gap:,.0f}。")
-    st.caption(f"下一步：建议每月额外增加储蓄约 ¥{result.extra_monthly_needed:,.0f}，并结合延后退休年龄评估。")
+    st.caption(f"原因：预计缺口 {fmt(result.gap, decimals=0)}。")
+    st.caption(f"下一步：建议每月额外增加储蓄约 {fmt(result.extra_monthly_needed, decimals=0)}，并结合延后退休年龄评估。")
 
 # ── 成长曲线 ──────────────────────────────────────────────
 st.subheader("📈 资产成长曲线")
@@ -278,7 +299,7 @@ with tab_acc:
     ))
     fig_acc.add_hline(
         y=result.total_needed_at_retire, line_dash="dot", line_color="#EF553B",
-        annotation_text=f"退休所需 ¥{result.total_needed_at_retire:,.0f}",
+        annotation_text=f"退休所需 {fmt(result.total_needed_at_retire, decimals=0)}",
         annotation_position="top left", annotation_font_color="#EF553B",
     )
     fig_acc.update_layout(**LAYOUT_DARK, xaxis_title="年龄", yaxis_title="资产（元）", yaxis_tickformat=",")
@@ -337,10 +358,10 @@ for d_ret in [-1.0, 0.0, 1.0]:
             "通胀率调整": f"{d_inf:+.1f}%",
             "退休前报酬": f"{pre_return + d_ret:.1f}%",
             "通胀率": f"{inflation + d_inf:.1f}%",
-            "退休所需": f"¥{r.total_needed_at_retire:,.0f}",
-            "可累积": f"¥{r.projected_at_retire:,.0f}",
-            "缺口": f"¥{r.gap:,.0f}" if r.gap > 0 else "✅ 充足",
-            "额外月存": f"¥{r.extra_monthly_needed:,.0f}" if r.gap > 0 else "¥0",
+            "退休所需": fmt(r.total_needed_at_retire, decimals=0),
+            "可累积": fmt(r.projected_at_retire, decimals=0),
+            "缺口": fmt(r.gap, decimals=0) if r.gap > 0 else "✅ 充足",
+            "额外月存": fmt(r.extra_monthly_needed, decimals=0) if r.gap > 0 else fmt(0, decimals=0),
         })
 
 sens_df = pd.DataFrame(sens_rows)
@@ -361,10 +382,10 @@ for yr in range(1, result.years_to_retire + 1):
         bal = bal + interest + monthly_saving
     yearly_rows.append({
         "年份": f"第 {yr} 年（{current_age + yr} 岁）",
-        "年初资产": f"¥{start:,.0f}",
-        "当年投入": f"¥{monthly_saving * 12:,.0f}",
-        "当年收益": f"¥{yr_interest:,.0f}",
-        "年末资产": f"¥{bal:,.0f}",
+        "年初资产": fmt(start, decimals=0),
+        "当年投入": fmt(monthly_saving * 12, decimals=0),
+        "当年收益": fmt(yr_interest, decimals=0),
+        "年末资产": fmt(bal, decimals=0),
     })
 
 if yearly_rows:

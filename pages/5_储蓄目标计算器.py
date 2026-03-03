@@ -12,6 +12,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.currency import currency_selector, fmt, fmt_delta, get_symbol
+from core.storage import scheme_manager_ui
+
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="储蓄目标计算器", page_icon="🎯", layout="wide")
 
@@ -27,6 +30,7 @@ st.title("🎯 储蓄目标达成计算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 参数设置")
+currency_selector()
 
 current_savings = st.sidebar.number_input(
     "目前储蓄金额（元）", min_value=0.0, max_value=5_000_000.0,
@@ -53,12 +57,19 @@ st.sidebar.subheader("⚡ 快速调整每月投入")
 monthly_deposit_slider = st.sidebar.slider(
     "每月投入（滑杆）",
     min_value=0, max_value=200_000, value=int(monthly_deposit), step=1_000,
-    format="¥%d",
+    format=f"{get_symbol()}%d",
 )
 # 以滑杆值为准（与 number_input 联动）
 effective_deposit = float(monthly_deposit_slider)
 
-st.sidebar.caption(f"当前生效：每月 ¥{effective_deposit:,.0f}")
+st.sidebar.caption(f"当前生效：每月 {fmt(effective_deposit, decimals=0)}")
+
+scheme_manager_ui("savings", {
+    "current_savings": current_savings,
+    "goal_amount": goal_amount,
+    "annual_rate": annual_rate,
+    "monthly_deposit": monthly_deposit,
+})
 
 
 # ══════════════════════════════════════════════════════════
@@ -179,12 +190,17 @@ def calculate_savings_goal(
 
 result = calculate_savings_goal(current_savings, goal_amount, annual_rate, effective_deposit)
 
+st.session_state["dashboard_savings"] = {
+    "months_needed": result.months_needed,
+    "total_interest": result.total_interest,
+}
+
 # ── 已达成特殊情况 ────────────────────────────────────────
 st.markdown("---")
 
 if current_savings >= goal_amount:
     st.balloons()
-    st.success(f"🎉 **已达成目标！** 目前储蓄 ¥{current_savings:,.0f} 已超过目标 ¥{goal_amount:,.0f}")
+    st.success(f"🎉 **已达成目标！** 目前储蓄 {fmt(current_savings, decimals=0)} 已超过目标 {fmt(goal_amount, decimals=0)}")
     st.stop()
 
 if not result.reached:
@@ -208,14 +224,14 @@ target_date_str = f"{target_year} 年 {target_month} 月"
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("⏰ 预估达成时间", time_str, delta=target_date_str, delta_color="off")
-c2.metric("💵 总需投入本金", f"¥{result.total_deposited:,.0f}")
-c3.metric("📈 复利贡献金额", f"¥{result.total_interest:,.0f}")
+c2.metric("💵 总需投入本金", fmt(result.total_deposited, decimals=0))
+c3.metric("📈 复利贡献金额", fmt(result.total_interest, decimals=0))
 c4.metric("🎯 复利贡献占比", f"{interest_ratio:.1f}%")
 
 st.subheader("🧭 一页结论")
 if result.months_needed <= 24:
     st.success("结论：目标可在较短周期内达成。")
-    st.caption(f"原因：按当前参数预计 {time_str} 达成，复利贡献约 ¥{result.total_interest:,.0f}。")
+    st.caption(f"原因：按当前参数预计 {time_str} 达成，复利贡献约 {fmt(result.total_interest, decimals=0)}。")
     st.caption("下一步：保持当前投入节奏，定期复盘收益率假设。")
 elif result.months_needed <= 120:
     st.info("结论：目标可达成，但时间中等。")
@@ -259,7 +275,7 @@ fig.add_trace(go.Scatter(
 # 目标线
 fig.add_hline(
     y=goal_amount, line_dash="dot", line_color="#EF553B", line_width=1.5,
-    annotation_text=f"目标 ¥{goal_amount:,.0f}",
+    annotation_text=f"目标 {fmt(goal_amount, decimals=0)}",
     annotation_position="top left",
     annotation_font_color="#EF553B",
 )
@@ -270,7 +286,7 @@ fig.add_trace(go.Scatter(
     x=[result.months_needed], y=[goal_row["余额"]],
     mode="markers", name="达成点",
     marker=dict(size=14, color="#FFD600", symbol="star", line=dict(width=1.5, color="#fff")),
-    hovertemplate=f"第 {result.months_needed} 月达成<br>余额: ¥{goal_row['余额']:,.0f}<extra></extra>",
+    hovertemplate=f"第 {result.months_needed} 月达成<br>余额: {fmt(goal_row['余额'], decimals=0)}<extra></extra>",
 ))
 
 # 复利贡献填充区域
@@ -300,7 +316,7 @@ st.subheader("📋 逐年明细")
 display_yr = result.yearly.copy()
 money_cols = ["年初余额", "当年利息", "当年投入", "年末余额"]
 for col in money_cols:
-    display_yr[col] = display_yr[col].apply(lambda v: f"¥{v:,.2f}")
+    display_yr[col] = display_yr[col].apply(lambda v: fmt(v))
 display_yr["年份"] = display_yr["年份"].apply(lambda v: f"第 {v} 年")
 
 st.dataframe(display_yr, use_container_width=True, hide_index=True)
@@ -325,15 +341,15 @@ for dep in comparison_deposits:
         y = r.months_needed // 12
         m = r.months_needed % 12
         comp_rows.append({
-            "每月投入": f"¥{dep:,.0f}",
+            "每月投入": fmt(dep, decimals=0),
             "达成时间": f"{y}年{m}个月",
             "总月数": r.months_needed,
-            "总投入本金": f"¥{r.total_deposited:,.0f}",
-            "复利贡献": f"¥{r.total_interest:,.0f}",
+            "总投入本金": fmt(r.total_deposited, decimals=0),
+            "复利贡献": fmt(r.total_interest, decimals=0),
         })
     else:
         comp_rows.append({
-            "每月投入": f"¥{dep:,.0f}",
+            "每月投入": fmt(dep, decimals=0),
             "达成时间": "无法达成",
             "总月数": "—",
             "总投入本金": "—",
