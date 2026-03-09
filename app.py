@@ -1,6 +1,6 @@
 import streamlit as st
 
-VERSION = "v1.2"
+VERSION = "v1.3"
 
 st.set_page_config(
     page_title="全能理财家 (OmniFinance)",
@@ -24,11 +24,15 @@ st.markdown("""
 5. **🎯 5_储蓄目标计算器**：规划储蓄达成路径
 6. **💡 6_预算分配建议器**：50/30/20 预算分配法则
 7. **🏖️ 7_退休金估算器**：预估退休生活需求
+8. **🛡️ 8_保险产品测算器**：评估保费效率与储蓄型保单 IRR
 """)
 
-with st.expander("🆕 最近更新（v1.2）", expanded=True):
+with st.expander("🆕 最近更新（v1.3）", expanded=True):
     st.markdown("""
-**v1.2 新功能**
+**v1.3 新功能**
+- 🛡️ **保险产品测算器**：新增保险保费效率、通胀折现保额、保单 IRR 与替代投资对比分析。
+
+**v1.2 回顾**
 - 🌍 **多货币支持**：所有工具可切换 ¥ / $ / € / £ / HK$ 等货币单位。
 - 📈 **多策略回测**：回测器新增 RSI、MACD、布林带策略，支持策略对比分析。
 - 📊 **K线图 & 技术指标**：实时报价面板新增蜡烛图、成交量、MA/VWAP 叠加。
@@ -57,11 +61,12 @@ dash_loan = st.session_state.get("dashboard_loan")
 dash_savings = st.session_state.get("dashboard_savings")
 dash_budget = st.session_state.get("dashboard_budget")
 dash_retirement = st.session_state.get("dashboard_retirement")
+dash_insurance = st.session_state.get("dashboard_insurance")
 
-has_data = any([dash_compound, dash_loan, dash_savings, dash_budget, dash_retirement])
+has_data = any([dash_compound, dash_loan, dash_savings, dash_budget, dash_retirement, dash_insurance])
 
 if has_data:
-    cols = st.columns(5)
+    cols = st.columns(6)
 
     if dash_compound:
         cols[0].metric("💰 复利终值", f"¥{dash_compound['final_balance']:,.0f}")
@@ -88,6 +93,10 @@ if has_data:
         else:
             cols[4].metric("🏖️ 退休缺口", f"¥{gap:,.0f}")
             cols[4].caption(f"需额外月存 ¥{dash_retirement['extra_monthly']:,.0f}")
+
+    if dash_insurance:
+        cols[5].metric("🛡️ 保险总保费", f"¥{dash_insurance['total_premium']:,.0f}")
+        cols[5].caption(f"保单 IRR {dash_insurance['irr_pct']:.2f}%")
 
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")
 else:
