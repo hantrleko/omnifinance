@@ -1,6 +1,6 @@
 import streamlit as st
 
-VERSION = "v1.2"
+VERSION = "v1.3"
 
 st.set_page_config(
     page_title="全能理财家 (OmniFinance)",
@@ -27,9 +27,12 @@ st.markdown("""
 8. **🛡️ 8_保险产品测算器**：评估保费效率与储蓄型保单 IRR
 """)
 
-with st.expander("🆕 最近更新（v1.2）", expanded=True):
+with st.expander("🆕 最近更新（v1.3）", expanded=True):
     st.markdown("""
-**v1.2 新功能**
+**v1.3 新功能**
+- 🛡️ **保险产品测算器**：新增保险保费效率、通胀折现保额、保单 IRR 与替代投资对比分析。
+
+**v1.2 回顾**
 - 🌍 **多货币支持**：所有工具可切换 ¥ / $ / € / £ / HK$ 等货币单位。
 - 📈 **多策略回测**：回测器新增 RSI、MACD、布林带策略，支持策略对比分析。
 - 📊 **K线图 & 技术指标**：实时报价面板新增蜡烛图、成交量、MA/VWAP 叠加。
