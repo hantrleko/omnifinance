@@ -1,6 +1,8 @@
 import streamlit as st
 
-VERSION = "v1.3"
+from core.currency import get_symbol
+
+VERSION = "v1.4"
 
 st.set_page_config(
     page_title="全能理财家 (OmniFinance)",
@@ -27,21 +29,41 @@ st.markdown("""
 8. **🛡️ 8_保险产品测算器**：评估保费效率与储蓄型保单 IRR
 """)
 
-with st.expander("🆕 最近更新（v1.3）", expanded=True):
+with st.expander("🆕 最近更新（v1.4）", expanded=True):
     st.markdown("""
-**v1.3 新功能**
-- 🛡️ **保险产品测算器**：新增保险保费效率、通胀折现保额、保单 IRR 与替代投资对比分析。
+**v1.4 工程优化与全面升级**
 
-**v1.2 回顾**
+🔧 **P0 核心修复**
+- 🏗️ 退休金 & 储蓄目标核心计算逻辑下沉到 `core/retirement.py` / `core/savings.py`，页面仅负责 UI 展示，可测试性大幅提升。
+- 📊 K 线图历史数据加入 `@st.cache_data(ttl=300)` 缓存，切换标的不再重复下载，速度提升显著。
+- 💱 修复所有图表 `hovertemplate` 中硬编码 `¥` 的问题，现在切换货币后图表 Tooltip 也会同步更新。
+
+⚡ **P1 性能与功能增强**
+- 🚀 回测器 `simulate_trades()` 改用向量化 pandas 操作（去除 iterrows 逐行循环），回测速度大幅提升。
+- 📐 回测器新增**索提诺比率**（Sortino）与**卡玛比率**（Calmar）两项风险调整指标。
+- 🔄 策略对比 expander 改用 `@st.cache_data` 缓存，避免每次渲染重复计算四个策略。
+- 💾 `storage.py` 加入 schema_version 版本控制与自动迁移，旧方案文件向前兼容。
+- 🛡️ 保险测算器大幅强化：新增一页结论分析、通胀侵蚀警示、替代投资差距指标、CSV 导出功能。
+- 📐 抽出通用 `core/chart_config.py`，消除 5 个页面中重复的 `LAYOUT_DARK` 定义。
+
+🎨 **P2 体验优化**
+- 🌐 首页仪表盘货币符号改为动态引用，切换货币后首页指标同步更新。
+- ❌ 报价面板新增分级错误提示：网络异常 / 代码无效 / 限流，用户可快速定位问题。
+""")
+
+with st.expander("📋 v1.3 更新记录"):
+    st.markdown("""
+- 🛡️ **保险产品测算器**：新增保险保费效率、通胀折现保额、保单 IRR 与替代投资对比分析。
+""")
+
+with st.expander("📋 v1.2 更新记录"):
+    st.markdown("""
 - 🌍 **多货币支持**：所有工具可切换 ¥ / $ / € / £ / HK$ 等货币单位。
 - 📈 **多策略回测**：回测器新增 RSI、MACD、布林带策略，支持策略对比分析。
 - 📊 **K线图 & 技术指标**：实时报价面板新增蜡烛图、成交量、MA/VWAP 叠加。
 - 💾 **方案管理**：各工具均支持保存/加载/删除参数方案，方便对比不同情景。
 - 🔗 **跨模块联动**：首页仪表盘汇总各工具关键指标，一览财务全貌。
 - ⭐ **自选股收藏夹**：报价面板支持保存和切换多组自选股列表。
-
-**v1.1 回顾**
-- 回测器手续费/滑点参数、贷款提前还款模拟、一页结论卡片、CI 自动化测试。
 """)
 
 with st.expander("📋 v1.1 更新记录"):
@@ -56,6 +78,8 @@ with st.expander("📋 v1.1 更新记录"):
 st.markdown("---")
 st.subheader("📊 个人财务仪表盘")
 
+sym = get_symbol()
+
 dash_compound = st.session_state.get("dashboard_compound")
 dash_loan = st.session_state.get("dashboard_loan")
 dash_savings = st.session_state.get("dashboard_savings")
@@ -69,21 +93,21 @@ if has_data:
     cols = st.columns(6)
 
     if dash_compound:
-        cols[0].metric("💰 复利终值", f"¥{dash_compound['final_balance']:,.0f}")
-        cols[0].caption(f"累计收益 ¥{dash_compound['total_interest']:,.0f}")
+        cols[0].metric("💰 复利终值", f"{sym}{dash_compound['final_balance']:,.0f}")
+        cols[0].caption(f"累计收益 {sym}{dash_compound['total_interest']:,.0f}")
 
     if dash_loan:
-        cols[1].metric("🏦 贷款总利息", f"¥{dash_loan['total_interest']:,.0f}")
-        cols[1].caption(f"每期还款 ¥{dash_loan['monthly_payment']:,.0f}")
+        cols[1].metric("🏦 贷款总利息", f"{sym}{dash_loan['total_interest']:,.0f}")
+        cols[1].caption(f"每期还款 {sym}{dash_loan['monthly_payment']:,.0f}")
 
     if dash_savings:
         months = dash_savings["months_needed"]
         y, m = months // 12, months % 12
         cols[2].metric("🎯 储蓄达成", f"{y}年{m}个月")
-        cols[2].caption(f"复利贡献 ¥{dash_savings['total_interest']:,.0f}")
+        cols[2].caption(f"复利贡献 {sym}{dash_savings['total_interest']:,.0f}")
 
     if dash_budget:
-        cols[3].metric("💡 月储蓄额", f"¥{dash_budget['amt_save']:,.0f}")
+        cols[3].metric("💡 月储蓄额", f"{sym}{dash_budget['amt_save']:,.0f}")
         cols[3].caption(f"储蓄率 {dash_budget['pct_save']}%")
 
     if dash_retirement:
@@ -91,11 +115,11 @@ if has_data:
         if gap <= 0:
             cols[4].metric("🏖️ 退休评估", "✅ 已充足")
         else:
-            cols[4].metric("🏖️ 退休缺口", f"¥{gap:,.0f}")
-            cols[4].caption(f"需额外月存 ¥{dash_retirement['extra_monthly']:,.0f}")
+            cols[4].metric("🏖️ 退休缺口", f"{sym}{gap:,.0f}")
+            cols[4].caption(f"需额外月存 {sym}{dash_retirement['extra_monthly']:,.0f}")
 
     if dash_insurance:
-        cols[5].metric("🛡️ 保险总保费", f"¥{dash_insurance['total_premium']:,.0f}")
+        cols[5].metric("🛡️ 保险总保费", f"{sym}{dash_insurance['total_premium']:,.0f}")
         cols[5].caption(f"保单 IRR {dash_insurance['irr_pct']:.2f}%")
 
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")

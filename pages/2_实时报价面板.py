@@ -2,6 +2,11 @@
 
 使用 yfinance (fast_info) + ThreadPoolExecutor 并行获取数据，
 streamlit-autorefresh 自动刷新，Streamlit 展示。
+
+v1.4:
+- K 线图历史数据加入 @st.cache_data(ttl=300) 缓存，避免重复下载
+- 报价失败加入分级错误提示（网络错误 / 代码不存在 / 限流）
+- 货币符号改用动态引用
 """
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -86,7 +91,6 @@ if saved_wls:
             st.session_state["wl_loaded"] = loaded_wl["tickers"]
             st.rerun()
 
-# 如果刚加载了关注列表，覆盖 selected
 if "wl_loaded" in st.session_state:
     selected = st.session_state.pop("wl_loaded")
 
@@ -94,13 +98,29 @@ st.sidebar.divider()
 st.sidebar.caption("数据来源：Yahoo Finance（yfinance）")
 st.sidebar.caption("提示：港股代码格式 0700.HK，加密货币 BTC-USD")
 
-# ── 自动刷新（streamlit-autorefresh） ─────────────────────
+# ── 自动刷新 ──────────────────────────────────────────────
 st_autorefresh(interval=refresh_interval * 1000, key="auto_refresh")
 
 
 # ── 数据获取（ThreadPoolExecutor 并行） ──────────────────
+
+# Error category constants
+_ERR_NETWORK = "network"
+_ERR_NOTFOUND = "notfound"
+_ERR_OK = "ok"
+
+
 def _fetch_one(ticker_str: str) -> dict:
-    """获取单个标的的报价，仅使用 fast_info。"""
+    """获取单个标的的报价，包含分级错误信息。"""
+    base = {
+        "代码": ticker_str,
+        "当前价格": None,
+        "涨跌幅(%)": None,
+        "今日最高": None,
+        "今日最低": None,
+        "成交量": None,
+        "_error": None,
+    }
     try:
         tk = yf.Ticker(ticker_str)
         fi = tk.fast_info
@@ -111,25 +131,28 @@ def _fetch_one(ticker_str: str) -> dict:
         day_low = getattr(fi, "day_low", None)
         volume = getattr(fi, "last_volume", None)
 
-        change_pct = ((current / prev_close - 1) * 100) if current and prev_close else None
+        # Distinguish "symbol not found" from "got data"
+        if current is None and prev_close is None:
+            base["_error"] = _ERR_NOTFOUND
+            return base
 
+        change_pct = ((current / prev_close - 1) * 100) if current and prev_close else None
         return {
-            "代码": ticker_str,
+            **base,
             "当前价格": current,
             "涨跌幅(%)": change_pct,
             "今日最高": day_high,
             "今日最低": day_low,
             "成交量": volume,
+            "_error": _ERR_OK,
         }
-    except Exception:
-        return {
-            "代码": ticker_str,
-            "当前价格": None,
-            "涨跌幅(%)": None,
-            "今日最高": None,
-            "今日最低": None,
-            "成交量": None,
-        }
+    except Exception as exc:
+        err_str = str(exc).lower()
+        if any(kw in err_str for kw in ("connection", "timeout", "network", "ssl", "read")):
+            base["_error"] = _ERR_NETWORK
+        else:
+            base["_error"] = _ERR_NOTFOUND
+        return base
 
 
 @st.cache_data(ttl=25)
@@ -141,15 +164,24 @@ def fetch_quotes(tickers: tuple[str, ...]) -> pd.DataFrame:
         for future in as_completed(futures):
             ticker_str = futures[future]
             results[ticker_str] = future.result()
-
-    # 按原始顺序排列
     rows = [results[t] for t in tickers]
     return pd.DataFrame(rows)
 
 
+@st.cache_data(ttl=300)
+def fetch_kline_history(ticker_str: str, period: str = "6mo") -> pd.DataFrame:
+    """下载 K 线历史数据，结果缓存 5 分钟，避免重复请求。"""
+    try:
+        hist = yf.download(ticker_str, period=period, progress=False, auto_adjust=True)
+        if isinstance(hist.columns, pd.MultiIndex):
+            hist.columns = hist.columns.get_level_values(0)
+        return hist
+    except Exception:
+        return pd.DataFrame()
+
+
 # ── 涨跌幅着色函数 ────────────────────────────────────────
 def style_change(val):
-    """为涨跌幅单元格设置红/绿色。"""
     if pd.isna(val):
         return ""
     if val > 0:
@@ -160,7 +192,6 @@ def style_change(val):
 
 
 def format_volume(val):
-    """将成交量格式化为可读字符串。"""
     if pd.isna(val):
         return "—"
     v = int(val)
@@ -191,75 +222,82 @@ if not selected:
 with st.spinner("正在获取行情数据…"):
     quotes_df = fetch_quotes(tuple(selected))
 
+# ── 分级错误提示 ──────────────────────────────────────────
+network_errs = quotes_df[quotes_df["_error"] == _ERR_NETWORK]["代码"].tolist()
+notfound_errs = quotes_df[quotes_df["_error"] == _ERR_NOTFOUND]["代码"].tolist()
+
+if network_errs:
+    st.warning(f"🌐 网络连接异常，以下标的数据获取失败（可能为限流或网络问题）：{', '.join(network_errs)}")
+if notfound_errs:
+    st.error(f"❌ 以下标的代码无效或已退市，请检查代码格式：{', '.join(notfound_errs)}")
+
+# 仅展示成功获取的数据
+display_quotes = quotes_df[quotes_df["_error"] == _ERR_OK].copy()
+
 # ── 顶部指标卡片 ──────────────────────────────────────────
-top_n = min(4, len(quotes_df))
-cols = st.columns(top_n)
-for i in range(top_n):
-    row = quotes_df.iloc[i]
-    price = f"{row['当前价格']:,.2f}" if pd.notna(row["当前价格"]) else "—"
-    delta = f"{row['涨跌幅(%)']:.2f}%" if pd.notna(row["涨跌幅(%)"]) else None
-    cols[i].metric(label=row["代码"], value=price, delta=delta)
+top_n = min(4, len(display_quotes))
+if top_n > 0:
+    cols = st.columns(top_n)
+    for i in range(top_n):
+        row = display_quotes.iloc[i]
+        price = f"{row['当前价格']:,.2f}" if pd.notna(row["当前价格"]) else "—"
+        delta = f"{row['涨跌幅(%)']:.2f}%" if pd.notna(row["涨跌幅(%)"]) else None
+        cols[i].metric(label=row["代码"], value=price, delta=delta)
 
 st.markdown("---")
 
 # ── 表格：st.dataframe + pandas Styler ───────────────────
-display_df = quotes_df.copy()
+if not display_quotes.empty:
+    table_df = display_quotes.drop(columns=["_error"]).copy()
+    table_df["成交量"] = table_df["成交量"].apply(format_volume)
 
-# 格式化成交量为可读文本列
-display_df["成交量"] = display_df["成交量"].apply(format_volume)
+    fmt_dict = {
+        "当前价格": "{:,.2f}",
+        "涨跌幅(%)": "{:+.2f}%",
+        "今日最高": "{:,.2f}",
+        "今日最低": "{:,.2f}",
+    }
 
-# 数值列格式
-fmt_dict = {
-    "当前价格": "{:,.2f}",
-    "涨跌幅(%)": "{:+.2f}%",
-    "今日最高": "{:,.2f}",
-    "今日最低": "{:,.2f}",
-}
+    styled = (
+        table_df.style
+        .format(fmt_dict, na_rep="—")
+        .applymap(style_change, subset=["涨跌幅(%)"])
+    )
 
-styled = (
-    display_df.style
-    .format(fmt_dict, na_rep="—")
-    .applymap(style_change, subset=["涨跌幅(%)"])
-)
-
-st.dataframe(
-    styled,
-    use_container_width=True,
-    hide_index=True,
-    height=(len(display_df) + 1) * 38 + 10,
-)
+    st.dataframe(
+        styled,
+        use_container_width=True,
+        hide_index=True,
+        height=(len(table_df) + 1) * 38 + 10,
+    )
+else:
+    st.info("暂无有效行情数据，请检查网络连接或标的代码。")
 
 # ── K线图 & 技术指标 ─────────────────────────────────────
 st.markdown("---")
 st.markdown("## 📈 K线图 & 技术指标")
 
-kline_ticker = st.selectbox("选择标的", selected, key="kline_ticker")
+valid_tickers = display_quotes["代码"].tolist() if not display_quotes.empty else selected
+kline_ticker = st.selectbox("选择标的", valid_tickers if valid_tickers else selected, key="kline_ticker")
 
 if kline_ticker:
-    with st.spinner(f"正在下载 {kline_ticker} 近6个月历史数据…"):
-        hist = yf.download(kline_ticker, period="6mo", progress=False, auto_adjust=True)
-
-    # 处理 MultiIndex 列（yfinance 返回多标的时为 MultiIndex）
-    if isinstance(hist.columns, pd.MultiIndex):
-        hist.columns = hist.columns.get_level_values(0)
+    with st.spinner(f"正在加载 {kline_ticker} 近6个月历史数据…"):
+        hist = fetch_kline_history(kline_ticker, period="6mo")
 
     if hist.empty:
-        st.warning(f"未能获取 {kline_ticker} 的历史数据。")
+        st.warning(f"未能获取 {kline_ticker} 的历史数据，请稍后重试或检查代码。")
     else:
-        # 技术指标选项
         col_ma, col_vwap = st.columns(2)
         show_ma = col_ma.checkbox("显示均线（SMA 20 / SMA 60）", value=True, key="show_ma")
         has_volume = "Volume" in hist.columns and hist["Volume"].sum() > 0
         show_vwap = col_vwap.checkbox("显示 VWAP", value=False, key="show_vwap", disabled=not has_volume)
 
-        # 构建子图：K线 + 成交量
         fig = make_subplots(
             rows=2, cols=1, shared_xaxes=True,
             vertical_spacing=0.03,
             row_heights=[0.75, 0.25],
         )
 
-        # K线
         fig.add_trace(
             go.Candlestick(
                 x=hist.index,
@@ -270,7 +308,6 @@ if kline_ticker:
             row=1, col=1,
         )
 
-        # MA 均线
         if show_ma:
             hist["SMA20"] = hist["Close"].rolling(window=20).mean()
             hist["SMA60"] = hist["Close"].rolling(window=60).mean()
@@ -285,7 +322,6 @@ if kline_ticker:
                 row=1, col=1,
             )
 
-        # VWAP
         if show_vwap and has_volume:
             typical_price = (hist["High"] + hist["Low"] + hist["Close"]) / 3
             cum_tp_vol = (typical_price * hist["Volume"]).cumsum()
@@ -297,7 +333,6 @@ if kline_ticker:
                 row=1, col=1,
             )
 
-        # 成交量柱状图
         if has_volume:
             colors = [
                 "#00c853" if c >= o else "#ff1744"

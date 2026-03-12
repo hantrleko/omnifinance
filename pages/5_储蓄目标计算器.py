@@ -2,17 +2,19 @@
 
 计算在给定报酬率与每月投入下，何时能达成储蓄目标。
 逐月复利模拟 + Plotly 可视化。
+
+v1.4: 核心计算已下沉到 core/savings.py；图表货币符号动态引用。
 """
 
-import math
-from dataclasses import dataclass
 from datetime import date
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from core.currency import currency_selector, fmt, fmt_delta, get_symbol
+from core.chart_config import build_layout
+from core.currency import currency_selector, fmt, get_symbol
+from core.savings import SavingsResult, calculate_savings_goal
 from core.storage import scheme_manager_ui
 
 # ── 页面配置 ──────────────────────────────────────────────
@@ -59,9 +61,7 @@ monthly_deposit_slider = st.sidebar.slider(
     min_value=0, max_value=200_000, value=int(monthly_deposit), step=1_000,
     format=f"{get_symbol()}%d",
 )
-# 以滑杆值为准（与 number_input 联动）
 effective_deposit = float(monthly_deposit_slider)
-
 st.sidebar.caption(f"当前生效：每月 {fmt(effective_deposit, decimals=0)}")
 
 scheme_manager_ui("savings", {
@@ -70,119 +70,6 @@ scheme_manager_ui("savings", {
     "annual_rate": annual_rate,
     "monthly_deposit": monthly_deposit,
 })
-
-
-# ══════════════════════════════════════════════════════════
-#  核心计算
-# ══════════════════════════════════════════════════════════
-
-@dataclass
-class SavingsResult:
-    reached: bool           # 是否已达成
-    months_needed: int      # 达成所需月数（0=已达成, -1=永远无法达成）
-    schedule: pd.DataFrame  # 逐月明细
-    yearly: pd.DataFrame    # 逐年汇总
-    total_deposited: float  # 总投入本金（含初始）
-    total_interest: float   # 复利贡献总额
-
-
-def calculate_savings_goal(
-    current: float,
-    goal: float,
-    annual_rate_pct: float,
-    monthly_deposit: float,
-    max_months: int = 1200,  # 最多模拟 100 年
-) -> SavingsResult:
-    """逐月复利模拟，返回完整结果。"""
-
-    # 已达成
-    if current >= goal:
-        empty = pd.DataFrame()
-        return SavingsResult(
-            reached=True, months_needed=0,
-            schedule=empty, yearly=empty,
-            total_deposited=current, total_interest=0.0,
-        )
-
-    monthly_rate = (annual_rate_pct / 100.0) / 12
-    balance = current
-    total_deposited = current
-    months_needed = -1
-
-    rows: list[dict] = []
-
-    for m in range(1, max_months + 1):
-        interest = balance * monthly_rate
-        balance += interest + monthly_deposit
-        total_deposited += monthly_deposit
-
-        # 无报酬的纯储蓄余额
-        no_return_balance = current + monthly_deposit * m
-
-        rows.append({
-            "月数": m,
-            "余额": balance,
-            "当月利息": interest,
-            "当月投入": monthly_deposit,
-            "纯储蓄余额": no_return_balance,
-        })
-
-        if balance >= goal and months_needed == -1:
-            months_needed = m
-
-        # 达成后再多算 12 个月用于图表展示
-        if months_needed != -1 and m >= months_needed + 12:
-            break
-
-    # 若永远无法达成（报酬率=0 且 月投入=0）
-    if months_needed == -1 and monthly_deposit == 0 and annual_rate_pct == 0:
-        pass  # months_needed 保持 -1
-
-    schedule = pd.DataFrame(rows)
-
-    # 逐年汇总
-    yearly_rows: list[dict] = []
-    yr_balance = current
-    yr_interest_total = 0.0
-    yr_deposit_total = 0.0
-
-    for _, row in schedule.iterrows():
-        yr_interest_total += row["当月利息"]
-        yr_deposit_total += row["当月投入"]
-
-        if row["月数"] % 12 == 0 or row["月数"] == len(schedule):
-            year_num = math.ceil(row["月数"] / 12)
-            yearly_rows.append({
-                "年份": year_num,
-                "年初余额": yr_balance,
-                "当年利息": yr_interest_total,
-                "当年投入": yr_deposit_total,
-                "年末余额": row["余额"],
-            })
-            yr_balance = row["余额"]
-            yr_interest_total = 0.0
-            yr_deposit_total = 0.0
-
-    yearly = pd.DataFrame(yearly_rows)
-
-    total_interest = balance - total_deposited if months_needed != -1 else 0.0
-    # 如果达成了，用达成时刻的数据
-    if months_needed > 0:
-        goal_row = schedule[schedule["月数"] == months_needed].iloc[0]
-        deposited_at_goal = current + monthly_deposit * months_needed
-        interest_at_goal = goal_row["余额"] - deposited_at_goal
-        total_deposited = deposited_at_goal
-        total_interest = interest_at_goal
-
-    return SavingsResult(
-        reached=(months_needed >= 0),
-        months_needed=months_needed,
-        schedule=schedule,
-        yearly=yearly,
-        total_deposited=total_deposited,
-        total_interest=total_interest,
-    )
-
 
 # ══════════════════════════════════════════════════════════
 #  执行计算
@@ -194,6 +81,8 @@ st.session_state["dashboard_savings"] = {
     "months_needed": result.months_needed,
     "total_interest": result.total_interest,
 }
+
+sym = get_symbol()
 
 # ── 已达成特殊情况 ────────────────────────────────────────
 st.markdown("---")
@@ -216,7 +105,6 @@ time_str = f"{years_needed} 年 {months_remain} 个月" if years_needed > 0 else
 
 interest_ratio = (result.total_interest / goal_amount * 100) if goal_amount > 0 else 0
 
-# 达成日期
 target_month = start_date.month + result.months_needed
 target_year = start_date.year + (target_month - 1) // 12
 target_month = (target_month - 1) % 12 + 1
@@ -245,34 +133,24 @@ else:
 # ── Plotly 资产成长曲线 ───────────────────────────────────
 st.subheader("📈 资产成长曲线")
 
-LAYOUT_DARK = dict(
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict()),
-    margin=dict(t=30, b=40),
-    hovermode="x unified",
-)
-
 sched = result.schedule
 
 fig = go.Figure()
 
-# 资产成长（实线）
 fig.add_trace(go.Scatter(
     x=sched["月数"], y=sched["余额"],
     mode="lines", name="复利成长",
     line=dict(width=2.5, color="#00CC96"),
-    hovertemplate="第 %{x} 月<br>余额: ¥%{y:,.0f}<extra></extra>",
+    hovertemplate=f"第 %{{x}} 月<br>余额: {sym}%{{y:,.0f}}<extra></extra>",
 ))
 
-# 纯储蓄（虚线）
 fig.add_trace(go.Scatter(
     x=sched["月数"], y=sched["纯储蓄余额"],
     mode="lines", name="纯储蓄（无报酬）",
     line=dict(width=2, dash="dash", color="#636EFA"),
-    hovertemplate="第 %{x} 月<br>纯储蓄: ¥%{y:,.0f}<extra></extra>",
+    hovertemplate=f"第 %{{x}} 月<br>纯储蓄: {sym}%{{y:,.0f}}<extra></extra>",
 ))
 
-# 目标线
 fig.add_hline(
     y=goal_amount, line_dash="dot", line_color="#EF553B", line_width=1.5,
     annotation_text=f"目标 {fmt(goal_amount, decimals=0)}",
@@ -280,7 +158,6 @@ fig.add_hline(
     annotation_font_color="#EF553B",
 )
 
-# 达成点
 goal_row = sched[sched["月数"] == result.months_needed].iloc[0]
 fig.add_trace(go.Scatter(
     x=[result.months_needed], y=[goal_row["余额"]],
@@ -303,10 +180,7 @@ fig.add_trace(go.Scatter(
 ))
 
 fig.update_layout(
-    **LAYOUT_DARK,
-    xaxis_title="月数",
-    yaxis_title="金额（元）",
-    yaxis_tickformat=",",
+    **build_layout(xaxis_title="月数", yaxis_title="金额（元）", yaxis_tickformat=","),
 )
 st.plotly_chart(fig, use_container_width=True)
 
@@ -331,7 +205,6 @@ comparison_deposits = [
     effective_deposit * 1.5,
     effective_deposit * 2.0,
 ]
-# 去重 + 去零 + 排序
 comparison_deposits = sorted(set(d for d in comparison_deposits if d > 0))
 
 comp_rows: list[dict] = []

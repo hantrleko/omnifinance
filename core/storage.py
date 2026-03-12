@@ -1,4 +1,8 @@
-"""Lightweight JSON-based scheme persistence for parameter presets."""
+"""Lightweight JSON-based scheme persistence for parameter presets.
+
+v1.4: Added schema_version field and forward-compatible migration mechanism.
+      Old files without version field are automatically treated as v1 and migrated.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +14,7 @@ from pathlib import Path
 import streamlit as st
 
 _STORAGE_DIR = Path(os.path.expanduser("~")) / ".omnifinance"
+_SCHEMA_VERSION = 2   # bump this whenever the stored format changes
 
 
 def _ensure_dir() -> Path:
@@ -21,12 +26,40 @@ def _tool_path(tool_name: str) -> Path:
     return _ensure_dir() / f"{tool_name}.json"
 
 
+def _migrate(data: dict) -> dict:
+    """Migrate stored data to the latest schema version in-place.
+
+    Migration rules:
+      v1 → v2: wrap bare-dict entries into {params, saved_at, schema_version}.
+    """
+    migrated = False
+    for key, entry in list(data.items()):
+        # v1 format: entry is a dict without schema_version
+        if isinstance(entry, dict) and "schema_version" not in entry:
+            if "params" not in entry:
+                # Very old format: the whole entry IS the params dict
+                data[key] = {
+                    "params": entry,
+                    "saved_at": datetime.now().isoformat(),
+                    "schema_version": _SCHEMA_VERSION,
+                }
+            else:
+                entry["schema_version"] = _SCHEMA_VERSION
+            migrated = True
+    return data, migrated  # type: ignore[return-value]
+
+
 def _load_all(tool_name: str) -> dict[str, dict]:
     path = _tool_path(tool_name)
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        data, migrated = _migrate(raw)
+        if migrated:
+            # Persist migrated data transparently
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        return data
     except (json.JSONDecodeError, OSError):
         return {}
 
@@ -42,6 +75,7 @@ def save_scheme(tool_name: str, scheme_name: str, params: dict) -> None:
     data[scheme_name] = {
         "params": params,
         "saved_at": datetime.now().isoformat(),
+        "schema_version": _SCHEMA_VERSION,
     }
     _save_all(tool_name, data)
 
@@ -83,7 +117,7 @@ def scheme_manager_ui(tool_name: str, current_params: dict, apply_callback=None)
             else:
                 st.warning("请输入方案名称")
 
-    # Load
+    # Load / Delete
     loaded = None
     if schemes:
         with st.sidebar.expander("加载 / 删除方案"):

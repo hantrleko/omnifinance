@@ -7,6 +7,7 @@
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.chart_config import build_layout
 from core.currency import currency_selector, fmt, fmt_delta
 from core.planning import calculate_budget
 from core.storage import scheme_manager_ui

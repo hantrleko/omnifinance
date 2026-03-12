@@ -7,6 +7,7 @@ import io
 
 import pandas as pd
 
+from core.chart_config import build_layout
 from core.currency import currency_selector, fmt, fmt_delta
 from core.planning import calculate_loan
 from core.storage import scheme_manager_ui
@@ -113,13 +114,6 @@ c5.metric("提前还款节省", fmt(interest_saved), delta=f"少 {periods_saved}
 if enable_prepay and prepay_amount > 0:
     st.info(f"结论：在第 {int(prepay_period)} 期提前还 {fmt(prepay_amount, decimals=0)}，预计少付利息 {fmt(interest_saved)}，并缩短 {periods_saved} 期。")
 
-# ── 图表公共配置 ──────────────────────────────────────────
-LAYOUT_DARK = dict(
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict()),
-    margin=dict(t=30, b=40),
-    hovermode="x unified",
-)
 
 # ── 图表：剩余本金 + 本金/利息堆叠柱状图 ─────────────────
 st.subheader("📈 还款趋势")
@@ -136,10 +130,7 @@ with tab_line:
         hovertemplate="第 %{x} 期<br>剩余本金: ¥%{y:,.2f}<extra></extra>",
     ))
     fig_bal.update_layout(
-        **LAYOUT_DARK,
-        xaxis_title="期数",
-        yaxis_title="剩余本金（元）",
-        yaxis_tickformat=",",
+        **build_layout(xaxis_title="期数", yaxis_title="剩余本金（元）", yaxis_tickformat=","),
     )
     st.plotly_chart(fig_bal, use_container_width=True)
 
@@ -156,11 +147,7 @@ with tab_bar:
         hovertemplate="第 %{x} 期<br>利息: ¥%{y:,.2f}<extra></extra>",
     ))
     fig_bar.update_layout(
-        **LAYOUT_DARK,
-        barmode="stack",
-        xaxis_title="期数",
-        yaxis_title="金额（元）",
-        yaxis_tickformat=",",
+        **build_layout(barmode="stack", xaxis_title="期数", yaxis_title="金额（元）", yaxis_tickformat=","),
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 

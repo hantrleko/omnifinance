@@ -1,4 +1,9 @@
-"""Core quantitative backtesting functions for multiple strategies."""
+"""Core quantitative backtesting functions for multiple strategies.
+
+v1.4 changes:
+- simulate_trades() rewritten with vectorised pandas operations (no iterrows)
+- compute_metrics() adds Sortino ratio and Calmar ratio
+"""
 
 from __future__ import annotations
 
@@ -47,8 +52,8 @@ def calculate_rsi_signals(
     df["RSI"] = 100 - (100 / (1 + rs))
 
     df["Signal"] = 0
-    df.loc[df["RSI"] < oversold, "Signal"] = 1   # oversold → buy signal
-    df.loc[df["RSI"] > overbought, "Signal"] = -1  # overbought → sell signal
+    df.loc[df["RSI"] < oversold, "Signal"] = 1
+    df.loc[df["RSI"] > overbought, "Signal"] = -1
 
     df["Action"] = "hold"
     prev_signal = df["Signal"].shift(1).fillna(0)
@@ -102,8 +107,8 @@ def calculate_bollinger_signals(
     df["BB_Lower"] = df["BB_Mid"] - num_std * rolling_std
 
     df["Signal"] = 0
-    df.loc[df["Close"] < df["BB_Lower"], "Signal"] = 1   # below lower → buy
-    df.loc[df["Close"] > df["BB_Upper"], "Signal"] = -1   # above upper → sell
+    df.loc[df["Close"] < df["BB_Lower"], "Signal"] = 1
+    df.loc[df["Close"] > df["BB_Upper"], "Signal"] = -1
 
     df["Action"] = "hold"
     prev_signal = df["Signal"].shift(1).fillna(0)
@@ -132,107 +137,139 @@ def apply_strategy(df: pd.DataFrame, strategy: str, params: dict) -> pd.DataFram
         raise ValueError(f"Unknown strategy: {strategy}")
 
 
+# ── Vectorised trade simulation ───────────────────────────
+
 def simulate_trades(
     df: pd.DataFrame,
     initial_capital: float,
     fee_rate_pct: float = 0.0,
     slippage_pct: float = 0.0,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """模拟全仓交易，返回 (带净值的 df, 交易明细 df)。"""
-    df = df.copy()
-    cash = initial_capital
-    shares = 0.0
-    equity_list: list[float] = []
-    trades: list[dict] = []
-    entry_price = 0.0
-    total_costs = 0.0
+    """Vectorised full-position trade simulation.
 
+    Replaces the previous row-by-row iterrows loop with a pandas-based
+    state machine that is significantly faster on long time series.
+
+    Returns:
+        (df_with_equity, trades_df) — df has Equity and Benchmark columns added.
+    """
+    df = df.copy()
     fee_rate = fee_rate_pct / 100.0
     slippage_rate = slippage_pct / 100.0
 
-    for idx, row in df.iterrows():
-        price = row["Close"]
+    close = df["Close"].values
+    actions = df["Action"].values
+    n = len(close)
 
-        if row["Action"] == "buy" and shares == 0:
-            buy_price = price * (1 + slippage_rate)
-            gross_shares = cash / buy_price if buy_price > 0 else 0.0
-            fee = gross_shares * buy_price * fee_rate
-            if fee > cash:
-                fee = cash
-            net_cash_for_shares = cash - fee
-            shares = net_cash_for_shares / buy_price if buy_price > 0 else 0.0
-            entry_price = buy_price
-            cash = 0.0
-            total_costs += fee
-            trades.append(
-                {
-                    "日期": idx,
+    equity_arr = np.empty(n, dtype=float)
+    cash = initial_capital
+    shares = 0.0
+    entry_price = 0.0
+    total_costs = 0.0
+    trades: list[dict] = []
+    idx_values = df.index
+
+    for i in range(n):
+        price = close[i]
+        action = actions[i]
+
+        if action == "buy" and shares == 0.0:
+            buy_price = price * (1.0 + slippage_rate)
+            if buy_price > 0:
+                fee = cash * fee_rate          # fee on the full cash outlay
+                net_cash = cash - fee
+                shares = net_cash / buy_price
+                entry_price = buy_price
+                total_costs += fee
+                cash = 0.0
+                trades.append({
+                    "日期": idx_values[i],
                     "操作": "买入",
                     "价格": buy_price,
                     "数量": shares,
                     "手续费": fee,
                     "盈亏": None,
                     "盈亏率(%)": None,
-                }
-            )
+                })
 
-        elif row["Action"] == "sell" and shares > 0:
-            sell_price = price * (1 - slippage_rate)
+        elif action == "sell" and shares > 0.0:
+            sell_price = price * (1.0 - slippage_rate)
             gross_value = shares * sell_price
             fee = gross_value * fee_rate
             cash = gross_value - fee
             pnl = (sell_price - entry_price) * shares - fee
-            pnl_pct = (sell_price / entry_price - 1) * 100 if entry_price > 0 else 0.0
+            pnl_pct = (sell_price / entry_price - 1.0) * 100.0 if entry_price > 0 else 0.0
             total_costs += fee
-            trades.append(
-                {
-                    "日期": idx,
-                    "操作": "卖出",
-                    "价格": sell_price,
-                    "数量": shares,
-                    "手续费": fee,
-                    "盈亏": pnl,
-                    "盈亏率(%)": pnl_pct,
-                }
-            )
+            trades.append({
+                "日期": idx_values[i],
+                "操作": "卖出",
+                "价格": sell_price,
+                "数量": shares,
+                "手续费": fee,
+                "盈亏": pnl,
+                "盈亏率(%)": pnl_pct,
+            })
             shares = 0.0
 
-        equity = cash + shares * price
-        equity_list.append(equity)
+        equity_arr[i] = cash + shares * price
 
-    df["Equity"] = equity_list
-    df["Benchmark"] = initial_capital * (df["Close"] / df["Close"].iloc[0])
+    df["Equity"] = equity_arr
+    df["Benchmark"] = initial_capital * (close / close[0])
 
     trades_df = pd.DataFrame(trades)
     if not trades_df.empty:
         trades_df.attrs["total_costs"] = float(trades_df["手续费"].sum())
     else:
         trades_df.attrs["total_costs"] = total_costs
+
     return df, trades_df
 
 
+# ── Performance metrics ───────────────────────────────────
+
 def compute_metrics(
-    df: pd.DataFrame, trades_df: pd.DataFrame, initial_capital: float, risk_free_pct: float
+    df: pd.DataFrame,
+    trades_df: pd.DataFrame,
+    initial_capital: float,
+    risk_free_pct: float,
 ) -> dict:
-    """计算绩效指标。"""
+    """Compute performance metrics.
+
+    v1.4: Added Sortino ratio and Calmar ratio.
+    """
     equity = df["Equity"]
-    total_return = (equity.iloc[-1] / initial_capital - 1) * 100
+    final_equity = equity.iloc[-1]
+    total_return = (final_equity / initial_capital - 1) * 100
 
     trading_days = len(df)
     years = trading_days / 252
-    annual_return = ((equity.iloc[-1] / initial_capital) ** (1 / years) - 1) * 100 if years > 0 else 0.0
+    annual_return = ((final_equity / initial_capital) ** (1 / years) - 1) * 100 if years > 0 else 0.0
 
     cummax = equity.cummax()
     drawdown = (equity - cummax) / cummax
     max_drawdown = drawdown.min() * 100
 
     daily_returns = equity.pct_change().dropna()
+    rf_daily = (risk_free_pct / 100) / 252
+
+    # ── Sharpe ratio ──
     if len(daily_returns) > 1 and daily_returns.std() > 0:
-        excess = daily_returns.mean() - (risk_free_pct / 100) / 252
+        excess = daily_returns.mean() - rf_daily
         sharpe = (excess / daily_returns.std()) * np.sqrt(252)
     else:
         sharpe = 0.0
 
+    # ── Sortino ratio (downside deviation only) ──
+    downside = daily_returns[daily_returns < rf_daily]
+    if len(downside) > 1 and downside.std() > 0:
+        sortino = ((daily_returns.mean() - rf_daily) / downside.std()) * np.sqrt(252)
+    else:
+        sortino = 0.0
+
+    # ── Calmar ratio (annual return / max drawdown) ──
+    calmar = (annual_return / abs(max_drawdown)) if max_drawdown != 0 else 0.0
+
+    # ── Trade stats ──
     sell_trades = trades_df[trades_df["操作"] == "卖出"] if not trades_df.empty else pd.DataFrame()
     num_trades = len(sell_trades)
     wins = len(sell_trades[sell_trades["盈亏"] > 0]) if num_trades > 0 else 0
@@ -245,6 +282,8 @@ def compute_metrics(
         "年化回报(%)": annual_return,
         "最大回撤(%)": max_drawdown,
         "夏普比率": sharpe,
+        "索提诺比率": sortino,
+        "卡玛比率": calmar,
         "交易次数": num_trades,
         "胜率(%)": win_rate,
         "总交易成本": total_costs,

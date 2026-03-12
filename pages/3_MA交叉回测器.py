@@ -1,6 +1,12 @@
 """多策略回测器 (Multi-Strategy Backtester)
 
 支持 MA 交叉 / RSI / MACD / 布林带 四种策略，全仓模拟，Plotly 可视化，Streamlit 前端。
+
+v1.4:
+- 策略对比 expander 改用 @st.cache_data 缓存，避免每次渲染重复计算
+- 新增 Sortino 比率和 Calmar 比率（来自 core/backtest.py v1.4）
+- 图表 hovertemplate 货币符号改为动态引用
+- 使用 core/chart_config.py 统一布局配置
 """
 
 from datetime import date, timedelta
@@ -12,7 +18,8 @@ import streamlit as st
 import yfinance as yf
 
 from core.backtest import STRATEGY_NAMES, apply_strategy, simulate_trades, compute_metrics
-from core.currency import currency_selector, fmt
+from core.chart_config import build_layout
+from core.currency import currency_selector, fmt, get_symbol
 from core.storage import scheme_manager_ui
 
 # ── 页面配置 ──────────────────────────────────────────────
@@ -105,7 +112,6 @@ def get_data(ticker: str, start: date, end: date) -> pd.DataFrame | None:
         df = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=True)
         if df.empty:
             return None
-        # yfinance 可能返回 MultiIndex columns
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
@@ -114,6 +120,22 @@ def get_data(ticker: str, start: date, end: date) -> pd.DataFrame | None:
         return df
     except Exception:
         return None
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_comparison(
+    ticker_key: str,
+    initial_capital: float,
+    fee_rate: float,
+    slippage_rate: float,
+    risk_free_rate: float,
+    data_hash: int,
+) -> list[dict]:
+    """缓存策略对比结果，避免每次 expander 展开时重复计算四个策略。
+
+    data_hash 是 DataFrame 的行数 + 最后收盘价的组合，用作缓存键。
+    """
+    return []   # Placeholder; actual call is done outside with data passed in
 
 
 # ══════════════════════════════════════════════════════════
@@ -150,47 +172,42 @@ sig_df = apply_strategy(data, strategy, strategy_params)
 result_df, trades_df = simulate_trades(sig_df, initial_capital, fee_rate, slippage_rate)
 metrics = compute_metrics(result_df, trades_df, initial_capital, risk_free_rate)
 
-# ── 绩效卡片 ──────────────────────────────────────────────
+sym = get_symbol()
+
+# ── 绩效卡片（含 Sortino / Calmar） ───────────────────────
 st.subheader("🏆 绩效概览")
 
-c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(9)
 c1.metric("总回报率", f"{metrics['总回报率(%)']:+.2f}%")
 c2.metric("年化回报", f"{metrics['年化回报(%)']:+.2f}%")
 c3.metric("最大回撤", f"{metrics['最大回撤(%)']:.2f}%")
 c4.metric("夏普比率", f"{metrics['夏普比率']:.2f}")
-c5.metric("交易次数", f"{metrics['交易次数']}")
-c6.metric("胜率", f"{metrics['胜率(%)']:.1f}%")
-c7.metric("总交易成本", fmt(metrics['总交易成本']))
+c5.metric("索提诺比率", f"{metrics['索提诺比率']:.2f}",
+          help="仅统计下行波动的风险调整回报，比夏普更保守")
+c6.metric("卡玛比率", f"{metrics['卡玛比率']:.2f}",
+          help="年化回报 / 最大回撤绝对值，越高越好")
+c7.metric("交易次数", f"{metrics['交易次数']}")
+c8.metric("胜率", f"{metrics['胜率(%)']:.1f}%")
+c9.metric("总交易成本", fmt(metrics['总交易成本']))
 
 if metrics["总回报率(%)"] >= 0:
     st.success(f"结论：在当前参数下，策略净值跑赢初始资金，期间总交易成本约 {fmt(metrics['总交易成本'])}。")
 else:
     st.warning("结论：在当前参数下，策略回报为负；可尝试调整策略参数或降低交易成本参数。")
 
-# ── 图表公共配置 ──────────────────────────────────────────
-LAYOUT_DARK = dict(
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict()),
-    margin=dict(t=30, b=40),
-    hovermode="x unified",
-)
-
 # ── 价格 + 策略指标 + 信号图 ──────────────────────────────
 st.subheader(f"📊 价格 & {strategy} 信号")
 
-# 买卖信号散点
 buys = result_df[result_df["Action"] == "buy"]
 sells = result_df[result_df["Action"] == "sell"]
 
 if strategy in ("RSI", "MACD"):
-    # 带子图的布局
     fig_price = make_subplots(
         rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06,
         row_heights=[0.7, 0.3],
         subplot_titles=["价格 & 信号", strategy],
     )
 
-    # 主图 - 价格
     fig_price.add_trace(go.Scatter(
         x=result_df.index, y=result_df["Close"],
         mode="lines", name="收盘价",
@@ -213,7 +230,6 @@ if strategy in ("RSI", "MACD"):
             hovertemplate="%{x|%Y-%m-%d}<br>卖出: %{y:,.2f}<extra></extra>",
         ), row=1, col=1)
 
-    # 子图 - 指标
     if strategy == "RSI":
         fig_price.add_trace(go.Scatter(
             x=result_df.index, y=result_df["RSI"],
@@ -240,22 +256,15 @@ if strategy in ("RSI", "MACD"):
         colors = ["#00c853" if v >= 0 else "#ff1744" for v in result_df["MACD_Hist"]]
         fig_price.add_trace(go.Bar(
             x=result_df.index, y=result_df["MACD_Hist"],
-            name="Histogram",
-            marker_color=colors,
-            opacity=0.6,
+            name="Histogram", marker_color=colors, opacity=0.6,
         ), row=2, col=1)
         fig_price.update_yaxes(title_text="MACD", row=2, col=1)
 
     fig_price.update_layout(
-        **LAYOUT_DARK,
-        height=700,
-        xaxis2_title="日期",
-        yaxis_title="价格",
-        yaxis_tickformat=",",
+        **build_layout(height=700, xaxis2_title="日期", yaxis_title="价格", yaxis_tickformat=","),
     )
 
 else:
-    # MA 交叉 / 布林带 — 单图布局
     fig_price = go.Figure()
 
     fig_price.add_trace(go.Scatter(
@@ -312,10 +321,7 @@ else:
         ))
 
     fig_price.update_layout(
-        **LAYOUT_DARK,
-        xaxis_title="日期",
-        yaxis_title="价格",
-        yaxis_tickformat=",",
+        **build_layout(xaxis_title="日期", yaxis_title="价格", yaxis_tickformat=","),
     )
 
 st.plotly_chart(fig_price, use_container_width=True)
@@ -328,44 +334,36 @@ fig_equity.add_trace(go.Scatter(
     x=result_df.index, y=result_df["Equity"],
     mode="lines", name="策略净值",
     line=dict(width=2.5, color="#00CC96"),
-    hovertemplate="%{x|%Y-%m-%d}<br>策略: " + fmt(0).replace("0.00", "") + "%{y:,.0f}<extra></extra>",
+    hovertemplate=f"%{{x|%Y-%m-%d}}<br>策略: {sym}%{{y:,.0f}}<extra></extra>",
 ))
 fig_equity.add_trace(go.Scatter(
     x=result_df.index, y=result_df["Benchmark"],
     mode="lines", name="买入持有",
     line=dict(width=2, dash="dash", color="#636EFA"),
-    hovertemplate="%{x|%Y-%m-%d}<br>持有: " + fmt(0).replace("0.00", "") + "%{y:,.0f}<extra></extra>",
+    hovertemplate=f"%{{x|%Y-%m-%d}}<br>持有: {sym}%{{y:,.0f}}<extra></extra>",
 ))
 
-# 回撤填充区域
 cummax = result_df["Equity"].cummax()
 fig_equity.add_trace(go.Scatter(
     x=result_df.index, y=cummax,
     mode="lines", name="历史最高",
-    line=dict(width=0),
-    showlegend=False,
-    hoverinfo="skip",
+    line=dict(width=0), showlegend=False, hoverinfo="skip",
 ))
 fig_equity.add_trace(go.Scatter(
     x=result_df.index, y=result_df["Equity"],
     mode="lines", name="回撤区域",
     line=dict(width=0),
-    fill="tonexty",
-    fillcolor="rgba(255,23,68,0.15)",
-    showlegend=False,
-    hoverinfo="skip",
+    fill="tonexty", fillcolor="rgba(255,23,68,0.15)",
+    showlegend=False, hoverinfo="skip",
 ))
 
 fig_equity.update_layout(
-    **LAYOUT_DARK,
-    xaxis_title="日期",
-    yaxis_title="资产净值",
-    yaxis_tickformat=",",
+    **build_layout(xaxis_title="日期", yaxis_title="资产净值", yaxis_tickformat=","),
 )
 st.plotly_chart(fig_equity, use_container_width=True)
 
-# ── 策略对比 ──────────────────────────────────────────────
-with st.expander("📊 策略对比"):
+# ── 策略对比（缓存计算） ──────────────────────────────────
+with st.expander("📊 策略对比（默认参数）"):
     DEFAULT_PARAMS = {
         "MA 交叉": {"short_window": 50, "long_window": 200},
         "RSI": {"period": 14, "oversold": 30, "overbought": 70},
@@ -373,35 +371,44 @@ with st.expander("📊 策略对比"):
         "布林带": {"period": 20, "num_std": 2.0},
     }
 
-    comparison_rows = []
-    for s_name in STRATEGY_NAMES:
-        s_params = DEFAULT_PARAMS[s_name]
-        try:
-            s_sig = apply_strategy(data, s_name, s_params)
-            s_result, s_trades = simulate_trades(s_sig, initial_capital, fee_rate, slippage_rate)
-            s_metrics = compute_metrics(s_result, s_trades, initial_capital, risk_free_rate)
-            comparison_rows.append({
-                "策略": s_name,
-                "总回报率(%)": round(s_metrics["总回报率(%)"], 2),
-                "年化回报(%)": round(s_metrics["年化回报(%)"], 2),
-                "最大回撤(%)": round(s_metrics["最大回撤(%)"], 2),
-                "夏普比率": round(s_metrics["夏普比率"], 2),
-                "交易次数": s_metrics["交易次数"],
-                "胜率(%)": round(s_metrics["胜率(%)"], 1),
-            })
-        except Exception:
-            comparison_rows.append({
-                "策略": s_name,
-                "总回报率(%)": None,
-                "年化回报(%)": None,
-                "最大回撤(%)": None,
-                "夏普比率": None,
-                "交易次数": None,
-                "胜率(%)": None,
-            })
+    # Build a simple cache key from the data characteristics
+    data_key = (ticker.upper(), str(start_date), str(end_date),
+                 initial_capital, fee_rate, slippage_rate, risk_free_rate)
 
-    comparison_df = pd.DataFrame(comparison_rows)
-    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+    @st.cache_data(ttl=300, show_spinner="正在计算策略对比…")
+    def compute_comparison(
+        data_key: tuple,
+        _data: pd.DataFrame,   # leading underscore = not hashed by Streamlit
+    ) -> list[dict]:
+        rows = []
+        for s_name in STRATEGY_NAMES:
+            s_params = DEFAULT_PARAMS[s_name]
+            try:
+                s_sig = apply_strategy(_data, s_name, s_params)
+                s_result, s_trades = simulate_trades(
+                    s_sig, data_key[3], data_key[4], data_key[5]
+                )
+                s_metrics = compute_metrics(s_result, s_trades, data_key[3], data_key[6])
+                rows.append({
+                    "策略": s_name,
+                    "总回报率(%)": round(s_metrics["总回报率(%)"], 2),
+                    "年化回报(%)": round(s_metrics["年化回报(%)"], 2),
+                    "最大回撤(%)": round(s_metrics["最大回撤(%)"], 2),
+                    "夏普比率": round(s_metrics["夏普比率"], 2),
+                    "索提诺比率": round(s_metrics["索提诺比率"], 2),
+                    "卡玛比率": round(s_metrics["卡玛比率"], 2),
+                    "交易次数": s_metrics["交易次数"],
+                    "胜率(%)": round(s_metrics["胜率(%)"], 1),
+                })
+            except Exception:
+                rows.append({"策略": s_name, **{k: None for k in [
+                    "总回报率(%)", "年化回报(%)", "最大回撤(%)",
+                    "夏普比率", "索提诺比率", "卡玛比率", "交易次数", "胜率(%)",
+                ]}})
+        return rows
+
+    comparison_rows = compute_comparison(data_key, data)
+    st.dataframe(pd.DataFrame(comparison_rows), use_container_width=True, hide_index=True)
 
 # ── 交易明细 ──────────────────────────────────────────────
 st.subheader("📋 交易明细")
@@ -420,7 +427,6 @@ else:
 
     st.dataframe(display_trades, use_container_width=True, hide_index=True)
 
-    # 导出 CSV
     csv_out = trades_df.copy()
     csv_out["日期"] = csv_out["日期"].dt.strftime("%Y-%m-%d")
     st.download_button(

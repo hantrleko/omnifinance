@@ -13,6 +13,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
+from core.chart_config import build_layout
 from core.compound import add_annualized_return, compute_schedule
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.storage import scheme_manager_ui
@@ -73,13 +74,13 @@ fig.add_trace(go.Scatter(
     x=schedule["年份"], y=schedule["年末余额"],
     mode="lines+markers", name="年末余额",
     line=dict(width=3, color="#636EFA"),
-    hovertemplate="第 %{x} 年<br>余额: " + get_symbol() + "%{y:,.2f}<extra></extra>",
+    hovertemplate=f"第 %{{x}} 年<br>余额: {get_symbol()}%{{y:,.2f}}<extra></extra>",
 ))
 fig.add_trace(go.Scatter(
     x=schedule["年份"], y=schedule["累计投入"],
     mode="lines", name="累计投入",
     line=dict(width=2, dash="dash", color="#EF553B"),
-    hovertemplate="第 %{x} 年<br>累计投入: " + get_symbol() + "%{y:,.2f}<extra></extra>",
+    hovertemplate=f"第 %{{x}} 年<br>累计投入: {get_symbol()}%{{y:,.2f}}<extra></extra>",
 ))
 # 年化收益率放在右 Y 轴
 fig.add_trace(go.Scatter(
@@ -89,15 +90,13 @@ fig.add_trace(go.Scatter(
     marker=dict(size=5),
     yaxis="y2",
     hovertemplate="第 %{x} 年<br>年化收益率: %{y:.2f}%<extra></extra>",
-))
+))  # 年化收益率无需货币符号
 fig.update_layout(
-    xaxis_title="年份",
-    yaxis=dict(title="金额（元）", tickformat=",", side="left"),
-    yaxis2=dict(title="年化收益率(%)", overlaying="y", side="right", showgrid=False),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict()),
-    margin=dict(t=30, b=40),
-    hovermode="x unified",
+    **build_layout(
+        xaxis_title="年份",
+        yaxis=dict(title="金额（元）", tickformat=",", side="left"),
+        yaxis2=dict(title="年化收益率(%)", overlaying="y", side="right", showgrid=False),
+    ),
 )
 st.plotly_chart(fig, use_container_width=True)
 
@@ -126,6 +125,7 @@ col_c.metric(
 )
 
 fig_sens = go.Figure()
+_sym = get_symbol()
 for label, sched, color in [
     (f"{max(0, annual_rate-1):.1f}%", schedule_lo, "#EF553B"),
     (f"{annual_rate:.1f}%（当前）", schedule, "#636EFA"),
@@ -135,16 +135,10 @@ for label, sched, color in [
         x=sched["年份"], y=sched["年末余额"],
         mode="lines", name=label,
         line=dict(width=2, color=color),
-        hovertemplate="第 %{x} 年<br>余额: " + get_symbol() + "%{y:,.2f}<extra></extra>",
+        hovertemplate=f"第 %{{x}} 年<br>余额: {_sym}%{{y:,.2f}}<extra></extra>",
     ))
 fig_sens.update_layout(
-    xaxis_title="年份",
-    yaxis_title="金额（元）",
-    yaxis_tickformat=",",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                font=dict()),
-    margin=dict(t=30, b=40),
-    hovermode="x unified",
+    **build_layout(xaxis_title="年份", yaxis_title="金额（元）", yaxis_tickformat=","),
 )
 st.plotly_chart(fig_sens, use_container_width=True)
 
