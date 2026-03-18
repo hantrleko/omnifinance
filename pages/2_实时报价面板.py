@@ -222,6 +222,30 @@ if not selected:
 with st.spinner("正在获取行情数据…"):
     quotes_df = fetch_quotes(tuple(selected))
 
+# ── Session 级缓存回退 ────────────────────────────────────
+if "quote_cache" not in st.session_state:
+    st.session_state["quote_cache"] = {}
+
+cache = st.session_state["quote_cache"]
+used_cache = False
+
+for i, row in quotes_df.iterrows():
+    ticker_code = row["代码"]
+    if row["_error"] == _ERR_OK and pd.notna(row["当前价格"]):
+        cache[ticker_code] = {
+            "当前价格": row["当前价格"],
+            "涨跌幅(%)": row["涨跌幅(%)"],
+            "今日最高": row["今日最高"],
+            "今日最低": row["今日最低"],
+            "成交量": row["成交量"],
+        }
+    elif row["_error"] != _ERR_OK and ticker_code in cache:
+        cached = cache[ticker_code]
+        for col in ["当前价格", "涨跌幅(%)", "今日最高", "今日最低", "成交量"]:
+            quotes_df.at[i, col] = cached[col]
+        quotes_df.at[i, "_error"] = "cached"
+        used_cache = True
+
 # ── 分级错误提示 ──────────────────────────────────────────
 network_errs = quotes_df[quotes_df["_error"] == _ERR_NETWORK]["代码"].tolist()
 notfound_errs = quotes_df[quotes_df["_error"] == _ERR_NOTFOUND]["代码"].tolist()
@@ -231,8 +255,12 @@ if network_errs:
 if notfound_errs:
     st.error(f"❌ 以下标的代码无效或已退市，请检查代码格式：{', '.join(notfound_errs)}")
 
+cached_tickers = quotes_df[quotes_df["_error"] == "cached"]["代码"].tolist()
+if cached_tickers:
+    st.info(f"💾 以下标的使用上次缓存数据：{', '.join(cached_tickers)}")
+
 # 仅展示成功获取的数据
-display_quotes = quotes_df[quotes_df["_error"] == _ERR_OK].copy()
+display_quotes = quotes_df[quotes_df["_error"].isin([_ERR_OK, "cached"])].copy()
 
 # ── 顶部指标卡片 ──────────────────────────────────────────
 top_n = min(4, len(display_quotes))

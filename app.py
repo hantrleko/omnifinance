@@ -1,8 +1,8 @@
 import streamlit as st
 
-from core.currency import get_symbol
+from core.currency import get_symbol, fmt, currency_selector
 
-VERSION = "v1.4"
+VERSION = "v1.5"
 
 st.set_page_config(
     page_title="全能理财家 (OmniFinance)",
@@ -12,6 +12,22 @@ st.set_page_config(
 )
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
+
+# ── 全局设置 & 主题 ───────────────────────────────────────
+with st.sidebar:
+    st.header("⚙️ 全局设置")
+    currency_selector()
+    dark_mode = st.toggle("🌙 深色模式", value=True, key="dark_mode")
+
+if not dark_mode:
+    st.markdown("""
+    <style>
+        [data-testid="stAppViewContainer"] { background-color: #ffffff; color: #1a1a1a; }
+        [data-testid="stSidebar"] { background-color: #f5f5f5; }
+        .stMetric { background-color: #f0f0f0 !important; border-color: #e0e0e0 !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
 st.markdown("---")
 
 st.markdown("""
@@ -27,9 +43,25 @@ st.markdown("""
 6. **💡 6_预算分配建议器**：50/30/20 预算分配法则
 7. **🏖️ 7_退休金估算器**：预估退休生活需求
 8. **🛡️ 8_保险产品测算器**：评估保费效率与储蓄型保单 IRR
+9. **🏠 9_资产净值追踪器**：记录资产负债，追踪净资产趋势
 """)
 
-with st.expander("🆕 最近更新（v1.4）", expanded=True):
+with st.expander("🆕 最近更新（v1.5）", expanded=True):
+    st.markdown("""
+**v1.5 新功能**
+- 🏠 **资产净值追踪器**：新增资产记录与净资产趋势追踪模块。
+- 🔍 **回测参数优化**：策略回测器新增网格搜索，自动寻找最优参数组合。
+- 📊 **组合回测**：支持多标的同策略回测，展示组合收益与风险。
+- 🏦 **贷款方案对比**：贷款计算器支持两组参数并列对比。
+- 💹 **储蓄通胀调整**：储蓄目标计算器新增通胀率参数与通胀影响分析。
+- 📊 **储蓄进度条**：直观展示储蓄目标完成百分比。
+- 🏖️ **社保养老金**：退休金估算器新增预期月养老金收入参数。
+- 📤 **全局报告导出**：所有工具均支持一键导出 HTML 报告。
+- 🌙 **主题切换**：首页支持深色/浅色模式切换。
+- 📡 **报价缓存回退**：实时报价面板新增 session 级缓存回退机制。
+""")
+
+with st.expander("📋 v1.4 更新记录"):
     st.markdown("""
 **v1.4 工程优化与全面升级**
 
@@ -86,28 +118,29 @@ dash_savings = st.session_state.get("dashboard_savings")
 dash_budget = st.session_state.get("dashboard_budget")
 dash_retirement = st.session_state.get("dashboard_retirement")
 dash_insurance = st.session_state.get("dashboard_insurance")
+dash_networth = st.session_state.get("dashboard_networth")
 
-has_data = any([dash_compound, dash_loan, dash_savings, dash_budget, dash_retirement, dash_insurance])
+has_data = any([dash_compound, dash_loan, dash_savings, dash_budget, dash_retirement, dash_insurance, dash_networth])
 
 if has_data:
-    cols = st.columns(6)
+    cols = st.columns(7)
 
     if dash_compound:
-        cols[0].metric("💰 复利终值", f"{sym}{dash_compound['final_balance']:,.0f}")
-        cols[0].caption(f"累计收益 {sym}{dash_compound['total_interest']:,.0f}")
+        cols[0].metric("💰 复利终值", fmt(dash_compound['final_balance'], decimals=0))
+        cols[0].caption(f"累计收益 {fmt(dash_compound['total_interest'], decimals=0)}")
 
     if dash_loan:
-        cols[1].metric("🏦 贷款总利息", f"{sym}{dash_loan['total_interest']:,.0f}")
-        cols[1].caption(f"每期还款 {sym}{dash_loan['monthly_payment']:,.0f}")
+        cols[1].metric("🏦 贷款总利息", fmt(dash_loan['total_interest'], decimals=0))
+        cols[1].caption(f"每期还款 {fmt(dash_loan['monthly_payment'], decimals=0)}")
 
     if dash_savings:
         months = dash_savings["months_needed"]
         y, m = months // 12, months % 12
         cols[2].metric("🎯 储蓄达成", f"{y}年{m}个月")
-        cols[2].caption(f"复利贡献 {sym}{dash_savings['total_interest']:,.0f}")
+        cols[2].caption(f"复利贡献 {fmt(dash_savings['total_interest'], decimals=0)}")
 
     if dash_budget:
-        cols[3].metric("💡 月储蓄额", f"{sym}{dash_budget['amt_save']:,.0f}")
+        cols[3].metric("💡 月储蓄额", fmt(dash_budget['amt_save'], decimals=0))
         cols[3].caption(f"储蓄率 {dash_budget['pct_save']}%")
 
     if dash_retirement:
@@ -115,12 +148,16 @@ if has_data:
         if gap <= 0:
             cols[4].metric("🏖️ 退休评估", "✅ 已充足")
         else:
-            cols[4].metric("🏖️ 退休缺口", f"{sym}{gap:,.0f}")
-            cols[4].caption(f"需额外月存 {sym}{dash_retirement['extra_monthly']:,.0f}")
+            cols[4].metric("🏖️ 退休缺口", fmt(gap, decimals=0))
+            cols[4].caption(f"需额外月存 {fmt(dash_retirement['extra_monthly'], decimals=0)}")
 
     if dash_insurance:
-        cols[5].metric("🛡️ 保险总保费", f"{sym}{dash_insurance['total_premium']:,.0f}")
+        cols[5].metric("🛡️ 保险总保费", fmt(dash_insurance['total_premium'], decimals=0))
         cols[5].caption(f"保单 IRR {dash_insurance['irr_pct']:.2f}%")
+
+    if dash_networth:
+        cols[6].metric("🏠 净资产", fmt(dash_networth['net_worth'], decimals=0))
+        cols[6].caption(f"资产 {fmt(dash_networth['total_assets'], decimals=0)}")
 
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")
 else:

@@ -436,6 +436,143 @@ else:
         mime="text/csv",
     )
 
+# ── 参数网格搜索 ──────────────────────────────────────────
+with st.expander("🔍 参数网格搜索"):
+    st.caption("自动搜索最优参数组合（基于夏普比率）")
+
+    if strategy == "MA 交叉":
+        short_range = st.slider("短期 SMA 搜索范围", 5, 100, (10, 60), step=5, key="gs_short")
+        long_range = st.slider("长期 SMA 搜索范围", 50, 500, (100, 300), step=10, key="gs_long")
+        short_step = st.number_input("短期步长", 5, 20, 10, key="gs_ss")
+        long_step = st.number_input("长期步长", 10, 50, 20, key="gs_ls")
+    elif strategy == "RSI":
+        period_range = st.slider("RSI 周期范围", 5, 50, (7, 28), key="gs_rp")
+        oversold_range = st.slider("超卖阈值范围", 15, 40, (20, 35), step=5, key="gs_os")
+        overbought_range = st.slider("超买阈值范围", 60, 90, (65, 80), step=5, key="gs_ob")
+    elif strategy == "MACD":
+        fast_range = st.slider("快线周期范围", 5, 30, (8, 16), step=2, key="gs_fr")
+        slow_range = st.slider("慢线周期范围", 15, 50, (20, 35), step=5, key="gs_sr")
+    elif strategy == "布林带":
+        bb_p_range = st.slider("周期范围", 10, 50, (15, 30), step=5, key="gs_bp")
+        bb_s_range = st.slider("标准差范围", 1.0, 3.0, (1.5, 2.5), step=0.5, key="gs_bs")
+
+    if st.button("🚀 开始搜索", key="gs_run"):
+        grid_results = []
+        if strategy == "MA 交叉":
+            combos = [(s, l) for s in range(short_range[0], short_range[1]+1, int(short_step))
+                       for l in range(long_range[0], long_range[1]+1, int(long_step)) if s < l]
+        elif strategy == "RSI":
+            combos = [(p, o, b) for p in range(period_range[0], period_range[1]+1, 7)
+                       for o in range(oversold_range[0], oversold_range[1]+1, 5)
+                       for b in range(overbought_range[0], overbought_range[1]+1, 5) if o < b]
+        elif strategy == "MACD":
+            combos = [(f, s) for f in range(fast_range[0], fast_range[1]+1, 2)
+                       for s in range(slow_range[0], slow_range[1]+1, 5) if f < s]
+        elif strategy == "布林带":
+            combos = [(p, s) for p in range(bb_p_range[0], bb_p_range[1]+1, 5)
+                       for s in [x/10 for x in range(int(bb_s_range[0]*10), int(bb_s_range[1]*10)+1, 5)]]
+        else:
+            combos = []
+
+        progress = st.progress(0)
+        for idx, combo in enumerate(combos):
+            try:
+                if strategy == "MA 交叉":
+                    p = {"short_window": combo[0], "long_window": combo[1]}
+                elif strategy == "RSI":
+                    p = {"period": combo[0], "oversold": combo[1], "overbought": combo[2]}
+                elif strategy == "MACD":
+                    p = {"fast": combo[0], "slow": combo[1], "signal_period": 9}
+                elif strategy == "布林带":
+                    p = {"period": combo[0], "num_std": combo[1]}
+                g_sig = apply_strategy(data, strategy, p)
+                g_res, g_trades = simulate_trades(g_sig, initial_capital, fee_rate, slippage_rate)
+                g_m = compute_metrics(g_res, g_trades, initial_capital, risk_free_rate)
+                row = {**{f"参数{i+1}": v for i, v in enumerate(combo)},
+                       "夏普比率": round(g_m["夏普比率"], 3),
+                       "年化回报(%)": round(g_m["年化回报(%)"], 2),
+                       "最大回撤(%)": round(g_m["最大回撤(%)"], 2)}
+                grid_results.append(row)
+            except Exception:
+                pass
+            progress.progress((idx + 1) / max(len(combos), 1))
+
+        if grid_results:
+            grid_df = pd.DataFrame(grid_results).sort_values("夏普比率", ascending=False)
+            st.success(f"搜索完成！共测试 {len(grid_results)} 组参数")
+            st.dataframe(grid_df.head(10), use_container_width=True, hide_index=True)
+        else:
+            st.warning("未找到有效参数组合")
+
+# ── 组合回测 ──────────────────────────────────────────────
+with st.expander("📊 组合回测（多标的）"):
+    st.caption("对多个标的运行同一策略，查看各标的表现")
+    portfolio_input = st.text_input("输入标的代码（逗号分隔）", value="AAPL, MSFT, GOOGL", key="port_tickers")
+
+    if st.button("🚀 运行组合回测", key="port_run"):
+        port_tickers = [t.strip().upper() for t in portfolio_input.split(",") if t.strip()]
+        if len(port_tickers) < 2:
+            st.warning("请输入至少两个标的代码")
+        else:
+            port_rows = []
+            port_equities = {}
+            with st.spinner("正在回测多个标的…"):
+                for pt in port_tickers:
+                    try:
+                        pt_data = get_data(pt, start_date, end_date)
+                        if pt_data is None or pt_data.empty:
+                            port_rows.append({"标的": pt, "状态": "数据获取失败"})
+                            continue
+                        pt_sig = apply_strategy(pt_data, strategy, strategy_params)
+                        pt_res, pt_trades = simulate_trades(pt_sig, initial_capital, fee_rate, slippage_rate)
+                        pt_m = compute_metrics(pt_res, pt_trades, initial_capital, risk_free_rate)
+                        port_rows.append({
+                            "标的": pt, "总回报率(%)": round(pt_m["总回报率(%)"], 2),
+                            "年化回报(%)": round(pt_m["年化回报(%)"], 2),
+                            "最大回撤(%)": round(pt_m["最大回撤(%)"], 2),
+                            "夏普比率": round(pt_m["夏普比率"], 2),
+                            "交易次数": pt_m["交易次数"],
+                        })
+                        port_equities[pt] = pt_res["Equity"]
+                    except Exception:
+                        port_rows.append({"标的": pt, "状态": "回测失败"})
+
+            if port_rows:
+                st.dataframe(pd.DataFrame(port_rows), use_container_width=True, hide_index=True)
+            if port_equities:
+                fig_port = go.Figure()
+                for pname, eq in port_equities.items():
+                    fig_port.add_trace(go.Scatter(x=eq.index, y=eq.values, mode="lines", name=pname))
+                fig_port.update_layout(**build_layout(xaxis_title="日期", yaxis_title="净值", yaxis_tickformat=","))
+                st.plotly_chart(fig_port, use_container_width=True)
+
+# ── 导出报告 ──────────────────────────────────────────────
+st.subheader("📤 导出报告")
+
+def _build_bt_report() -> str:
+    rows_html = ""
+    if not trades_df.empty:
+        for _, r in trades_df.iterrows():
+            pnl = f"{r['盈亏']:,.2f}" if pd.notna(r['盈亏']) else "—"
+            pnl_p = f"{r['盈亏率(%)']:+.2f}%" if pd.notna(r['盈亏率(%)']) else "—"
+            rows_html += f"<tr><td>{r['日期']}</td><td>{r['操作']}</td><td>{r['价格']:,.2f}</td><td>{r['数量']:,.4f}</td><td>{pnl}</td><td>{pnl_p}</td></tr>"
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}h2{{color:#555;margin-top:24px}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}.summary{{display:flex;gap:20px;margin:16px 0;flex-wrap:wrap}}.summary div{{background:#f9f9f9;padding:12px 20px;border-radius:6px}}.label{{font-size:12px;color:#888}}.value{{font-size:18px;font-weight:bold}}</style></head><body>
+<h1>📈 策略回测报告</h1>
+<p>标的：{ticker.upper()} | 策略：{strategy} | 期间：{start_date} → {end_date}</p>
+<div class="summary">
+<div><div class="label">总回报率</div><div class="value">{metrics['总回报率(%)']:+.2f}%</div></div>
+<div><div class="label">年化回报</div><div class="value">{metrics['年化回报(%)']:+.2f}%</div></div>
+<div><div class="label">最大回撤</div><div class="value">{metrics['最大回撤(%)']:.2f}%</div></div>
+<div><div class="label">夏普比率</div><div class="value">{metrics['夏普比率']:.2f}</div></div>
+<div><div class="label">交易次数</div><div class="value">{metrics['交易次数']}</div></div>
+</div>
+<h2>交易明细</h2><table><tr><th>日期</th><th>操作</th><th>价格</th><th>数量</th><th>盈亏</th><th>盈亏率</th></tr>{rows_html}</table>
+<p style="margin-top:24px;font-size:11px;color:#aaa">由策略回测器自动生成</p></body></html>"""
+
+st.download_button("📥 下载回测报告 (HTML)", data=_build_bt_report(), file_name=f"{ticker}_backtest.html", mime="text/html")
+st.caption("提示：打开 HTML 文件后按 Ctrl+P 可打印/另存为 PDF。")
+
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption("策略回测器 | 数据来源：Yahoo Finance | 运行：`streamlit run app.py`")

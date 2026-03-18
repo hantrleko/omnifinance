@@ -172,6 +172,49 @@ st.download_button(
     mime="text/csv",
 )
 
+# ── 贷款方案对比 ──────────────────────────────────────────
+st.subheader("🔀 贷款方案对比")
+with st.expander("📊 设置对比方案", expanded=False):
+    st.caption("输入第二组贷款参数进行并列对比")
+    cb1, cb2, cb3 = st.columns(3)
+    cmp_amount = cb1.number_input("方案B 贷款金额", min_value=100_000.0, max_value=50_000_000.0, value=loan_amount, step=10_000.0, format="%.0f", key="cmp_a")
+    cmp_rate = cb2.number_input("方案B 年利率(%)", min_value=0.1, max_value=20.0, value=annual_rate, step=0.1, format="%.2f", key="cmp_r")
+    cmp_years = cb3.number_input("方案B 期限(年)", min_value=1, max_value=40, value=loan_years, step=1, key="cmp_y")
+    cmp_method = st.radio("方案B 还款方式", ["等额本息", "等额本金"], horizontal=True, key="cmp_m")
+    if st.button("📊 开始对比", key="cmp_run"):
+        cmp_schedule, cmp_summary = calculate_loan(cmp_amount, cmp_rate, cmp_years, periods_per_year, cmp_method)
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            st.markdown("**方案 A（当前）**")
+            st.metric("总利息", fmt(summary['总利息']))
+            st.metric("首期还款", fmt(summary['首期还款']))
+        with cc2:
+            st.markdown("**方案 B（对比）**")
+            st.metric("总利息", fmt(cmp_summary['总利息']), delta=fmt_delta(cmp_summary['总利息'] - summary['总利息']), delta_color="inverse")
+            st.metric("首期还款", fmt(cmp_summary['首期还款']), delta=fmt_delta(cmp_summary['首期还款'] - summary['首期还款']), delta_color="inverse")
+        fig_cmp = go.Figure()
+        fig_cmp.add_trace(go.Scatter(x=schedule["期数"], y=schedule["剩余本金"], mode="lines", name="方案A", line=dict(width=2.5, color="#636EFA")))
+        fig_cmp.add_trace(go.Scatter(x=cmp_schedule["期数"], y=cmp_schedule["剩余本金"], mode="lines", name="方案B", line=dict(width=2.5, color="#EF553B")))
+        fig_cmp.update_layout(**build_layout(xaxis_title="期数", yaxis_title="剩余本金", yaxis_tickformat=","))
+        st.plotly_chart(fig_cmp, use_container_width=True)
+
+# ── 导出报告 ──────────────────────────────────────────────
+st.subheader("📤 导出报告")
+def _build_loan_report() -> str:
+    from core.currency import get_symbol
+    s = get_symbol()
+    rh = ""
+    for _, r in schedule.iterrows():
+        rh += f"<tr><td>{int(r['期数'])}</td><td>{s}{r['每期还款']:,.2f}</td><td>{s}{r['本金']:,.2f}</td><td>{s}{r['利息']:,.2f}</td><td>{s}{r['剩余本金']:,.2f}</td></tr>"
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}.summary{{display:flex;gap:20px;margin:16px 0;flex-wrap:wrap}}.summary div{{background:#f9f9f9;padding:12px 20px;border-radius:6px}}.label{{font-size:12px;color:#888}}.value{{font-size:18px;font-weight:bold}}</style></head><body>
+<h1>🏦 贷款计算报告</h1><p>金额：{s}{loan_amount:,.0f} | 利率：{annual_rate:.2f}% | 期限：{loan_years}年 | 方式：{repay_method}</p>
+<div class="summary"><div><div class="label">每期还款</div><div class="value">{s}{summary['首期还款']:,.2f}</div></div><div><div class="label">总利息</div><div class="value">{s}{summary['总利息']:,.2f}</div></div><div><div class="label">APR</div><div class="value">{summary['APR(%)']:.4f}%</div></div></div>
+<h2>还款明细</h2><table><tr><th>期数</th><th>每期还款</th><th>本金</th><th>利息</th><th>剩余本金</th></tr>{rh}</table>
+<p style="margin-top:24px;font-size:11px;color:#aaa">由贷款计算器自动生成</p></body></html>"""
+
+st.download_button("📥 下载报告 (HTML)", data=_build_loan_report(), file_name="贷款报告.html", mime="text/html")
+st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
+
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption("🏦 贷款计算器 | 运行命令：`streamlit run app.py`")

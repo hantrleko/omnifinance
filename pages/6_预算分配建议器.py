@@ -198,6 +198,15 @@ if not tips:
 for tip in tips:
     st.markdown(tip)
 
+# ── 导出报告 ──────────────────────────────────────────────
+st.subheader("📤 导出报告")
+def _build_bud_report() -> str:
+    from core.currency import get_symbol; s = get_symbol()
+    th = "".join(f"<li>{t}</li>" for t in tips)
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}ul{{line-height:2}}</style></head><body><h1>💡 预算分配报告</h1><p>月收入：{s}{income:,.0f} | 比例：{pct_needs}%/{pct_wants}%/{pct_save}%</p><p>必需：{s}{amt_needs:,.0f} | 想要：{s}{amt_wants:,.0f} | {save_label}：{s}{amt_save:,.0f}</p><h2>建议</h2><ul>{th}</ul></body></html>"""
+st.download_button("📥 下载报告 (HTML)", data=_build_bud_report(), file_name="预算分配报告.html", mime="text/html")
+st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
+
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption("💡 50/30/20 预算分配建议器 | 运行命令：`streamlit run app.py`")

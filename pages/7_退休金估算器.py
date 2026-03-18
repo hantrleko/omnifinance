@@ -50,6 +50,10 @@ life_expectancy = st.sidebar.number_input("预期寿命", retire_age + 1, 120, m
 monthly_expense = st.sidebar.number_input(
     "退休后每月生活费（今日币值，元）", 5_000.0, 500_000.0, 30_000.0, step=1_000.0, format="%.0f",
 )
+pension_income = st.sidebar.number_input(
+    "预期月养老金收入（元）", 0.0, 200_000.0, 0.0, step=500.0, format="%.0f",
+    help="退休后每月可领取的社保养老金或企业年金（今日币值）",
+)
 inflation = st.sidebar.number_input(
     "年平均通胀率（%）", 0.0, 10.0, 2.5, step=0.1, format="%.1f",
 )
@@ -65,6 +69,7 @@ scheme_manager_ui("retirement", {
     "pre_return": pre_return,
     "life_expectancy": life_expectancy,
     "monthly_expense": monthly_expense,
+    "pension_income": pension_income,
     "inflation": inflation,
     "post_return": post_return,
 })
@@ -79,9 +84,31 @@ result = calculate_retirement(
     inflation, pre_return, post_return,
 )
 
+# ── 养老金调整 ────────────────────────────────────────────
+if pension_income > 0:
+    _inf = inflation / 100
+    future_pension = pension_income * (1 + _inf) ** result.years_to_retire
+    _rp = (1 + post_return / 100) / (1 + _inf) - 1
+    _rpm = (1 + _rp) ** (1/12) - 1
+    _nm = result.years_in_retire * 12
+    pension_pv = future_pension * ((1 - (1+_rpm)**(-_nm)) / _rpm) if _rpm > 0 else future_pension * _nm
+    result_total_needed = max(0, result.total_needed_at_retire - pension_pv)
+    result_gap = result_total_needed - result.projected_at_retire
+    if result_gap > 0:
+        _rprm = pre_return / 100 / 12; _np = result.years_to_retire * 12
+        _fvf = ((1+_rprm)**_np - 1) / _rprm if _rprm > 0 else max(_np, 1)
+        result_extra = result_gap / _fvf if _fvf > 0 else result_gap / max(_np, 1)
+    else:
+        result_extra = 0.0
+else:
+    future_pension = 0.0; pension_pv = 0.0
+    result_total_needed = result.total_needed_at_retire
+    result_gap = result.gap
+    result_extra = result.extra_monthly_needed
+
 st.session_state["dashboard_retirement"] = {
-    "gap": result.gap,
-    "extra_monthly": result.extra_monthly_needed,
+    "gap": result_gap,
+    "extra_monthly": result_extra,
 }
 
 sym = get_symbol()
@@ -112,19 +139,19 @@ st.subheader("📊 核心结果")
 m1, m2, m3, m4 = st.columns(4)
 m1.metric(
     "🎯 退休所需总资产",
-    fmt(result.total_needed_at_retire, decimals=0),
+    fmt(result_total_needed, decimals=0),
     delta=f"退休首年月支出 {fmt(result.future_monthly_expense, decimals=0)}",
     delta_color="off",
 )
 m2.metric(
     "📈 当前计划可累积",
     fmt(result.projected_at_retire, decimals=0),
-    delta=f"{'✅ 已充足' if result.gap <= 0 else f'缺口 {fmt(result.gap, decimals=0)}'}",
-    delta_color="normal" if result.gap <= 0 else "inverse",
+    delta=f"{'✅ 已充足' if result_gap <= 0 else f'缺口 {fmt(result_gap, decimals=0)}'}",
+    delta_color="normal" if result_gap <= 0 else "inverse",
 )
 m3.metric(
     "💰 每月还需额外储蓄",
-    fmt(result.extra_monthly_needed, decimals=0) if result.gap > 0 else f"{fmt(0, decimals=0)}（已充足）",
+    fmt(result_extra, decimals=0) if result_gap > 0 else f"{fmt(0, decimals=0)}（已充足）",
 )
 
 prob_labels = []
@@ -133,15 +160,18 @@ for name, (pr, po) in scenarios.items():
     prob_labels.append(f"{name} {tag}")
 m4.metric("📋 达成评估", prob_labels[1], delta=" | ".join(prob_labels), delta_color="off")
 
+if pension_income > 0:
+    st.info(f"💰 养老金效果：月养老金 {fmt(pension_income, decimals=0)}（今日币值），退休首年等效 {fmt(future_pension, decimals=0)}，可减少所需资产约 {fmt(pension_pv, decimals=0)}")
+
 st.subheader("🧭 一页结论")
-if result.gap <= 0:
+if result_gap <= 0:
     st.success("结论：当前退休计划可覆盖资金需求。")
-    st.caption(f"原因：预计退休时可累积 {fmt(result.projected_at_retire, decimals=0)}，高于所需 {fmt(result.total_needed_at_retire, decimals=0)}。")
+    st.caption(f"原因：预计退休时可累积 {fmt(result.projected_at_retire, decimals=0)}，高于所需 {fmt(result_total_needed, decimals=0)}。")
     st.caption("下一步：保持定投并每年复盘通胀和收益率假设。")
 else:
     st.warning("结论：当前退休计划仍有资金缺口。")
-    st.caption(f"原因：预计缺口 {fmt(result.gap, decimals=0)}。")
-    st.caption(f"下一步：建议每月额外增加储蓄约 {fmt(result.extra_monthly_needed, decimals=0)}，并结合延后退休年龄评估。")
+    st.caption(f"原因：预计缺口 {fmt(result_gap, decimals=0)}。")
+    st.caption(f"下一步：建议每月额外增加储蓄约 {fmt(result_extra, decimals=0)}，并结合延后退休年龄评估。")
 
 # ── 成长曲线 ──────────────────────────────────────────────
 st.subheader("📈 资产成长曲线")
@@ -259,6 +289,18 @@ for yr in range(1, result.years_to_retire + 1):
 
 if yearly_rows:
     st.dataframe(pd.DataFrame(yearly_rows), use_container_width=True, hide_index=True, height=400)
+
+# ── 导出报告 ──────────────────────────────────────────────
+st.subheader("📤 导出报告")
+def _build_ret_report() -> str:
+    rh = ""; b = current_assets; rm = pre_return / 100 / 12
+    for yr in range(1, result.years_to_retire + 1):
+        sb = b; yi = 0.0
+        for _ in range(12): i = b * rm; yi += i; b = b + i + monthly_saving
+        rh += f"<tr><td>第{yr}年({current_age+yr}岁)</td><td>{sym}{sb:,.0f}</td><td>{sym}{monthly_saving*12:,.0f}</td><td>{sym}{yi:,.0f}</td><td>{sym}{b:,.0f}</td></tr>"
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}</style></head><body><h1>🏖️ 退休金估算报告</h1><p>{current_age}岁→退休{retire_age}岁→寿命{life_expectancy} | 月储蓄：{sym}{monthly_saving:,.0f}</p><table><tr><th>年份</th><th>年初</th><th>投入</th><th>收益</th><th>年末</th></tr>{rh}</table></body></html>"""
+st.download_button("📥 下载报告 (HTML)", data=_build_ret_report(), file_name="退休金报告.html", mime="text/html")
+st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()

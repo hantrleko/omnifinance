@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core.chart_config import build_layout
-from core.currency import currency_selector, fmt, get_symbol
+from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.savings import SavingsResult, calculate_savings_goal
 from core.storage import scheme_manager_ui
 
@@ -50,6 +50,11 @@ monthly_deposit = st.sidebar.number_input(
     "每月固定投入（元）", min_value=0.0, max_value=200_000.0,
     value=10_000.0, step=1_000.0, format="%.0f",
 )
+inflation_rate = st.sidebar.number_input(
+    "年通胀率（%）", min_value=0.0, max_value=10.0,
+    value=2.5, step=0.1, format="%.1f",
+    help="考虑通胀后的购买力折损",
+)
 start_date = st.sidebar.date_input("计算起始日期", value=date.today())
 
 st.sidebar.divider()
@@ -69,6 +74,7 @@ scheme_manager_ui("savings", {
     "goal_amount": goal_amount,
     "annual_rate": annual_rate,
     "monthly_deposit": monthly_deposit,
+    "inflation_rate": inflation_rate,
 })
 
 # ══════════════════════════════════════════════════════════
@@ -116,6 +122,9 @@ c2.metric("💵 总需投入本金", fmt(result.total_deposited, decimals=0))
 c3.metric("📈 复利贡献金额", fmt(result.total_interest, decimals=0))
 c4.metric("🎯 复利贡献占比", f"{interest_ratio:.1f}%")
 
+progress_pct = min(1.0, current_savings / goal_amount)
+st.progress(progress_pct, text=f"📊 当前进度：{progress_pct*100:.1f}%（{fmt(current_savings, decimals=0)} / {fmt(goal_amount, decimals=0)}）")
+
 st.subheader("🧭 一页结论")
 if result.months_needed <= 24:
     st.success("结论：目标可在较短周期内达成。")
@@ -129,6 +138,21 @@ else:
     st.warning("结论：目标可达成但周期较长。")
     st.caption(f"原因：按当前参数预计需要 {time_str}。")
     st.caption("下一步：建议优先提高月投入，其次再考虑调整收益率假设。")
+
+if inflation_rate > 0 and result.months_needed > 0:
+    years_to_goal = result.months_needed / 12
+    real_goal = goal_amount * (1 + inflation_rate / 100) ** years_to_goal
+    real_return = annual_rate - inflation_rate
+    st.markdown("---")
+    st.subheader("💹 通胀影响分析")
+    ic1, ic2, ic3 = st.columns(3)
+    ic1.metric("📌 名义目标", fmt(goal_amount, decimals=0))
+    ic2.metric("📈 通胀调整后目标", fmt(real_goal, decimals=0), delta=fmt_delta(real_goal - goal_amount, decimals=0), delta_color="inverse")
+    ic3.metric("📉 实际报酬率", f"{real_return:.1f}%", delta=f"名义 {annual_rate:.1f}% − 通胀 {inflation_rate:.1f}%", delta_color="off")
+    if real_goal > goal_amount * 1.3:
+        st.warning(f"⚠️ 考虑 {inflation_rate}% 通胀，{years_to_goal:.0f} 年后实际需要 {fmt(real_goal, decimals=0)} 才等价于今日 {fmt(goal_amount, decimals=0)} 的购买力。")
+    else:
+        st.info(f"💡 考虑 {inflation_rate}% 通胀，{years_to_goal:.0f} 年后等价购买力约需 {fmt(real_goal, decimals=0)}。")
 
 # ── Plotly 资产成长曲线 ───────────────────────────────────
 st.subheader("📈 资产成长曲线")
@@ -231,6 +255,15 @@ for dep in comparison_deposits:
 
 comp_df = pd.DataFrame(comp_rows)
 st.dataframe(comp_df, use_container_width=True, hide_index=True)
+
+# ── 导出报告 ──────────────────────────────────────────────
+st.subheader("📤 导出报告")
+def _build_sav_report() -> str:
+    s = get_symbol()
+    yr = "".join(f"<tr><td>第{int(r['年份'])}年</td><td>{s}{r['年初余额']:,.0f}</td><td>{s}{r['当年利息']:,.0f}</td><td>{s}{r['当年投入']:,.0f}</td><td>{s}{r['年末余额']:,.0f}</td></tr>" for _, r in result.yearly.iterrows())
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}</style></head><body><h1>🎯 储蓄目标报告</h1><p>目标：{s}{goal_amount:,.0f} | 现有：{s}{current_savings:,.0f} | 月投入：{s}{effective_deposit:,.0f} | 报酬率：{annual_rate:.1f}%</p><table><tr><th>年份</th><th>年初</th><th>利息</th><th>投入</th><th>年末</th></tr>{yr}</table></body></html>"""
+st.download_button("📥 下载报告 (HTML)", data=_build_sav_report(), file_name="储蓄目标报告.html", mime="text/html")
+st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
