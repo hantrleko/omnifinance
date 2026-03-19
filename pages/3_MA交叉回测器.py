@@ -10,10 +10,13 @@ v1.4:
 """
 
 from datetime import date, timedelta
+import logging
+import urllib.error
 
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import requests
 import streamlit as st
 import yfinance as yf
 
@@ -21,6 +24,9 @@ from core.backtest import STRATEGY_NAMES, apply_strategy, simulate_trades, compu
 from core.chart_config import build_layout
 from core.currency import currency_selector, fmt, get_symbol
 from core.storage import scheme_manager_ui
+
+# ── 模块级 logger ─────────────────────────────────────────
+_logger = logging.getLogger(__name__)
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="策略回测器", page_icon="📈", layout="wide")
@@ -118,7 +124,17 @@ def get_data(ticker: str, start: date, end: date) -> pd.DataFrame | None:
         df.index = pd.to_datetime(df.index)
         df.sort_index(inplace=True)
         return df
-    except Exception:
+    except (urllib.error.URLError, requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout) as exc:
+        # Network failure — log and return None so the UI can prompt CSV upload
+        _logger.warning("[get_data] 网络错误 (%s): %s", ticker, exc, exc_info=True)
+        return None
+    except (KeyError, ValueError) as exc:
+        # Unexpected data shape from yfinance
+        _logger.warning("[get_data] 数据解析错误 (%s): %s", ticker, exc, exc_info=True)
+        return None
+    except Exception as exc:  # noqa: BLE001 — last-resort: keep app running
+        _logger.error("[get_data] 未预期异常 (%s): %s", ticker, exc, exc_info=True)
         return None
 
 
@@ -158,7 +174,9 @@ else:
             data = pd.read_csv(uploaded, parse_dates=["Date"], index_col="Date")
             data.sort_index(inplace=True)
             st.success(f"✅ 已加载上传数据 | {data.index[0].date()} → {data.index[-1].date()} | 共 {len(data)} 行")
-        except Exception as e:
+        except (KeyError, ValueError, pd.errors.ParserError) as e:
+            # Missing required columns, bad date format, or malformed CSV
+            _logger.warning("[CSV上传] 解析失败: %s", e, exc_info=True)
             st.error(f"CSV 解析失败：{e}")
             st.stop()
     else:
@@ -400,7 +418,9 @@ with st.expander("📊 策略对比（默认参数）"):
                     "交易次数": s_metrics["交易次数"],
                     "胜率(%)": round(s_metrics["胜率(%)"], 1),
                 })
-            except Exception:
+            except (ValueError, KeyError, ZeroDivisionError) as exc:
+                # Strategy computation failed for this combo — record as None row
+                _logger.warning("[策略对比] %s 计算失败: %s", s_name, exc, exc_info=True)
                 rows.append({"策略": s_name, **{k: None for k in [
                     "总回报率(%)", "年化回报(%)", "最大回撤(%)",
                     "夏普比率", "索提诺比率", "卡玛比率", "交易次数", "胜率(%)",
@@ -493,8 +513,9 @@ with st.expander("🔍 参数网格搜索"):
                        "年化回报(%)": round(g_m["年化回报(%)"], 2),
                        "最大回撤(%)": round(g_m["最大回撤(%)"], 2)}
                 grid_results.append(row)
-            except Exception:
-                pass
+            except (ValueError, KeyError, ZeroDivisionError) as exc:
+                # Skip invalid parameter combos silently but log for diagnostics
+                _logger.debug("[网格搜索] 参数组合 %s 跳过: %s", combo, exc)
             progress.progress((idx + 1) / max(len(combos), 1))
 
         if grid_results:
@@ -534,7 +555,9 @@ with st.expander("📊 组合回测（多标的）"):
                             "交易次数": pt_m["交易次数"],
                         })
                         port_equities[pt] = pt_res["Equity"]
-                    except Exception:
+                    except (ValueError, KeyError, ZeroDivisionError) as exc:
+                        # Backtest computation failed for this ticker
+                        _logger.warning("[组合回测] %s 失败: %s", pt, exc, exc_info=True)
                         port_rows.append({"标的": pt, "状态": "回测失败"})
 
             if port_rows:

@@ -11,15 +11,21 @@ v1.4:
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+import logging
+import urllib.error
 
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 import streamlit as st
 import yfinance as yf
 from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh
 
 from core.storage import save_scheme, load_scheme, list_schemes
+
+# ── 模块级 logger ─────────────────────────────────────────
+_logger = logging.getLogger(__name__)
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="实时报价面板", page_icon="📊", layout="wide")
@@ -146,12 +152,24 @@ def _fetch_one(ticker_str: str) -> dict:
             "成交量": volume,
             "_error": _ERR_OK,
         }
-    except Exception as exc:
+    except (urllib.error.URLError, requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout, requests.exceptions.SSLError) as exc:
+        # Network-level failures: DNS, TCP, TLS, timeout
+        _logger.warning("[%s] 网络错误: %s", ticker_str, exc, exc_info=True)
+        base["_error"] = _ERR_NETWORK
+        return base
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        # Data-shape or missing-field errors → treat as symbol not found
+        _logger.warning("[%s] 数据解析错误: %s", ticker_str, exc, exc_info=True)
+        base["_error"] = _ERR_NOTFOUND
+        return base
+    except Exception as exc:  # noqa: BLE001 — last-resort catch to keep the panel alive
+        # Unexpected errors: log full traceback for debugging
+        _logger.error("[%s] 未预期异常: %s", ticker_str, exc, exc_info=True)
         err_str = str(exc).lower()
-        if any(kw in err_str for kw in ("connection", "timeout", "network", "ssl", "read")):
-            base["_error"] = _ERR_NETWORK
-        else:
-            base["_error"] = _ERR_NOTFOUND
+        base["_error"] = _ERR_NETWORK if any(
+            kw in err_str for kw in ("connection", "timeout", "network", "ssl", "read")
+        ) else _ERR_NOTFOUND
         return base
 
 
@@ -176,7 +194,17 @@ def fetch_kline_history(ticker_str: str, period: str = "6mo") -> pd.DataFrame:
         if isinstance(hist.columns, pd.MultiIndex):
             hist.columns = hist.columns.get_level_values(0)
         return hist
-    except Exception:
+    except (urllib.error.URLError, requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout) as exc:
+        # Network failure while downloading historical data
+        _logger.warning("[%s] K线数据网络错误: %s", ticker_str, exc, exc_info=True)
+        return pd.DataFrame()
+    except (KeyError, ValueError) as exc:
+        # Malformed or empty response from yfinance
+        _logger.warning("[%s] K线数据解析错误: %s", ticker_str, exc, exc_info=True)
+        return pd.DataFrame()
+    except Exception as exc:  # noqa: BLE001 — keep UI alive on unexpected failures
+        _logger.error("[%s] K线数据未预期异常: %s", ticker_str, exc, exc_info=True)
         return pd.DataFrame()
 
 
