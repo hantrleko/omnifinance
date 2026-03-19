@@ -6,9 +6,11 @@ duplicating the same dict literal across multiple files.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 # ── Base layout used by all pages ────────────────────────
-LAYOUT_BASE: dict = dict(
+LAYOUT_BASE: dict[str, Any] = dict(
     legend=dict(
         orientation="h",
         yanchor="bottom",
@@ -22,8 +24,15 @@ LAYOUT_BASE: dict = dict(
 )
 
 
-def build_layout(**overrides) -> dict:
+def build_layout(**overrides: Any) -> dict[str, Any]:
     """Return a copy of LAYOUT_BASE merged with any keyword overrides.
+
+    Args:
+        **overrides: Any Plotly layout keyword arguments to merge on top of
+            :data:`LAYOUT_BASE` (e.g. ``xaxis_title``, ``yaxis_tickformat``).
+
+    Returns:
+        A new ``dict`` suitable for passing to ``fig.update_layout()``.
 
     Example::
 
@@ -33,20 +42,22 @@ def build_layout(**overrides) -> dict:
             yaxis_tickformat=",",
         ))
     """
-    layout = dict(LAYOUT_BASE)
+    layout: dict[str, Any] = dict(LAYOUT_BASE)
     layout.update(overrides)
     return layout
 
 
 def hover_fmt(symbol: str, value_fmt: str = ",.2f") -> str:
-    """Build a Plotly hovertemplate value string with the correct currency symbol.
+    """Return the currency symbol for embedding in a Plotly hovertemplate.
 
     Args:
         symbol: Currency symbol string returned by ``core.currency.get_symbol()``.
         value_fmt: Python format spec for the numeric value (default ``,.2f``).
+            Currently unused but kept for API compatibility.
 
     Returns:
-        A string like ``"¥%{y:,.2f}"`` suitable for embedding in hovertemplate.
+        The *symbol* string unchanged, e.g. ``"¥"`` or ``"$"``.
+        Embed it directly before the ``%{y:...}`` placeholder in a template.
 
     Example::
 

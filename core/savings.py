@@ -10,11 +10,13 @@ import pandas as pd
 
 @dataclass
 class SavingsResult:
+    """Result of a savings-goal simulation produced by :func:`calculate_savings_goal`."""
+
     reached: bool           # Whether goal is already reached or achievable
     months_needed: int      # Months to reach goal (0=already reached, -1=never)
-    schedule: pd.DataFrame  # Monthly detail
-    yearly: pd.DataFrame    # Annual summary
-    total_deposited: float  # Total principal contributed (including initial)
+    schedule: pd.DataFrame  # Monthly detail rows
+    yearly: pd.DataFrame    # Annual summary rows
+    total_deposited: float  # Total principal contributed (including initial balance)
     total_interest: float   # Total compound interest earned
 
 
@@ -51,7 +53,7 @@ def calculate_savings_goal(
     total_deposited = current
     months_needed = -1
 
-    rows: list[dict] = []
+    rows: list[dict[str, float | int]] = []
 
     for m in range(1, max_months + 1):
         interest = balance * monthly_rate
@@ -78,7 +80,7 @@ def calculate_savings_goal(
     schedule = pd.DataFrame(rows)
 
     # Annual summary
-    yearly_rows: list[dict] = []
+    yearly_rows: list[dict[str, float | int]] = []
     yr_balance = current
     yr_interest_total = 0.0
     yr_deposit_total = 0.0

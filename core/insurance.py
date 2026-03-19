@@ -11,24 +11,30 @@ from core.planning import solve_irr
 
 @dataclass
 class ProtectionMetrics:
-    total_premium: float
-    coverage_cost_per_10k: float
-    break_even_claim_prob: float
-    inflation_adjusted_coverage: float
-    alt_investment_value: float
+    """Protection-dimension metrics for an insurance plan."""
+
+    total_premium: float               # Total premiums paid over the payment period
+    coverage_cost_per_10k: float       # Total premium cost per 10,000 of coverage
+    break_even_claim_prob: float       # Probability of claim needed to break even
+    inflation_adjusted_coverage: float # Real coverage value discounted for inflation
+    alt_investment_value: float        # Terminal value if premiums were invested instead
 
 
 @dataclass
 class SavingsMetrics:
-    irr_pct: float
-    net_gain: float
+    """Savings-dimension metrics for an insurance plan."""
+
+    irr_pct: float   # Internal rate of return in percent
+    net_gain: float  # Maturity benefit minus total premiums paid
 
 
 @dataclass
 class InsuranceResult:
-    yearly_schedule: pd.DataFrame
-    protection: ProtectionMetrics
-    savings: SavingsMetrics
+    """Aggregated result returned by :func:`analyze_insurance_plan`."""
+
+    yearly_schedule: pd.DataFrame  # Year-by-year cashflow and value table
+    protection: ProtectionMetrics  # Protection-value metrics
+    savings: SavingsMetrics        # Savings-value metrics
 
 
 def analyze_insurance_plan(
@@ -55,7 +61,7 @@ def analyze_insurance_plan(
     alt_rate = alt_return_pct / 100
     alt_value = 0.0
 
-    rows: list[dict] = []
+    rows: list[dict[str, float | int]] = []
     for year in range(1, coverage_years + 1):
         premium_paid = annual_premium if year <= pay_years else 0.0
         alt_value = (alt_value + premium_paid) * (1 + alt_rate)
@@ -70,7 +76,7 @@ def analyze_insurance_plan(
             }
         )
 
-    cash_flows = [0.0]
+    cash_flows: list[float] = [0.0]
     for year in range(1, coverage_years + 1):
         cf = -annual_premium if year <= pay_years else 0.0
         if year == coverage_years:

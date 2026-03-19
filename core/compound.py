@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
 
@@ -13,11 +15,28 @@ def compute_schedule(
     contribution: float = 0.0,
     contrib_freq: int = 12,
 ) -> pd.DataFrame:
-    """逐年计算余额，返回 DataFrame。"""
-    r = annual_rate_pct / 100.0
-    rate_per_period = r / compound_freq
+    """Compute a year-by-year compound-interest schedule.
 
-    rows: list[dict] = []
+    Args:
+        principal: Initial lump-sum investment amount.
+        annual_rate_pct: Annual interest rate in percent (e.g. ``6.0`` for 6%).
+        years: Total number of years to simulate.
+        compound_freq: Number of compounding periods per year
+            (e.g. ``12`` for monthly, ``1`` for annual).
+        contribution: Periodic contribution amount added at each
+            *contrib_freq* interval (default ``0.0``).
+        contrib_freq: Number of contribution payments per year
+            (default ``12`` for monthly).
+
+    Returns:
+        A :class:`pandas.DataFrame` with one row per year (year 0 through
+        *years*) and columns: ``年份``, ``年初余额``, ``当年投入``,
+        ``当年利息``, ``年末余额``, ``累计投入``.
+    """
+    r: float = annual_rate_pct / 100.0
+    rate_per_period: float = r / compound_freq
+
+    rows: list[dict[str, Any]] = []
     balance = principal
     total_contributions = principal
 
@@ -72,7 +91,14 @@ def compute_schedule(
 
 
 def add_annualized_return(schedule: pd.DataFrame) -> pd.DataFrame:
-    """给 schedule 增加年化收益率列。"""
+    """Append an annualised-return column to a compound schedule DataFrame.
+
+    Args:
+        schedule: A DataFrame previously returned by :func:`compute_schedule`.
+
+    Returns:
+        A copy of *schedule* with an additional ``年化收益率(%)`` column.
+    """
     schedule = schedule.copy()
     schedule["年化收益率(%)"] = 0.0
     for i in range(1, len(schedule)):

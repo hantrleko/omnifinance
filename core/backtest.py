@@ -7,14 +7,42 @@ v1.4 changes:
 
 from __future__ import annotations
 
+from typing import Any, TypedDict
+
 import numpy as np
 import pandas as pd
 
 
-# ── Strategy: MA Crossover ────────────────────────────────
+# ── TypedDict definitions ───────────────────────────────────
+
+class MetricsDict(TypedDict):
+    """回测结果指标字典，由 :func:`compute_metrics` 返回。"""
+
+    总回报率: float      # key: "总回报率(%)"
+    年化回报: float      # key: "年化回报(%)"
+    最大回撤: float      # key: "最大回撤(%)"
+    夏普比率: float
+    索提诺比率: float
+    卡玛比率: float
+    交易次数: int
+    胜率: float             # key: "胜率(%)"
+    总交易成本: float
+
+
+# ── Strategy: MA Crossover ────────────────────────
 
 def calculate_signals(df: pd.DataFrame, short_window: int, long_window: int) -> pd.DataFrame:
-    """计算 SMA 与交叉信号。"""
+    """Compute SMA crossover signals and annotate the DataFrame.
+
+    Args:
+        df: OHLCV DataFrame with at least a ``Close`` column.
+        short_window: Look-back period for the short SMA.
+        long_window: Look-back period for the long SMA.
+
+    Returns:
+        A copy of *df* with additional columns ``SMA_Short``, ``SMA_Long``,
+        ``Signal``, ``CrossOver``, and ``Action`` (``"buy"`` / ``"sell"`` / ``"hold"``).
+    """
     df = df.copy()
     df["SMA_Short"] = df["Close"].rolling(window=short_window, min_periods=short_window).mean()
     df["SMA_Long"] = df["Close"].rolling(window=long_window, min_periods=long_window).mean()
@@ -39,7 +67,20 @@ def calculate_rsi_signals(
     oversold: float = 30.0,
     overbought: float = 70.0,
 ) -> pd.DataFrame:
-    """计算 RSI 指标并生成买卖信号。"""
+    """Compute RSI indicator and generate buy/sell signals.
+
+    Args:
+        df: OHLCV DataFrame with at least a ``Close`` column.
+        period: RSI look-back window (default ``14``).
+        oversold: RSI threshold below which a buy signal is generated
+            (default ``30.0``).
+        overbought: RSI threshold above which a sell signal is generated
+            (default ``70.0``).
+
+    Returns:
+        A copy of *df* with additional columns ``RSI``, ``Signal``, and
+        ``Action``.
+    """
     df = df.copy()
     delta = df["Close"].diff()
     gain = delta.where(delta > 0, 0.0)
@@ -71,7 +112,18 @@ def calculate_macd_signals(
     slow: int = 26,
     signal_period: int = 9,
 ) -> pd.DataFrame:
-    """计算 MACD 指标并生成买卖信号。"""
+    """Compute MACD indicator and generate buy/sell signals.
+
+    Args:
+        df: OHLCV DataFrame with at least a ``Close`` column.
+        fast: Fast EMA period (default ``12``).
+        slow: Slow EMA period (default ``26``).
+        signal_period: Signal-line EMA period (default ``9``).
+
+    Returns:
+        A copy of *df* with additional columns ``MACD``, ``MACD_Signal``,
+        ``MACD_Hist``, ``Signal``, ``CrossOver``, and ``Action``.
+    """
     df = df.copy()
     ema_fast = df["Close"].ewm(span=fast, adjust=False).mean()
     ema_slow = df["Close"].ewm(span=slow, adjust=False).mean()
@@ -99,7 +151,18 @@ def calculate_bollinger_signals(
     period: int = 20,
     num_std: float = 2.0,
 ) -> pd.DataFrame:
-    """计算布林带指标并生成买卖信号。"""
+    """Compute Bollinger Bands and generate buy/sell signals.
+
+    Args:
+        df: OHLCV DataFrame with at least a ``Close`` column.
+        period: Rolling window for the middle band SMA (default ``20``).
+        num_std: Number of standard deviations for the upper/lower bands
+            (default ``2.0``).
+
+    Returns:
+        A copy of *df* with additional columns ``BB_Mid``, ``BB_Upper``,
+        ``BB_Lower``, ``Signal``, and ``Action``.
+    """
     df = df.copy()
     df["BB_Mid"] = df["Close"].rolling(window=period, min_periods=period).mean()
     rolling_std = df["Close"].rolling(window=period, min_periods=period).std()
@@ -120,11 +183,23 @@ def calculate_bollinger_signals(
 
 # ── Strategy dispatcher ──────────────────────────────────
 
-STRATEGY_NAMES = ["MA 交叉", "RSI", "MACD", "布林带"]
+STRATEGY_NAMES: list[str] = ["MA 交叉", "RSI", "MACD", "布林带"]
 
 
-def apply_strategy(df: pd.DataFrame, strategy: str, params: dict) -> pd.DataFrame:
-    """Apply the named strategy with given params and return signals df."""
+def apply_strategy(df: pd.DataFrame, strategy: str, params: dict[str, Any]) -> pd.DataFrame:
+    """Dispatch to the appropriate strategy function.
+
+    Args:
+        df: OHLCV DataFrame with at least a ``Close`` column.
+        strategy: Strategy name; must be one of :data:`STRATEGY_NAMES`.
+        params: Strategy-specific parameter dict.
+
+    Returns:
+        The signal-annotated DataFrame produced by the chosen strategy.
+
+    Raises:
+        ValueError: If *strategy* is not a recognised name.
+    """
     if strategy == "MA 交叉":
         return calculate_signals(df, params["short_window"], params["long_window"])
     elif strategy == "RSI":
@@ -166,7 +241,7 @@ def simulate_trades(
     shares = 0.0
     entry_price = 0.0
     total_costs = 0.0
-    trades: list[dict] = []
+    trades: list[dict[str, Any]] = []
     idx_values = df.index
 
     for i in range(n):
@@ -232,10 +307,22 @@ def compute_metrics(
     trades_df: pd.DataFrame,
     initial_capital: float,
     risk_free_pct: float,
-) -> dict:
-    """Compute performance metrics.
+) -> dict[str, Any]:
+    """Compute strategy performance metrics.
 
     v1.4: Added Sortino ratio and Calmar ratio.
+
+    Args:
+        df: Result DataFrame from :func:`simulate_trades` containing an
+            ``Equity`` column.
+        trades_df: Trades DataFrame from :func:`simulate_trades`.
+        initial_capital: Starting capital used in the simulation.
+        risk_free_pct: Annual risk-free rate in percent (e.g. ``2.0``).
+
+    Returns:
+        A dict with keys: ``总回报率(%)``, ``年化回报(%)``, ``最大回撤(%)``,
+        ``夏普比率``, ``索提诺比率``, ``卡玛比率``, ``交易次数``,
+        ``胜率(%)``, ``总交易成本``.
     """
     equity = df["Equity"]
     final_equity = equity.iloc[-1]

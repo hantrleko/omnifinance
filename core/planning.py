@@ -3,23 +3,52 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Optional, TypedDict
 
 import numpy as np
 import pandas as pd
 
 
+# ── Dataclass / TypedDict definitions ───────────────────────
+
 @dataclass
 class BudgetPlan:
-    amt_needs: float
-    amt_wants: float
-    amt_save: float
-    pct_save: int
-    remaining_needs: float
-    fixed_pct: float
+    """Result of a 50/30/20-style budget allocation calculation."""
 
+    amt_needs: float       # Absolute amount allocated to needs
+    amt_wants: float       # Absolute amount allocated to wants
+    amt_save: float        # Absolute amount allocated to savings
+    pct_save: int          # Savings percentage (derived)
+    remaining_needs: float # Needs budget remaining after fixed expenses
+    fixed_pct: float       # Fixed expense as a percentage of income
+
+
+class LoanSummary(TypedDict):
+    """Summary metrics returned alongside the amortisation schedule."""
+
+    首期还款: float
+    末期还款: float
+    总还款: float
+    总利息: float
+    APR: float  # key stored as "APR(%)"
+    总提前还款: float
+    实际期数: int
+
+
+# ── Business logic ─────────────────────────────────────
 
 def calculate_budget(income: float, fixed_expense: float, pct_needs: int, pct_wants: int) -> BudgetPlan:
-    """Calculate 50/30/20-style budget allocation with custom ratios."""
+    """Calculate 50/30/20-style budget allocation with custom ratios.
+
+    Args:
+        income: Gross monthly income.
+        fixed_expense: Fixed monthly expenses already committed (e.g. rent).
+        pct_needs: Percentage of income allocated to needs.
+        pct_wants: Percentage of income allocated to wants.
+
+    Returns:
+        A :class:`BudgetPlan` dataclass with all computed allocation values.
+    """
     pct_save = max(0, 100 - pct_needs - pct_wants)
     amt_needs = income * pct_needs / 100
     amt_wants = income * pct_wants / 100
@@ -37,7 +66,19 @@ def calculate_budget(income: float, fixed_expense: float, pct_needs: int, pct_wa
 
 
 def solve_irr(cash_flows: list[float], tol: float = 1e-10, max_iter: int = 1000) -> float:
-    """Solve IRR via Newton iteration."""
+    """Solve for the Internal Rate of Return (IRR) via Newton-Raphson iteration.
+
+    Args:
+        cash_flows: Sequence of periodic cash flows where index 0 is the
+            initial outflow (negative) and subsequent values are inflows.
+        tol: Convergence tolerance for the rate change between iterations
+            (default ``1e-10``).
+        max_iter: Maximum number of Newton iterations (default ``1000``).
+
+    Returns:
+        The periodic IRR as a decimal (e.g. ``0.005`` for 0.5% per period).
+        Returns the last computed estimate if convergence is not reached.
+    """
     rate = 0.005
     for _ in range(max_iter):
         npv = sum(cf / (1 + rate) ** t for t, cf in enumerate(cash_flows))
@@ -57,17 +98,37 @@ def calculate_loan(
     years: int,
     periods_per_year: int,
     method: str,
-    extra_payment_period: int | None = None,
+    extra_payment_period: Optional[int] = None,
     extra_payment_amount: float = 0.0,
-) -> tuple[pd.DataFrame, dict]:
-    """Calculate amortization schedule and summary metrics."""
-    n = years * periods_per_year
-    r_period = (annual_rate_pct / 100.0) / periods_per_year
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Calculate a loan amortisation schedule and summary metrics.
 
-    rows: list[dict] = []
+    Args:
+        principal: Original loan principal amount.
+        annual_rate_pct: Annual nominal interest rate in percent.
+        years: Loan term in years.
+        periods_per_year: Number of payment periods per year
+            (e.g. ``12`` for monthly, ``1`` for annual).
+        method: Repayment method; either ``"等额本息"`` (equal total payment)
+            or ``"等额本金"`` (equal principal payment).
+        extra_payment_period: Period number (1-indexed) at which an additional
+            lump-sum payment is made. ``None`` means no extra payment.
+        extra_payment_amount: Size of the extra lump-sum payment (default ``0.0``).
+
+    Returns:
+        A tuple of:
+        - ``schedule``: :class:`pandas.DataFrame` with one row per payment period
+          and columns ``期数``, ``每期还款``, ``本金``, ``利息``, ``提前还款``, ``剩余本金``.
+        - ``summary``: dict with keys ``首期还款``, ``末期还款``, ``总还款``,
+          ``总利息``, ``APR(%)``, ``总提前还款``, ``实际期数``.
+    """
+    n: int = years * periods_per_year
+    r_period: float = (annual_rate_pct / 100.0) / periods_per_year
+
+    rows: list[dict[str, Any]] = []
     balance = principal
 
-    def calc_equal_payment(curr_balance: float, remain_n: int) -> float:
+    def calc_equal_payment(curr_balance: float, remain_n: int) -> float:  # noqa: ANN202
         if remain_n <= 0:
             return 0.0
         if r_period == 0:

@@ -13,6 +13,8 @@ import pandas as pd
 
 @dataclass
 class RetirementResult:
+    """Aggregated result of a dual-phase retirement calculation."""
+
     # Key scalars
     years_to_retire: int
     years_in_retire: int
@@ -54,20 +56,20 @@ def calculate_retirement(
     Returns:
         RetirementResult dataclass with all computed values and paths.
     """
-    years_to_retire = retire_age - current_age
-    years_in_retire = life_expectancy - retire_age
-    inf = inflation_pct / 100
-    r_pre_m = pre_return_pct / 100 / 12     # Monthly pre-retirement rate
-    r_post = post_return_pct / 100          # Annual post-retirement rate
+    years_to_retire: int = retire_age - current_age
+    years_in_retire: int = life_expectancy - retire_age
+    inf: float = inflation_pct / 100
+    r_pre_m: float = pre_return_pct / 100 / 12     # Monthly pre-retirement rate
+    r_post: float = post_return_pct / 100          # Annual post-retirement rate
 
     # ── Phase 1: Inflation-adjusted monthly expense at retirement ──
     future_monthly = monthly_expense_today * (1 + inf) ** years_to_retire
 
     # ── Phase 1: Total assets needed at retirement (annuity PV) ──
     # Real post-retirement rate = (1+nominal) / (1+inflation) - 1
-    real_post = (1 + r_post) / (1 + inf) - 1
-    real_post_m = (1 + real_post) ** (1 / 12) - 1   # Monthly real rate
-    n_months_retire = years_in_retire * 12
+    real_post: float = (1 + r_post) / (1 + inf) - 1
+    real_post_m: float = (1 + real_post) ** (1 / 12) - 1   # Monthly real rate
+    n_months_retire: int = years_in_retire * 12
 
     if real_post_m > 0:
         pv_factor = (1 - (1 + real_post_m) ** (-n_months_retire)) / real_post_m
@@ -77,9 +79,9 @@ def calculate_retirement(
     total_needed = future_monthly * pv_factor
 
     # ── Phase 1: Accumulation path under current plan ──
-    n_months_pre = years_to_retire * 12
-    balance = current_assets
-    acc_rows: list[dict] = []
+    n_months_pre: int = years_to_retire * 12
+    balance: float = current_assets
+    acc_rows: list[dict[str, float | int | str]] = []
 
     for yr in range(years_to_retire + 1):
         age = current_age + yr
@@ -104,7 +106,7 @@ def calculate_retirement(
             extra_monthly = gap / max(n_months_pre, 1)
 
     # ── Target path (if extra saving is added) ──
-    target_rows: list[dict] = []
+    target_rows: list[dict[str, float | int | str]] = []
     total_monthly_needed = monthly_saving + extra_monthly
     bal_target = current_assets
     for yr in range(years_to_retire + 1):
@@ -117,7 +119,7 @@ def calculate_retirement(
         target_rows.append({"年龄": age, "资产": bal_target, "类型": "目标路径"})
 
     # ── Phase 2: Drawdown path ──
-    full_rows = list(acc_rows)
+    full_rows: list[dict[str, float | int | str]] = list(acc_rows)
     bal_post = projected
     r_post_m = (1 + r_post) ** (1 / 12) - 1
     for yr in range(1, years_in_retire + 1):
