@@ -22,6 +22,7 @@ import yfinance as yf
 
 from core.backtest import STRATEGY_NAMES, apply_strategy, simulate_trades, compute_metrics
 from core.chart_config import build_layout
+from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
 from core.storage import scheme_manager_ui
 
@@ -50,7 +51,7 @@ currency_selector()
 
 strategy = st.sidebar.selectbox("策略选择", STRATEGY_NAMES)
 
-ticker = st.sidebar.text_input("标的代码", value="AAPL", help="美股 AAPL / 港股 0700.HK / 加密 BTC-USD")
+ticker = st.sidebar.text_input("标的代码", value=CFG.backtest.default_ticker, help="美股 AAPL / 港股 0700.HK / 加密 BTC-USD")
 col_date1, col_date2 = st.sidebar.columns(2)
 start_date = col_date1.date_input("起始日期", value=date.today() - timedelta(days=5 * 365))
 end_date = col_date2.date_input("结束日期", value=date.today())
@@ -61,34 +62,34 @@ st.sidebar.subheader("📐 策略参数")
 strategy_params: dict = {}
 
 if strategy == "MA 交叉":
-    sma_short = st.sidebar.slider("短期 SMA 天数", 5, 200, 50)
-    sma_long = st.sidebar.slider("长期 SMA 天数", 50, 500, 200)
+    sma_short = st.sidebar.slider("短期 SMA 天数", 5, 200, CFG.backtest.ma_short_default)
+    sma_long = st.sidebar.slider("长期 SMA 天数", 50, 500, CFG.backtest.ma_long_default)
     if sma_short >= sma_long:
         st.sidebar.error("短期 SMA 必须小于长期 SMA")
         st.stop()
     strategy_params = {"short_window": sma_short, "long_window": sma_long}
 
 elif strategy == "RSI":
-    rsi_period = st.sidebar.slider("RSI 周期", 5, 50, 14)
-    rsi_oversold = st.sidebar.slider("超卖阈值", 10, 40, 30)
-    rsi_overbought = st.sidebar.slider("超买阈值", 60, 90, 70)
+    rsi_period = st.sidebar.slider("RSI 周期", 5, 50, CFG.backtest.rsi_period_default)
+    rsi_oversold = st.sidebar.slider("超卖阈値", 10, 40, CFG.backtest.rsi_oversold_default)
+    rsi_overbought = st.sidebar.slider("超买阈値", 60, 90, CFG.backtest.rsi_overbought_default)
     strategy_params = {"period": rsi_period, "oversold": rsi_oversold, "overbought": rsi_overbought}
 
 elif strategy == "MACD":
-    macd_fast = st.sidebar.slider("快线周期", 5, 50, 12)
-    macd_slow = st.sidebar.slider("慢线周期", 10, 100, 26)
-    macd_signal = st.sidebar.slider("信号线周期", 5, 20, 9)
+    macd_fast = st.sidebar.slider("快线周期", 5, 50, CFG.backtest.macd_fast_default)
+    macd_slow = st.sidebar.slider("慢线周期", 10, 100, CFG.backtest.macd_slow_default)
+    macd_signal = st.sidebar.slider("信号线周期", 5, 20, CFG.backtest.macd_signal_default)
     strategy_params = {"fast": macd_fast, "slow": macd_slow, "signal_period": macd_signal}
 
 elif strategy == "布林带":
-    bb_period = st.sidebar.slider("布林带周期", 5, 100, 20)
-    bb_std = st.sidebar.slider("标准差倍数", 1.0, 3.0, 2.0, step=0.1)
+    bb_period = st.sidebar.slider("布林带周期", 5, 100, CFG.backtest.bb_period_default)
+    bb_std = st.sidebar.slider("标准差倍数", 1.0, 3.0, CFG.backtest.bb_std_default, step=0.1)
     strategy_params = {"period": bb_period, "num_std": bb_std}
 
-initial_capital = st.sidebar.number_input("初始资金", min_value=1000.0, value=100000.0, step=10000.0, format="%.0f")
-risk_free_rate = st.sidebar.number_input("无风险利率（%）", min_value=0.0, max_value=20.0, value=2.0, step=0.1)
-fee_rate = st.sidebar.number_input("单边手续费（%）", min_value=0.0, max_value=2.0, value=0.05, step=0.01)
-slippage_rate = st.sidebar.number_input("单边滑点（%）", min_value=0.0, max_value=2.0, value=0.03, step=0.01)
+initial_capital = st.sidebar.number_input("初始资金", min_value=CFG.backtest.initial_capital_min, value=CFG.backtest.initial_capital_default, step=CFG.backtest.initial_capital_step, format="%.0f")
+risk_free_rate = st.sidebar.number_input("无風险利率（%）", min_value=CFG.backtest.risk_free_rate_min, max_value=CFG.backtest.risk_free_rate_max, value=CFG.backtest.risk_free_rate_default, step=CFG.backtest.risk_free_rate_step)
+fee_rate = st.sidebar.number_input("单边手续费（%）", min_value=CFG.backtest.fee_rate_min, max_value=CFG.backtest.fee_rate_max, value=CFG.backtest.fee_rate_default, step=CFG.backtest.fee_rate_step)
+slippage_rate = st.sidebar.number_input("单边滑点（%）", min_value=CFG.backtest.slippage_rate_min, max_value=CFG.backtest.slippage_rate_max, value=CFG.backtest.slippage_rate_default, step=CFG.backtest.slippage_rate_step)
 
 # ── 方案管理 ──────────────────────────────────────────────
 current_params = {
@@ -103,8 +104,8 @@ current_params = {
 loaded = scheme_manager_ui("backtest", current_params)
 
 st.sidebar.divider()
-st.sidebar.caption("数据来源：Yahoo Finance (yfinance)")
-st.sidebar.caption("免责声明：仅供学习研究，不构成投资建议。")
+st.sidebar.caption(MSG.data_source_yfinance_short)
+st.sidebar.caption(MSG.disclaimer_research)
 st.sidebar.caption("手续费/滑点说明：均为单边百分比，买入与卖出各计一次。")
 
 
@@ -161,23 +162,30 @@ def _cached_comparison(
 st.markdown("---")
 
 data = None
-with st.spinner(f"正在获取 {ticker} 数据…"):
+with st.spinner(MSG.backtest_data_loading.format(ticker=ticker)):
     data = get_data(ticker.strip().upper(), start_date, end_date)
 
 if data is not None and not data.empty:
-    st.success(f"✅ 已加载 **{ticker.upper()}** | {data.index[0].date()} → {data.index[-1].date()} | 共 {len(data)} 个交易日")
+    st.success(MSG.backtest_data_loaded.format(
+        ticker=ticker.upper(),
+        start=data.index[0].date(),
+        end=data.index[-1].date(),
+        n=len(data),
+    ))
 else:
-    st.warning(f"⚠️ 无法从 yfinance 获取 {ticker} 数据，请上传本地 CSV 文件。")
+    st.warning(MSG.backtest_data_failed.format(ticker=ticker))
     uploaded = st.file_uploader("上传 CSV（列：Date, Open, High, Low, Close, Volume）", type=["csv"])
     if uploaded is not None:
         try:
             data = pd.read_csv(uploaded, parse_dates=["Date"], index_col="Date")
             data.sort_index(inplace=True)
-            st.success(f"✅ 已加载上传数据 | {data.index[0].date()} → {data.index[-1].date()} | 共 {len(data)} 行")
+            st.success(MSG.backtest_csv_loaded.format(
+                start=data.index[0].date(), end=data.index[-1].date(), n=len(data)
+            ))
         except (KeyError, ValueError, pd.errors.ParserError) as e:
             # Missing required columns, bad date format, or malformed CSV
             _logger.warning("[CSV上传] 解析失败: %s", e, exc_info=True)
-            st.error(f"CSV 解析失败：{e}")
+            st.error(MSG.backtest_csv_failed.format(error=e))
             st.stop()
     else:
         st.stop()
@@ -201,17 +209,17 @@ c2.metric("年化回报", f"{metrics['年化回报(%)']:+.2f}%")
 c3.metric("最大回撤", f"{metrics['最大回撤(%)']:.2f}%")
 c4.metric("夏普比率", f"{metrics['夏普比率']:.2f}")
 c5.metric("索提诺比率", f"{metrics['索提诺比率']:.2f}",
-          help="仅统计下行波动的风险调整回报，比夏普更保守")
+          help=MSG.backtest_sortino_help)
 c6.metric("卡玛比率", f"{metrics['卡玛比率']:.2f}",
-          help="年化回报 / 最大回撤绝对值，越高越好")
+          help=MSG.backtest_calmar_help)
 c7.metric("交易次数", f"{metrics['交易次数']}")
 c8.metric("胜率", f"{metrics['胜率(%)']:.1f}%")
 c9.metric("总交易成本", fmt(metrics['总交易成本']))
 
 if metrics["总回报率(%)"] >= 0:
-    st.success(f"结论：在当前参数下，策略净值跑赢初始资金，期间总交易成本约 {fmt(metrics['总交易成本'])}。")
+    st.success(MSG.backtest_positive.format(cost=fmt(metrics['总交易成本'])))
 else:
-    st.warning("结论：在当前参数下，策略回报为负；可尝试调整策略参数或降低交易成本参数。")
+    st.warning(MSG.backtest_negative)
 
 # ── 价格 + 策略指标 + 信号图 ──────────────────────────────
 st.subheader(f"📊 价格 & {strategy} 信号")
@@ -434,7 +442,7 @@ with st.expander("📊 策略对比（默认参数）"):
 st.subheader("📋 交易明细")
 
 if trades_df.empty:
-    st.info("当前参数下未产生任何交易信号。请尝试调整策略参数或日期范围。")
+    st.info(MSG.backtest_no_trades)
 else:
     display_trades = trades_df.copy()
     display_trades["日期"] = display_trades["日期"].dt.strftime("%Y-%m-%d")
@@ -458,7 +466,7 @@ else:
 
 # ── 参数网格搜索 ──────────────────────────────────────────
 with st.expander("🔍 参数网格搜索"):
-    st.caption("自动搜索最优参数组合（基于夏普比率）")
+    st.caption(MSG.backtest_grid_caption)
 
     if strategy == "MA 交叉":
         short_range = st.slider("短期 SMA 搜索范围", 5, 100, (10, 60), step=5, key="gs_short")
@@ -520,20 +528,20 @@ with st.expander("🔍 参数网格搜索"):
 
         if grid_results:
             grid_df = pd.DataFrame(grid_results).sort_values("夏普比率", ascending=False)
-            st.success(f"搜索完成！共测试 {len(grid_results)} 组参数")
+            st.success(MSG.backtest_grid_done.format(n=len(grid_results)))
             st.dataframe(grid_df.head(10), use_container_width=True, hide_index=True)
         else:
-            st.warning("未找到有效参数组合")
+            st.warning(MSG.backtest_grid_none)
 
 # ── 组合回测 ──────────────────────────────────────────────
 with st.expander("📊 组合回测（多标的）"):
-    st.caption("对多个标的运行同一策略，查看各标的表现")
-    portfolio_input = st.text_input("输入标的代码（逗号分隔）", value="AAPL, MSFT, GOOGL", key="port_tickers")
+    st.caption(MSG.backtest_portfolio_caption)
+    portfolio_input = st.text_input("输入标的代码（逗号分隔）", value=CFG.backtest.default_portfolio, key="port_tickers")
 
     if st.button("🚀 运行组合回测", key="port_run"):
         port_tickers = [t.strip().upper() for t in portfolio_input.split(",") if t.strip()]
         if len(port_tickers) < 2:
-            st.warning("请输入至少两个标的代码")
+            st.warning(MSG.backtest_portfolio_min)
         else:
             port_rows = []
             port_equities = {}
@@ -598,4 +606,4 @@ st.caption("提示：打开 HTML 文件后按 Ctrl+P 可打印/另存为 PDF。"
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
-st.caption("策略回测器 | 数据来源：Yahoo Finance | 运行：`streamlit run app.py`")
+st.caption(MSG.backtest_footer)

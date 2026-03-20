@@ -22,6 +22,7 @@ import yfinance as yf
 from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh
 
+from core.config import CFG, MSG
 from core.storage import save_scheme, load_scheme, list_schemes
 
 # ── 模块级 logger ─────────────────────────────────────────
@@ -73,7 +74,13 @@ if custom_input:
     extras = [s.strip().upper() for s in custom_input.split(",") if s.strip()]
     selected = list(dict.fromkeys(selected + extras))
 
-refresh_interval = st.sidebar.slider("自动刷新间隔（秒）", 30, 300, 60, step=10)
+refresh_interval = st.sidebar.slider(
+    "自动刷新间隔（秒）",
+    CFG.quote.refresh_interval_min,
+    CFG.quote.refresh_interval_max,
+    CFG.quote.refresh_interval_default,
+    step=CFG.quote.refresh_interval_step,
+)
 
 # ── 关注列表持久化 ─────────────────────────────────────────
 st.sidebar.divider()
@@ -101,8 +108,8 @@ if "wl_loaded" in st.session_state:
     selected = st.session_state.pop("wl_loaded")
 
 st.sidebar.divider()
-st.sidebar.caption("数据来源：Yahoo Finance（yfinance）")
-st.sidebar.caption("提示：港股代码格式 0700.HK，加密货币 BTC-USD")
+st.sidebar.caption(MSG.data_source_yfinance)
+st.sidebar.caption(MSG.quote_ticker_hint)
 
 # ── 自动刷新 ──────────────────────────────────────────────
 st_autorefresh(interval=refresh_interval * 1000, key="auto_refresh")
@@ -173,11 +180,11 @@ def _fetch_one(ticker_str: str) -> dict:
         return base
 
 
-@st.cache_data(ttl=25)
+@st.cache_data(ttl=CFG.quote.quote_cache_ttl)
 def fetch_quotes(tickers: tuple[str, ...]) -> pd.DataFrame:
     """使用线程池并行获取所有标的报价。"""
     results: dict[str, dict] = {}
-    with ThreadPoolExecutor(max_workers=10) as pool:
+    with ThreadPoolExecutor(max_workers=CFG.quote.thread_pool_workers) as pool:
         futures = {pool.submit(_fetch_one, t): t for t in tickers}
         for future in as_completed(futures):
             ticker_str = futures[future]
@@ -186,8 +193,8 @@ def fetch_quotes(tickers: tuple[str, ...]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-@st.cache_data(ttl=300)
-def fetch_kline_history(ticker_str: str, period: str = "6mo") -> pd.DataFrame:
+@st.cache_data(ttl=CFG.quote.kline_cache_ttl)
+def fetch_kline_history(ticker_str: str, period: str = CFG.quote.kline_default_period) -> pd.DataFrame:
     """下载 K 线历史数据，结果缓存 5 分钟，避免重复请求。"""
     try:
         hist = yf.download(ticker_str, period=period, progress=False, auto_adjust=True)
@@ -244,7 +251,7 @@ st.markdown(
 )
 
 if not selected:
-    st.warning("请在左侧面板中选择至少一个标的。")
+    st.warning(MSG.quote_no_selection)
     st.stop()
 
 with st.spinner("正在获取行情数据…"):
@@ -279,13 +286,13 @@ network_errs = quotes_df[quotes_df["_error"] == _ERR_NETWORK]["代码"].tolist()
 notfound_errs = quotes_df[quotes_df["_error"] == _ERR_NOTFOUND]["代码"].tolist()
 
 if network_errs:
-    st.warning(f"🌐 网络连接异常，以下标的数据获取失败（可能为限流或网络问题）：{', '.join(network_errs)}")
+    st.warning(MSG.quote_network_error.format(tickers=', '.join(network_errs)))
 if notfound_errs:
-    st.error(f"❌ 以下标的代码无效或已退市，请检查代码格式：{', '.join(notfound_errs)}")
+    st.error(MSG.quote_notfound_error.format(tickers=', '.join(notfound_errs)))
 
 cached_tickers = quotes_df[quotes_df["_error"] == "cached"]["代码"].tolist()
 if cached_tickers:
-    st.info(f"💾 以下标的使用上次缓存数据：{', '.join(cached_tickers)}")
+    st.info(MSG.quote_cached_info.format(tickers=', '.join(cached_tickers)))
 
 # 仅展示成功获取的数据
 display_quotes = quotes_df[quotes_df["_error"].isin([_ERR_OK, "cached"])].copy()
@@ -327,7 +334,7 @@ if not display_quotes.empty:
         height=(len(table_df) + 1) * 38 + 10,
     )
 else:
-    st.info("暂无有效行情数据，请检查网络连接或标的代码。")
+    st.info(MSG.quote_no_valid_data)
 
 # ── K线图 & 技术指标 ─────────────────────────────────────
 st.markdown("---")
@@ -337,11 +344,11 @@ valid_tickers = display_quotes["代码"].tolist() if not display_quotes.empty el
 kline_ticker = st.selectbox("选择标的", valid_tickers if valid_tickers else selected, key="kline_ticker")
 
 if kline_ticker:
-    with st.spinner(f"正在加载 {kline_ticker} 近6个月历史数据…"):
-        hist = fetch_kline_history(kline_ticker, period="6mo")
+    with st.spinner(MSG.quote_kline_loading.format(ticker=kline_ticker)):
+        hist = fetch_kline_history(kline_ticker)
 
     if hist.empty:
-        st.warning(f"未能获取 {kline_ticker} 的历史数据，请稍后重试或检查代码。")
+        st.warning(MSG.quote_kline_failed.format(ticker=kline_ticker))
     else:
         col_ma, col_vwap = st.columns(2)
         show_ma = col_ma.checkbox("显示均线（SMA 20 / SMA 60）", value=True, key="show_ma")
@@ -413,4 +420,4 @@ if kline_ticker:
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
-st.caption(f"自动刷新间隔：{refresh_interval} 秒 | 数据来源：Yahoo Finance | 运行命令：`streamlit run app.py`")
+st.caption(MSG.quote_footer.format(interval=refresh_interval))

@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core.chart_config import build_layout
+from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
 
 st.set_page_config(page_title="资产净值追踪器", page_icon="🏠", layout="wide")
@@ -37,16 +38,16 @@ st.subheader("📝 录入资产与负债")
 col_a, col_l = st.columns(2)
 with col_a:
     st.markdown("#### 💰 资产")
-    cash = st.number_input("现金及存款", min_value=0.0, value=0.0, step=10000.0, format="%.0f", key="nw_cash")
-    stocks = st.number_input("股票及基金", min_value=0.0, value=0.0, step=10000.0, format="%.0f", key="nw_stocks")
-    real_estate = st.number_input("房产（市值）", min_value=0.0, value=0.0, step=100000.0, format="%.0f", key="nw_re")
-    other_assets = st.number_input("其他资产", min_value=0.0, value=0.0, step=10000.0, format="%.0f", key="nw_oa")
+    cash = st.number_input("现金及存款", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_cash")
+    stocks = st.number_input("股票及基金", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_stocks")
+    real_estate = st.number_input("房产（市值）", min_value=0.0, value=0.0, step=CFG.networth.real_estate_step, format="%.0f", key="nw_re")
+    other_assets = st.number_input("其他资产", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_oa")
 with col_l:
     st.markdown("#### 💳 负债")
-    mortgage = st.number_input("房贷余额", min_value=0.0, value=0.0, step=10000.0, format="%.0f", key="nw_mort")
-    car_loan = st.number_input("车贷/消费贷", min_value=0.0, value=0.0, step=10000.0, format="%.0f", key="nw_car")
-    credit_card = st.number_input("信用卡欠款", min_value=0.0, value=0.0, step=1000.0, format="%.0f", key="nw_cc")
-    other_liab = st.number_input("其他负债", min_value=0.0, value=0.0, step=10000.0, format="%.0f", key="nw_ol")
+    mortgage = st.number_input("房贷余额", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_mort")
+    car_loan = st.number_input("车贷/消费贷", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_car")
+    credit_card = st.number_input("信用卡欠款", min_value=0.0, value=0.0, step=CFG.networth.credit_card_step, format="%.0f", key="nw_cc")
+    other_liab = st.number_input("其他负债", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_ol")
 
 total_assets = cash + stocks + real_estate + other_assets
 total_liab = mortgage + car_loan + credit_card + other_liab
@@ -65,9 +66,9 @@ else:
 
 if total_assets > 0:
     dr = total_liab / total_assets * 100
-    if dr > 60: st.error(f"⚠️ 负债率 {dr:.1f}%，偏高！")
-    elif dr > 40: st.warning(f"📌 负债率 {dr:.1f}%，中等水平。")
-    else: st.success(f"✅ 负债率 {dr:.1f}%，健康。")
+    if dr > CFG.networth.debt_ratio_high: st.error(MSG.networth_debt_high.format(ratio=dr))
+    elif dr > CFG.networth.debt_ratio_medium: st.warning(MSG.networth_debt_medium.format(ratio=dr))
+    else: st.success(MSG.networth_debt_ok.format(ratio=dr))
 
 st.session_state["dashboard_networth"] = {"net_worth": net_worth, "total_assets": total_assets, "total_liabilities": total_liab}
 
@@ -75,7 +76,7 @@ st.markdown("---")
 if st.button("💾 保存当前快照", type="primary"):
     records.append({"date": datetime.now().strftime("%Y-%m-%d"), "cash": cash, "stocks": stocks, "real_estate": real_estate, "other_assets": other_assets, "mortgage": mortgage, "car_loan": car_loan, "credit_card": credit_card, "other_liab": other_liab, "total_assets": total_assets, "total_liabilities": total_liab, "net_worth": net_worth})
     _save_records(records)
-    st.success("✅ 快照已保存！")
+    st.success(MSG.networth_saved)
     st.rerun()
 st.caption(f"已保存 {len(records)} 条记录")
 
@@ -101,7 +102,7 @@ if len(records) >= 2:
     fig_t.update_layout(**build_layout(xaxis_title="日期", yaxis_title="金额", yaxis_tickformat=","))
     st.plotly_chart(fig_t, use_container_width=True)
 elif len(records) == 1:
-    st.info("📌 再保存一次快照后即可查看趋势图。")
+    st.info(MSG.networth_trend_hint)
 
 if records:
     st.subheader("📋 历史记录")
@@ -111,7 +112,7 @@ if records:
     st.dataframe(hdf, use_container_width=True, hide_index=True)
     with st.expander("🗑️ 管理记录"):
         if st.button("清除所有记录", key="nw_clear"):
-            _save_records([]); st.success("已清除"); st.rerun()
+            _save_records([]); st.success(MSG.networth_cleared); st.rerun()
 
 st.subheader("📤 导出报告")
 def _build_nw_report() -> str:
@@ -119,7 +120,7 @@ def _build_nw_report() -> str:
     rh = "".join(f"<tr><td>{r['date']}</td><td>{s}{r['total_assets']:,.0f}</td><td>{s}{r['total_liabilities']:,.0f}</td><td>{s}{r['net_worth']:,.0f}</td></tr>" for r in records)
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}</style></head><body><h1>🏠 资产净值报告</h1><p>总资产：{s}{total_assets:,.0f} | 总负债：{s}{total_liab:,.0f} | 净资产：{s}{net_worth:,.0f}</p>{"<table><tr><th>日期</th><th>总资产</th><th>总负债</th><th>净资产</th></tr>"+rh+"</table>" if records else ""}</body></html>"""
 st.download_button("📥 下载报告 (HTML)", data=_build_nw_report(), file_name="资产净值报告.html", mime="text/html")
-st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
+st.caption(MSG.print_hint)
 
 st.divider()
-st.caption("🏠 资产净值追踪器 | 运行命令：`streamlit run app.py`")
+st.caption(MSG.networth_footer)

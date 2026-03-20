@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core.chart_config import build_layout
+from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta
 from core.planning import calculate_budget
 from core.storage import scheme_manager_ui
@@ -29,13 +30,21 @@ st.sidebar.header("📋 收入与支出")
 currency_selector()
 
 income = st.sidebar.number_input(
-    "月收入（税后，元）", min_value=10_000.0, max_value=1_000_000.0,
-    value=60_000.0, step=5_000.0, format="%.0f",
+    "月收入（税后，元）",
+    min_value=CFG.budget.income_min,
+    max_value=CFG.budget.income_max,
+    value=CFG.budget.income_default,
+    step=CFG.budget.income_step,
+    format="%.0f",
 )
 fixed_expense = st.sidebar.number_input(
-    "已知固定必需支出（元）", min_value=0.0, max_value=income,
-    value=0.0, step=1_000.0, format="%.0f",
-    help="如房租、房贷、保险等已确定的必需支出",
+    "已知固定必需支出（元）",
+    min_value=0.0,
+    max_value=income,
+    value=0.0,
+    step=CFG.budget.fixed_expense_step,
+    format="%.0f",
+    help=MSG.budget_fixed_help,
 )
 has_debt = st.sidebar.checkbox("有高利债务（信用卡/消费贷等）", value=False)
 
@@ -43,8 +52,8 @@ st.sidebar.divider()
 st.sidebar.subheader("⚙️ 自定义比例")
 st.sidebar.caption("拖动滑杆调整分配比例（三项合计须为 100%）")
 
-pct_needs = st.sidebar.slider("必需支出占比（%）", 0, 100, 50, key="needs")
-pct_wants = st.sidebar.slider("想要支出占比（%）", 0, 100, 30, key="wants")
+pct_needs = st.sidebar.slider("必需支出占比（%）", 0, 100, int(CFG.budget.needs_ratio * 100), key="needs")
+pct_wants = st.sidebar.slider("想要支出占比（%）", 0, 100, int(CFG.budget.wants_ratio * 100), key="wants")
 pct_save = 100 - pct_needs - pct_wants
 
 if pct_save < 0:
@@ -149,12 +158,12 @@ with col_a:
     if fixed_expense > 0:
         st.markdown(f"- 固定支出：{fmt(fixed_expense, decimals=0)}")
         st.markdown(f"- 弹性必需：{fmt(remaining_needs, decimals=0)}")
-    st.caption("含：房租/房贷、水电煤、保险、交通、基本餐饮")
+    st.caption(MSG.budget_needs_caption)
 
 with col_b:
     st.markdown("#### 🎉 想要支出")
     st.markdown(f"- **预算总额：** {fmt(amt_wants, decimals=0)}")
-    st.caption("含：外出餐饮、娱乐、购物、订阅、旅行")
+    st.caption(MSG.budget_wants_caption)
 
 with col_c:
     st.markdown(f"#### 💰 {save_label}")
@@ -162,11 +171,11 @@ with col_c:
     if has_debt:
         st.markdown(f"- 🔴 优先还债：{fmt(amt_save * 0.7, decimals=0)}（建议 70%）")
         st.markdown(f"- 应急储蓄：{fmt(amt_save * 0.3, decimals=0)}（建议 30%）")
-        st.caption("有高利债务时，建议将大部分储蓄用于还债")
+        st.caption(MSG.budget_debt_caption)
     else:
         st.markdown(f"- 应急基金：{fmt(amt_save * 0.5, decimals=0)}（建议 50%）")
         st.markdown(f"- 长期投资：{fmt(amt_save * 0.5, decimals=0)}（建议 50%）")
-        st.caption("建议先存满 3–6 个月应急金，再配置投资")
+        st.caption(MSG.budget_emergency_caption)
 
 # ── 个性化建议 ────────────────────────────────────────────
 st.markdown("---")
@@ -205,8 +214,8 @@ def _build_bud_report() -> str:
     th = "".join(f"<li>{t}</li>" for t in tips)
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}ul{{line-height:2}}</style></head><body><h1>💡 预算分配报告</h1><p>月收入：{s}{income:,.0f} | 比例：{pct_needs}%/{pct_wants}%/{pct_save}%</p><p>必需：{s}{amt_needs:,.0f} | 想要：{s}{amt_wants:,.0f} | {save_label}：{s}{amt_save:,.0f}</p><h2>建议</h2><ul>{th}</ul></body></html>"""
 st.download_button("📥 下载报告 (HTML)", data=_build_bud_report(), file_name="预算分配报告.html", mime="text/html")
-st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
+st.caption(MSG.print_hint)
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
-st.caption("💡 50/30/20 预算分配建议器 | 运行命令：`streamlit run app.py`")
+st.caption(MSG.budget_footer)

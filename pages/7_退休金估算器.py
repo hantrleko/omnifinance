@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core.chart_config import build_layout
+from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.retirement import RetirementResult, calculate_retirement
 from core.storage import scheme_manager_ui
@@ -34,13 +35,13 @@ currency_selector()
 current_age = st.sidebar.number_input("目前年龄", 18, 80, 35)
 retire_age = st.sidebar.number_input("预计退休年龄", current_age + 1, 90, max(65, current_age + 1))
 current_assets = st.sidebar.number_input(
-    "目前已累积退休资产（元）", 0.0, 50_000_000.0, 500_000.0, step=50_000.0, format="%.0f",
+    "目前已累积退休资产（元）", 0.0, CFG.retirement.current_assets_max, CFG.retirement.current_assets_default, step=CFG.retirement.current_assets_step, format="%.0f",
 )
 monthly_saving = st.sidebar.number_input(
-    "退休前每月可投入（元）", 0.0, 500_000.0, 10_000.0, step=1_000.0, format="%.0f",
+    "退休前每月可投入（元）", 0.0, CFG.retirement.monthly_saving_max, CFG.retirement.monthly_saving_default, step=CFG.retirement.monthly_saving_step, format="%.0f",
 )
 pre_return = st.sidebar.number_input(
-    "退休前年化报酬率（%）", 0.0, 20.0, 7.0, step=0.1, format="%.1f",
+    "退休前年化报酬率（%）", 0.0, CFG.retirement.pre_return_max, CFG.retirement.pre_return_default, step=CFG.retirement.pre_return_step, format="%.1f",
 )
 
 st.sidebar.divider()
@@ -48,17 +49,17 @@ st.sidebar.header("🏖️ 退休后参数")
 
 life_expectancy = st.sidebar.number_input("预期寿命", retire_age + 1, 120, max(85, retire_age + 1))
 monthly_expense = st.sidebar.number_input(
-    "退休后每月生活费（今日币值，元）", 5_000.0, 500_000.0, 30_000.0, step=1_000.0, format="%.0f",
+    "退休后每月生活费（今日币值，元）", CFG.retirement.monthly_expense_min, CFG.retirement.monthly_expense_max, CFG.retirement.monthly_expense_default, step=CFG.retirement.monthly_expense_step, format="%.0f",
 )
 pension_income = st.sidebar.number_input(
-    "预期月养老金收入（元）", 0.0, 200_000.0, 0.0, step=500.0, format="%.0f",
-    help="退休后每月可领取的社保养老金或企业年金（今日币值）",
+    "预期月养老金收入（元）", 0.0, CFG.retirement.pension_income_max, CFG.retirement.pension_income_default, step=CFG.retirement.pension_income_step, format="%.0f",
+    help=MSG.retirement_pension_help,
 )
 inflation = st.sidebar.number_input(
-    "年平均通胀率（%）", 0.0, 10.0, 2.5, step=0.1, format="%.1f",
+    "年平均通胀率（%）", 0.0, CFG.retirement.inflation_max, CFG.retirement.inflation_default, step=CFG.retirement.inflation_step, format="%.1f",
 )
 post_return = st.sidebar.number_input(
-    "退休后年化报酬率（%）", 0.0, 15.0, 4.0, step=0.1, format="%.1f",
+    "退休后年化报酬率（%）", 0.0, CFG.retirement.post_return_max, CFG.retirement.post_return_default, step=CFG.retirement.post_return_step, format="%.1f",
 )
 
 scheme_manager_ui("retirement", {
@@ -161,17 +162,24 @@ for name, (pr, po) in scenarios.items():
 m4.metric("📋 达成评估", prob_labels[1], delta=" | ".join(prob_labels), delta_color="off")
 
 if pension_income > 0:
-    st.info(f"💰 养老金效果：月养老金 {fmt(pension_income, decimals=0)}（今日币值），退休首年等效 {fmt(future_pension, decimals=0)}，可减少所需资产约 {fmt(pension_pv, decimals=0)}")
+    st.info(MSG.retirement_pension_info.format(
+        income=fmt(pension_income, decimals=0),
+        future=fmt(future_pension, decimals=0),
+        pv=fmt(pension_pv, decimals=0),
+    ))
 
 st.subheader("🧭 一页结论")
 if result_gap <= 0:
-    st.success("结论：当前退休计划可覆盖资金需求。")
-    st.caption(f"原因：预计退休时可累积 {fmt(result.projected_at_retire, decimals=0)}，高于所需 {fmt(result_total_needed, decimals=0)}。")
-    st.caption("下一步：保持定投并每年复盘通胀和收益率假设。")
+    st.success(MSG.retirement_ok_conclusion)
+    st.caption(MSG.retirement_ok_reason.format(
+        projected=fmt(result.projected_at_retire, decimals=0),
+        needed=fmt(result_total_needed, decimals=0),
+    ))
+    st.caption(MSG.retirement_ok_next)
 else:
-    st.warning("结论：当前退休计划仍有资金缺口。")
-    st.caption(f"原因：预计缺口 {fmt(result_gap, decimals=0)}。")
-    st.caption(f"下一步：建议每月额外增加储蓄约 {fmt(result_extra, decimals=0)}，并结合延后退休年龄评估。")
+    st.warning(MSG.retirement_gap_conclusion)
+    st.caption(MSG.retirement_gap_reason.format(gap=fmt(result_gap, decimals=0)))
+    st.caption(MSG.retirement_gap_next.format(extra=fmt(result_extra, decimals=0)))
 
 # ── 成长曲线 ──────────────────────────────────────────────
 st.subheader("📈 资产成长曲线")
@@ -300,8 +308,8 @@ def _build_ret_report() -> str:
         rh += f"<tr><td>第{yr}年({current_age+yr}岁)</td><td>{sym}{sb:,.0f}</td><td>{sym}{monthly_saving*12:,.0f}</td><td>{sym}{yi:,.0f}</td><td>{sym}{b:,.0f}</td></tr>"
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}</style></head><body><h1>🏖️ 退休金估算报告</h1><p>{current_age}岁→退休{retire_age}岁→寿命{life_expectancy} | 月储蓄：{sym}{monthly_saving:,.0f}</p><table><tr><th>年份</th><th>年初</th><th>投入</th><th>收益</th><th>年末</th></tr>{rh}</table></body></html>"""
 st.download_button("📥 下载报告 (HTML)", data=_build_ret_report(), file_name="退休金报告.html", mime="text/html")
-st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
+st.caption(MSG.print_hint)
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
-st.caption("🏖️ 退休金需求估算器 | 仅供参考，不构成投资建议 | 运行：`streamlit run app.py`")
+st.caption(MSG.retirement_footer)

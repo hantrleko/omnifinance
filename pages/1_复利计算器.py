@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 
 from core.chart_config import build_layout
 from core.compound import add_annualized_return, compute_schedule
+from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.storage import scheme_manager_ui
 
@@ -28,9 +29,9 @@ currency_selector()
 
 mode = st.sidebar.radio("投资模式", ["一次性投资", "定期定投"], horizontal=True)
 
-principal = st.sidebar.number_input("本金（元）", min_value=0.0, value=10000.0, step=1000.0, format="%.2f")
-annual_rate = st.sidebar.number_input("年化利率（%）", min_value=0.0, max_value=100.0, value=5.0, step=0.1, format="%.2f")
-years = st.sidebar.number_input("投资年限（年）", min_value=1, max_value=100, value=10, step=1)
+principal = st.sidebar.number_input("本金（元）", min_value=0.0, value=CFG.compound.principal_default, step=CFG.compound.principal_step, format="%.2f")
+annual_rate = st.sidebar.number_input("年化利率（%）", min_value=0.0, max_value=CFG.compound.annual_rate_max, value=CFG.compound.annual_rate_default, step=CFG.compound.annual_rate_step, format="%.2f")
+years = st.sidebar.number_input("投资年限（年）", min_value=1, max_value=CFG.compound.years_max, value=CFG.compound.years_default, step=1)
 
 freq_options = {"每年 (1)": 1, "每半年 (2)": 2, "每季度 (4)": 4, "每月 (12)": 12, "每日 (365)": 365}
 freq_label = st.sidebar.selectbox("复利频率", list(freq_options.keys()))
@@ -39,7 +40,7 @@ n = freq_options[freq_label]
 contribution = 0.0
 contrib_freq_n = 12
 if mode == "定期定投":
-    contribution = st.sidebar.number_input("每期定投金额（元）", min_value=0.0, value=1000.0, step=100.0, format="%.2f")
+    contribution = st.sidebar.number_input("每期定投金额（元）", min_value=0.0, value=CFG.compound.contribution_default, step=CFG.compound.contribution_step, format="%.2f")
     contrib_freq_options = {"每月": 12, "每季度": 4, "每半年": 2, "每年": 1}
     contrib_freq_label = st.sidebar.selectbox("定投频率", list(contrib_freq_options.keys()))
     contrib_freq_n = contrib_freq_options[contrib_freq_label]
@@ -305,8 +306,8 @@ col_dl2.download_button(
     file_name="复利计算报告.html",
     mime="text/html",
 )
-st.caption("提示：打开下载的 HTML 文件后，按 Ctrl+P 即可打印/另存为 PDF。")
+st.caption(MSG.print_hint)
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
-st.caption("提示：在左侧面板调整参数后结果会自动更新。运行命令：`streamlit run app.py`")
+st.caption(f"提示：在左侧面板调整参数后结果会自动更新。{MSG.run_hint}")

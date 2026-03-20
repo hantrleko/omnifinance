@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core.chart_config import build_layout
+from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.savings import SavingsResult, calculate_savings_goal
 from core.storage import scheme_manager_ui
@@ -35,25 +36,45 @@ st.sidebar.header("📋 参数设置")
 currency_selector()
 
 current_savings = st.sidebar.number_input(
-    "目前储蓄金额（元）", min_value=0.0, max_value=5_000_000.0,
-    value=50_000.0, step=10_000.0, format="%.0f",
+    "目前储蓄金额（元）",
+    min_value=0.0,
+    max_value=CFG.savings.current_max,
+    value=CFG.savings.current_default,
+    step=CFG.savings.current_step,
+    format="%.0f",
 )
 goal_amount = st.sidebar.number_input(
-    "目标金额（元）", min_value=100_000.0, max_value=10_000_000.0,
-    value=1_000_000.0, step=50_000.0, format="%.0f",
+    "目标金额（元）",
+    min_value=CFG.savings.goal_min,
+    max_value=CFG.savings.goal_max,
+    value=CFG.savings.goal_default,
+    step=CFG.savings.goal_step,
+    format="%.0f",
 )
 annual_rate = st.sidebar.number_input(
-    "预期年化报酬率（%）", min_value=0.0, max_value=15.0,
-    value=6.0, step=0.1, format="%.1f",
+    "预期年化报酬率（%）",
+    min_value=0.0,
+    max_value=CFG.savings.annual_rate_max,
+    value=CFG.savings.annual_rate_default,
+    step=CFG.savings.annual_rate_step,
+    format="%.1f",
 )
 monthly_deposit = st.sidebar.number_input(
-    "每月固定投入（元）", min_value=0.0, max_value=200_000.0,
-    value=10_000.0, step=1_000.0, format="%.0f",
+    "每月固定投入（元）",
+    min_value=0.0,
+    max_value=CFG.savings.monthly_deposit_max,
+    value=CFG.savings.monthly_deposit_default,
+    step=CFG.savings.monthly_deposit_step,
+    format="%.0f",
 )
 inflation_rate = st.sidebar.number_input(
-    "年通胀率（%）", min_value=0.0, max_value=10.0,
-    value=2.5, step=0.1, format="%.1f",
-    help="考虑通胀后的购买力折损",
+    "年通谀率（%）",
+    min_value=0.0,
+    max_value=CFG.savings.inflation_rate_max,
+    value=CFG.savings.inflation_rate_default,
+    step=CFG.savings.inflation_rate_step,
+    format="%.1f",
+    help=MSG.savings_inflation_help,
 )
 start_date = st.sidebar.date_input("计算起始日期", value=date.today())
 
@@ -63,7 +84,7 @@ st.sidebar.divider()
 st.sidebar.subheader("⚡ 快速调整每月投入")
 monthly_deposit_slider = st.sidebar.slider(
     "每月投入（滑杆）",
-    min_value=0, max_value=200_000, value=int(monthly_deposit), step=1_000,
+    min_value=0, max_value=int(CFG.savings.monthly_deposit_max), value=int(monthly_deposit), step=int(CFG.savings.monthly_deposit_step),
     format=f"{get_symbol()}%d",
 )
 effective_deposit = float(monthly_deposit_slider)
@@ -95,11 +116,13 @@ st.markdown("---")
 
 if current_savings >= goal_amount:
     st.balloons()
-    st.success(f"🎉 **已达成目标！** 目前储蓄 {fmt(current_savings, decimals=0)} 已超过目标 {fmt(goal_amount, decimals=0)}")
+    st.success(MSG.savings_already_reached.format(
+        current=fmt(current_savings, decimals=0), goal=fmt(goal_amount, decimals=0)
+    ))
     st.stop()
 
 if not result.reached:
-    st.error("⚠️ 以当前参数设定，无法在 100 年内达成目标。请增加每月投入或提高报酬率。")
+    st.error(MSG.savings_never)
     st.stop()
 
 # ── 核心指标卡片 ──────────────────────────────────────────
@@ -126,18 +149,18 @@ progress_pct = min(1.0, current_savings / goal_amount)
 st.progress(progress_pct, text=f"📊 当前进度：{progress_pct*100:.1f}%（{fmt(current_savings, decimals=0)} / {fmt(goal_amount, decimals=0)}）")
 
 st.subheader("🧭 一页结论")
-if result.months_needed <= 24:
-    st.success("结论：目标可在较短周期内达成。")
+if result.months_needed <= CFG.savings.goal_short_threshold:
+    st.success(MSG.savings_short_conclusion)
     st.caption(f"原因：按当前参数预计 {time_str} 达成，复利贡献约 {fmt(result.total_interest, decimals=0)}。")
-    st.caption("下一步：保持当前投入节奏，定期复盘收益率假设。")
-elif result.months_needed <= 120:
-    st.info("结论：目标可达成，但时间中等。")
+    st.caption(MSG.savings_short_next)
+elif result.months_needed <= CFG.savings.goal_long_threshold:
+    st.info(MSG.savings_medium_conclusion)
     st.caption(f"原因：按当前参数预计 {time_str} 达成。")
-    st.caption("下一步：若希望提前达成，可提高每月投入或下调目标金额。")
+    st.caption(MSG.savings_medium_next)
 else:
-    st.warning("结论：目标可达成但周期较长。")
+    st.warning(MSG.savings_long_conclusion)
     st.caption(f"原因：按当前参数预计需要 {time_str}。")
-    st.caption("下一步：建议优先提高月投入，其次再考虑调整收益率假设。")
+    st.caption(MSG.savings_long_next)
 
 if inflation_rate > 0 and result.months_needed > 0:
     years_to_goal = result.months_needed / 12
@@ -150,9 +173,14 @@ if inflation_rate > 0 and result.months_needed > 0:
     ic2.metric("📈 通胀调整后目标", fmt(real_goal, decimals=0), delta=fmt_delta(real_goal - goal_amount, decimals=0), delta_color="inverse")
     ic3.metric("📉 实际报酬率", f"{real_return:.1f}%", delta=f"名义 {annual_rate:.1f}% − 通胀 {inflation_rate:.1f}%", delta_color="off")
     if real_goal > goal_amount * 1.3:
-        st.warning(f"⚠️ 考虑 {inflation_rate}% 通胀，{years_to_goal:.0f} 年后实际需要 {fmt(real_goal, decimals=0)} 才等价于今日 {fmt(goal_amount, decimals=0)} 的购买力。")
+        st.warning(MSG.savings_inflation_warning.format(
+            rate=inflation_rate, years=years_to_goal,
+            real_goal=fmt(real_goal, decimals=0), goal=fmt(goal_amount, decimals=0),
+        ))
     else:
-        st.info(f"💡 考虑 {inflation_rate}% 通胀，{years_to_goal:.0f} 年后等价购买力约需 {fmt(real_goal, decimals=0)}。")
+        st.info(MSG.savings_inflation_info.format(
+            rate=inflation_rate, years=years_to_goal, real_goal=fmt(real_goal, decimals=0),
+        ))
 
 # ── Plotly 资产成长曲线 ───────────────────────────────────
 st.subheader("📈 资产成长曲线")
@@ -263,8 +291,8 @@ def _build_sav_report() -> str:
     yr = "".join(f"<tr><td>第{int(r['年份'])}年</td><td>{s}{r['年初余额']:,.0f}</td><td>{s}{r['当年利息']:,.0f}</td><td>{s}{r['当年投入']:,.0f}</td><td>{s}{r['年末余额']:,.0f}</td></tr>" for _, r in result.yearly.iterrows())
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}</style></head><body><h1>🎯 储蓄目标报告</h1><p>目标：{s}{goal_amount:,.0f} | 现有：{s}{current_savings:,.0f} | 月投入：{s}{effective_deposit:,.0f} | 报酬率：{annual_rate:.1f}%</p><table><tr><th>年份</th><th>年初</th><th>利息</th><th>投入</th><th>年末</th></tr>{yr}</table></body></html>"""
 st.download_button("📥 下载报告 (HTML)", data=_build_sav_report(), file_name="储蓄目标报告.html", mime="text/html")
-st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
+st.caption(MSG.print_hint)
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
-st.caption("🎯 储蓄目标达成计算器 | 运行命令：`streamlit run app.py`")
+st.caption(MSG.savings_footer)

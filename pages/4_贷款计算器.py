@@ -8,6 +8,7 @@ import io
 import pandas as pd
 
 from core.chart_config import build_layout
+from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta
 from core.planning import calculate_loan
 from core.storage import scheme_manager_ui
@@ -31,14 +32,27 @@ st.sidebar.header("📋 贷款参数")
 currency_selector()
 
 loan_amount = st.sidebar.number_input(
-    "贷款金额（元）", min_value=100_000.0, max_value=50_000_000.0,
-    value=1_000_000.0, step=10_000.0, format="%.0f",
+    "贷款金额（元）",
+    min_value=CFG.loan.amount_min,
+    max_value=CFG.loan.amount_max,
+    value=CFG.loan.amount_default,
+    step=CFG.loan.amount_step,
+    format="%.0f",
 )
 annual_rate = st.sidebar.number_input(
-    "年利率（%）", min_value=0.1, max_value=20.0, value=4.5, step=0.1, format="%.2f",
+    "年利率（%）",
+    min_value=CFG.loan.rate_min,
+    max_value=CFG.loan.rate_max,
+    value=CFG.loan.rate_default,
+    step=CFG.loan.rate_step,
+    format="%.2f",
 )
 loan_years = st.sidebar.number_input(
-    "贷款期限（年）", min_value=1, max_value=40, value=30, step=1,
+    "贷款期限（年）",
+    min_value=CFG.loan.years_min,
+    max_value=CFG.loan.years_max,
+    value=CFG.loan.years_default,
+    step=1,
 )
 
 repay_method = st.sidebar.radio("还款方式", ["等额本息", "等额本金"], horizontal=True)
@@ -67,8 +81,8 @@ enable_prepay = st.sidebar.checkbox("启用提前还款", value=False)
 prepay_period = None
 prepay_amount = 0.0
 if enable_prepay:
-    prepay_period = st.sidebar.number_input("提前还款发生期数", min_value=1, max_value=total_periods, value=min(24, total_periods), step=1)
-    prepay_amount = st.sidebar.number_input("提前还款金额（元）", min_value=0.0, max_value=loan_amount, value=min(200_000.0, loan_amount), step=10_000.0, format="%.0f")
+    prepay_period = st.sidebar.number_input("提前还款发生期数", min_value=1, max_value=total_periods, value=min(CFG.loan.prepay_period_default, total_periods), step=1)
+    prepay_amount = st.sidebar.number_input("提前还款金额（元）", min_value=0.0, max_value=loan_amount, value=min(CFG.loan.prepay_default, loan_amount), step=CFG.loan.prepay_step, format="%.0f")
 
 
 # ══════════════════════════════════════════════════════════
@@ -112,7 +126,12 @@ periods_saved = max(0, base_summary["实际期数"] - summary["实际期数"])
 c5.metric("提前还款节省", fmt(interest_saved), delta=f"少 {periods_saved} 期")
 
 if enable_prepay and prepay_amount > 0:
-    st.info(f"结论：在第 {int(prepay_period)} 期提前还 {fmt(prepay_amount, decimals=0)}，预计少付利息 {fmt(interest_saved)}，并缩短 {periods_saved} 期。")
+    st.info(MSG.loan_prepay_info.format(
+        period=int(prepay_period),
+        amount=fmt(prepay_amount, decimals=0),
+        saved=fmt(interest_saved),
+        periods=periods_saved,
+    ))
 
 
 # ── 图表：剩余本金 + 本金/利息堆叠柱状图 ─────────────────
@@ -175,11 +194,11 @@ st.download_button(
 # ── 贷款方案对比 ──────────────────────────────────────────
 st.subheader("🔀 贷款方案对比")
 with st.expander("📊 设置对比方案", expanded=False):
-    st.caption("输入第二组贷款参数进行并列对比")
+    st.caption(MSG.loan_compare_caption)
     cb1, cb2, cb3 = st.columns(3)
-    cmp_amount = cb1.number_input("方案B 贷款金额", min_value=100_000.0, max_value=50_000_000.0, value=loan_amount, step=10_000.0, format="%.0f", key="cmp_a")
-    cmp_rate = cb2.number_input("方案B 年利率(%)", min_value=0.1, max_value=20.0, value=annual_rate, step=0.1, format="%.2f", key="cmp_r")
-    cmp_years = cb3.number_input("方案B 期限(年)", min_value=1, max_value=40, value=loan_years, step=1, key="cmp_y")
+    cmp_amount = cb1.number_input("方案B 贷款金额", min_value=CFG.loan.amount_min, max_value=CFG.loan.amount_max, value=loan_amount, step=CFG.loan.amount_step, format="%.0f", key="cmp_a")
+    cmp_rate = cb2.number_input("方案B 年利率(%)", min_value=CFG.loan.rate_min, max_value=CFG.loan.rate_max, value=annual_rate, step=CFG.loan.rate_step, format="%.2f", key="cmp_r")
+    cmp_years = cb3.number_input("方案B 期限(年)", min_value=CFG.loan.years_min, max_value=CFG.loan.years_max, value=loan_years, step=1, key="cmp_y")
     cmp_method = st.radio("方案B 还款方式", ["等额本息", "等额本金"], horizontal=True, key="cmp_m")
     if st.button("📊 开始对比", key="cmp_run"):
         cmp_schedule, cmp_summary = calculate_loan(cmp_amount, cmp_rate, cmp_years, periods_per_year, cmp_method)
@@ -213,8 +232,8 @@ def _build_loan_report() -> str:
 <p style="margin-top:24px;font-size:11px;color:#aaa">由贷款计算器自动生成</p></body></html>"""
 
 st.download_button("📥 下载报告 (HTML)", data=_build_loan_report(), file_name="贷款报告.html", mime="text/html")
-st.caption("提示：打开 HTML 后按 Ctrl+P 可打印为 PDF。")
+st.caption(MSG.print_hint)
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
-st.caption("🏦 贷款计算器 | 运行命令：`streamlit run app.py`")
+st.caption(MSG.loan_footer)
