@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import streamlit as st
+
 
 # ── Base layout used by all pages ────────────────────────
 LAYOUT_BASE: dict[str, Any] = dict(
@@ -45,6 +47,38 @@ def build_layout(**overrides: Any) -> dict[str, Any]:
     layout: dict[str, Any] = dict(LAYOUT_BASE)
     layout.update(overrides)
     return layout
+
+
+def render_empty_state(
+    title: str = "暂无数据",
+    message: str = "当前没有可显示的数据，请检查数据源或调整参数后重试。",
+    icon: str = "📭",
+) -> None:
+    """Render a centered empty-state placeholder inside a chart area.
+
+    Call this instead of silently hiding a chart or showing a bare error
+    string when data is unavailable.
+
+    Args:
+        title: Short heading shown in the empty state (default: ``"暂无数据"``).
+        message: Descriptive hint text shown below the title.
+        icon: Emoji icon shown above the title (default: ``"📭"``).
+    """
+    st.markdown(
+        f"""
+        <div style="
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 48px 24px;
+            border: 1.5px dashed var(--secondary-background-color, #555);
+            border-radius: 12px; text-align: center; color: #888;
+        ">
+            <div style="font-size: 2.8rem; margin-bottom: 10px;">{icon}</div>
+            <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 6px;">{title}</div>
+            <div style="font-size: 0.9rem;">{message}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def hover_fmt(symbol: str, value_fmt: str = ",.2f") -> str:

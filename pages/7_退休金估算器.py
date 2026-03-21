@@ -13,6 +13,7 @@ import streamlit as st
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
+from core.export import dataframes_to_excel
 from core.retirement import RetirementResult, calculate_retirement
 from core.storage import scheme_manager_ui
 
@@ -74,6 +75,27 @@ scheme_manager_ui("retirement", {
     "inflation": inflation,
     "post_return": post_return,
 })
+
+# ══════════════════════════════════════════════════════════
+#  参数验证
+# ══════════════════════════════════════════════════════════
+
+_validation_errors: list[str] = []
+
+if retire_age <= current_age:
+    _validation_errors.append(f"❌ 退休年龄（{retire_age}岁）必须大于目前年龄（{current_age}岁）。")
+
+if life_expectancy <= retire_age:
+    _validation_errors.append(f"❌ 预期寿命（{life_expectancy}岁）必须大于退休年龄（{retire_age}岁）。")
+
+if monthly_expense <= 0:
+    _validation_errors.append("❌ 退休后每月生活费必须大于 0。")
+
+if _validation_errors:
+    for _msg in _validation_errors:
+        st.sidebar.error(_msg)
+    st.error("⚠️ 参数有误，请在左侧修正后再计算。详见各错误提示。")
+    st.stop()
 
 # ══════════════════════════════════════════════════════════
 #  执行计算
@@ -307,7 +329,24 @@ def _build_ret_report() -> str:
         for _ in range(12): i = b * rm; yi += i; b = b + i + monthly_saving
         rh += f"<tr><td>第{yr}年({current_age+yr}岁)</td><td>{sym}{sb:,.0f}</td><td>{sym}{monthly_saving*12:,.0f}</td><td>{sym}{yi:,.0f}</td><td>{sym}{b:,.0f}</td></tr>"
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}</style></head><body><h1>🏖️ 退休金估算报告</h1><p>{current_age}岁→退休{retire_age}岁→寿命{life_expectancy} | 月储蓄：{sym}{monthly_saving:,.0f}</p><table><tr><th>年份</th><th>年初</th><th>投入</th><th>收益</th><th>年末</th></tr>{rh}</table></body></html>"""
-st.download_button("📥 下载报告 (HTML)", data=_build_ret_report(), file_name="退休金报告.html", mime="text/html")
+
+_dl_col1, _dl_col2 = st.columns(2)
+_dl_col1.download_button("📥 下载报告 (HTML)", data=_build_ret_report(), file_name="退休金报告.html", mime="text/html")
+
+if yearly_rows:
+    _yearly_df_export = pd.DataFrame(yearly_rows)
+    _sens_df_export = sens_df.copy()
+    _xlsx_bytes = dataframes_to_excel(
+        sheets=[("逐年累积明细", _yearly_df_export), ("敏感度分析", _sens_df_export)],
+        title="退休金估算报告",
+    )
+    _dl_col2.download_button(
+        "📊 下载数据 (Excel)",
+        data=_xlsx_bytes,
+        file_name="退休金报告.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
 st.caption(MSG.print_hint)
 
 # ── 页脚 ──────────────────────────────────────────────────

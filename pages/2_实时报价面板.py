@@ -26,6 +26,7 @@ import yfinance as yf
 from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh
 
+from core.chart_config import render_empty_state
 from core.config import CFG, MSG
 from core.storage import save_scheme, load_scheme, list_schemes
 
@@ -424,7 +425,11 @@ if not display_quotes.empty:
         height=(len(table_df) + 1) * 38 + 10,
     )
 else:
-    st.info(MSG.quote_no_valid_data)
+    render_empty_state(
+        title="暂无有效报价",
+        message=MSG.quote_no_valid_data,
+        icon="📡",
+    )
 
 # ── K线图 & 技术指标 ─────────────────────────────────────
 st.markdown("---")
@@ -438,7 +443,11 @@ if kline_ticker:
         hist = fetch_kline_history(kline_ticker)
 
     if hist.empty:
-        st.warning(MSG.quote_kline_failed.format(ticker=kline_ticker))
+        render_empty_state(
+            title=f"无法加载 {kline_ticker} 的历史数据",
+            message=MSG.quote_kline_failed.format(ticker=kline_ticker),
+            icon="📉",
+        )
     else:
         col_ma, col_vwap = st.columns(2)
         show_ma = col_ma.checkbox("显示均线（SMA 20 / SMA 60）", value=True, key="show_ma")

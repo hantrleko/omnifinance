@@ -15,6 +15,7 @@ import streamlit as st
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
+from core.export import dataframes_to_excel
 from core.savings import SavingsResult, calculate_savings_goal
 from core.storage import scheme_manager_ui
 
@@ -290,7 +291,19 @@ def _build_sav_report() -> str:
     s = get_symbol()
     yr = "".join(f"<tr><td>第{int(r['年份'])}年</td><td>{s}{r['年初余额']:,.0f}</td><td>{s}{r['当年利息']:,.0f}</td><td>{s}{r['当年投入']:,.0f}</td><td>{s}{r['年末余额']:,.0f}</td></tr>" for _, r in result.yearly.iterrows())
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{{font-family:"Microsoft YaHei",sans-serif;padding:30px;color:#222}}h1{{color:#333}}table{{border-collapse:collapse;width:100%;margin-top:12px}}th,td{{border:1px solid #ccc;padding:6px 10px;text-align:right;font-size:13px}}th{{background:#f5f5f5}}</style></head><body><h1>🎯 储蓄目标报告</h1><p>目标：{s}{goal_amount:,.0f} | 现有：{s}{current_savings:,.0f} | 月投入：{s}{effective_deposit:,.0f} | 报酬率：{annual_rate:.1f}%</p><table><tr><th>年份</th><th>年初</th><th>利息</th><th>投入</th><th>年末</th></tr>{yr}</table></body></html>"""
-st.download_button("📥 下载报告 (HTML)", data=_build_sav_report(), file_name="储蓄目标报告.html", mime="text/html")
+_sav_dl_col1, _sav_dl_col2 = st.columns(2)
+_sav_dl_col1.download_button("📥 下载报告 (HTML)", data=_build_sav_report(), file_name="储蓄目标报告.html", mime="text/html")
+
+_sav_xlsx_bytes = dataframes_to_excel(
+    sheets=[("逐年明细", result.yearly), ("投入对比", comp_df)],
+    title="储蓄目标达成报告",
+)
+_sav_dl_col2.download_button(
+    "📊 下载数据 (Excel)",
+    data=_sav_xlsx_bytes,
+    file_name="储蓄目标报告.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
 st.caption(MSG.print_hint)
 
 # ── 页脚 ──────────────────────────────────────────────────
