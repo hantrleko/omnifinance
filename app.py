@@ -2,7 +2,7 @@ import streamlit as st
 
 from core.currency import get_symbol, fmt, currency_selector
 
-VERSION = "v1.5"
+VERSION = "v1.6"
 
 st.set_page_config(
     page_title="全能理财家 (OmniFinance)",
@@ -46,9 +46,22 @@ st.markdown("""
 9. **🏠 9_资产净值追踪器**：记录资产负债，追踪净资产趋势
 """)
 
-with st.expander("🆕 最近更新（v1.5）", expanded=True):
+with st.expander("🆕 最近更新（v1.6）", expanded=True):
     st.markdown("""
-**v1.5 新功能**
+**v1.6 代码质量与并发性能升级**
+
+🔧 **P0 核心修复**
+- 🛡️ **异常处理规范化**：消除所有 `pages/` 下宽泛的 `except Exception`，替换为精确异常类型（如 `urllib.error.URLError`, `httpx.HTTPStatusError` 等），并引入 `logging` 记录完整堆栈。
+- 🏷️ **类型注解完善**：为 `core/` 目录下所有模块补充了完整的 Type Hints，引入 `TypedDict` 和 `dataclass` 精确描述数据结构，提升静态检查能力。
+
+⚡ **P1 性能与架构增强**
+- 🚀 **异步并发报价**：实时报价面板弃用 `ThreadPoolExecutor`，全面拥改用 `asyncio` + `httpx` 异步请求 Yahoo Finance API，显著降低连接开销与响应时间。
+- 🚀 **并行组合回测**：策略回测器的多标的组合回测引入 `joblib` + `loky` 后端进行多进程并行计算，大幅缩短多标的回测总耗时。
+- ⚙️ **集中化配置管理**：新建 `core/config.py`，将散落在 9 个页面中的所有硬编码默认值、上下限、步长及 45 条用户提示文本（i18n 友好）集中管理。
+""")
+
+with st.expander("📋 v1.5 更新记录"):
+    st.markdown("""
 - 🏠 **资产净值追踪器**：新增资产记录与净资产趋势追踪模块。
 - 🔍 **回测参数优化**：策略回测器新增网格搜索，自动寻找最优参数组合。
 - 📊 **组合回测**：支持多标的同策略回测，展示组合收益与风险。
