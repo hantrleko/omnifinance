@@ -4,3 +4,5 @@ pandas>=2.0.0
 yfinance>=0.2.31
 streamlit-autorefresh>=1.0.1
 numpy>=1.24.0
+httpx>=0.27.0
+joblib>=1.3.0

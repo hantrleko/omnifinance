@@ -7,12 +7,17 @@ v1.4:
 - 新增 Sortino 比率和 Calmar 比率（来自 core/backtest.py v1.4）
 - 图表 hovertemplate 货币符号改为动态引用
 - 使用 core/chart_config.py 统一布局配置
+
+v1.5:
+- 组合回测改用 joblib.Parallel + loky 后端并行计算，显著减少多标的回测的总耗时
+- 提取 _run_portfolio_one 纯函数，便于并行序列化和单元测试
 """
 
 from datetime import date, timedelta
 import logging
 import urllib.error
 
+import joblib
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -137,6 +142,58 @@ def get_data(ticker: str, start: date, end: date) -> pd.DataFrame | None:
     except Exception as exc:  # noqa: BLE001 — last-resort: keep app running
         _logger.error("[get_data] 未预期异常 (%s): %s", ticker, exc, exc_info=True)
         return None
+
+
+def _run_portfolio_one(
+    ticker: str,
+    start: date,
+    end: date,
+    strategy: str,
+    strategy_params: dict,
+    initial_capital: float,
+    fee_rate: float,
+    slippage_rate: float,
+    risk_free_rate: float,
+) -> dict:
+    """Run a full backtest for a single ticker and return a summary row.
+
+    This is a pure function (no Streamlit calls) so it can be safely
+    serialised and executed in a ``joblib`` worker process.
+
+    Args:
+        ticker: Ticker symbol to backtest.
+        start: Backtest start date.
+        end: Backtest end date.
+        strategy: Strategy name key (see ``STRATEGY_NAMES``).
+        strategy_params: Strategy-specific parameter dict.
+        initial_capital: Starting capital in base currency.
+        fee_rate: One-way commission rate (%).
+        slippage_rate: One-way slippage rate (%).
+        risk_free_rate: Annual risk-free rate (%) for Sharpe calculation.
+
+    Returns:
+        Dict with keys: 标的, 总回报率(%), 年化回报(%), 最大回撤(%), 夏普比率,
+        交易次数, equity (pd.Series), 状态 (only on failure).
+    """
+    try:
+        pt_data = get_data(ticker, start, end)
+        if pt_data is None or pt_data.empty:
+            return {"标的": ticker, "状态": "数据获取失败"}
+        pt_sig = apply_strategy(pt_data, strategy, strategy_params)
+        pt_res, pt_trades = simulate_trades(pt_sig, initial_capital, fee_rate, slippage_rate)
+        pt_m = compute_metrics(pt_res, pt_trades, initial_capital, risk_free_rate)
+        return {
+            "标的": ticker,
+            "总回报率(%)": round(pt_m["总回报率(%)"], 2),
+            "年化回报(%)": round(pt_m["年化回报(%)"], 2),
+            "最大回撤(%)": round(pt_m["最大回撤(%)"], 2),
+            "夏普比率": round(pt_m["夏普比率"], 2),
+            "交易次数": pt_m["交易次数"],
+            "equity": pt_res["Equity"],
+        }
+    except (ValueError, KeyError, ZeroDivisionError) as exc:
+        _logger.warning("[组合回测] %s 失败: %s", ticker, exc, exc_info=True)
+        return {"标的": ticker, "状态": "回测失败"}
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -543,30 +600,33 @@ with st.expander("📊 组合回测（多标的）"):
         if len(port_tickers) < 2:
             st.warning(MSG.backtest_portfolio_min)
         else:
-            port_rows = []
-            port_equities = {}
-            with st.spinner("正在回测多个标的…"):
-                for pt in port_tickers:
-                    try:
-                        pt_data = get_data(pt, start_date, end_date)
-                        if pt_data is None or pt_data.empty:
-                            port_rows.append({"标的": pt, "状态": "数据获取失败"})
-                            continue
-                        pt_sig = apply_strategy(pt_data, strategy, strategy_params)
-                        pt_res, pt_trades = simulate_trades(pt_sig, initial_capital, fee_rate, slippage_rate)
-                        pt_m = compute_metrics(pt_res, pt_trades, initial_capital, risk_free_rate)
-                        port_rows.append({
-                            "标的": pt, "总回报率(%)": round(pt_m["总回报率(%)"], 2),
-                            "年化回报(%)": round(pt_m["年化回报(%)"], 2),
-                            "最大回撤(%)": round(pt_m["最大回撤(%)"], 2),
-                            "夏普比率": round(pt_m["夏普比率"], 2),
-                            "交易次数": pt_m["交易次数"],
-                        })
-                        port_equities[pt] = pt_res["Equity"]
-                    except (ValueError, KeyError, ZeroDivisionError) as exc:
-                        # Backtest computation failed for this ticker
-                        _logger.warning("[组合回测] %s 失败: %s", pt, exc, exc_info=True)
-                        port_rows.append({"标的": pt, "状态": "回测失败"})
+            port_rows: list[dict] = []
+            port_equities: dict[str, pd.Series] = {}
+            n_jobs = min(len(port_tickers), joblib.cpu_count())
+            with st.spinner(f"正在并行回测 {len(port_tickers)} 个标的（{n_jobs} 进程）…"):
+                parallel_results: list[dict] = joblib.Parallel(
+                    n_jobs=n_jobs,
+                    backend="loky",
+                    prefer="processes",
+                )(
+                    joblib.delayed(_run_portfolio_one)(
+                        pt,
+                        start_date,
+                        end_date,
+                        strategy,
+                        strategy_params,
+                        initial_capital,
+                        fee_rate,
+                        slippage_rate,
+                        risk_free_rate,
+                    )
+                    for pt in port_tickers
+                )
+            for res in parallel_results:
+                equity = res.pop("equity", None)
+                port_rows.append(res)
+                if equity is not None and "状态" not in res:
+                    port_equities[res["标的"]] = equity
 
             if port_rows:
                 st.dataframe(pd.DataFrame(port_rows), use_container_width=True, hide_index=True)

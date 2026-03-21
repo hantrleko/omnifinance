@@ -1,19 +1,23 @@
 """多标的实时股票 / 加密货币报价面板
 
-使用 yfinance (fast_info) + ThreadPoolExecutor 并行获取数据，
+使用 yfinance (fast_info) + asyncio + httpx 并发获取数据，
 streamlit-autorefresh 自动刷新，Streamlit 展示。
 
-v1.4:
-- K 线图历史数据加入 @st.cache_data(ttl=300) 缓存，避免重复下载
-- 报价失败加入分级错误提示（网络错误 / 代码不存在 / 限流）
-- 货币符号改用动态引用
+v1.5:
+- 将 ThreadPoolExecutor 替换为 asyncio + httpx 异步并发获取报价
+  * 每个标的通过 httpx.AsyncClient 异步请求 Yahoo Finance Query2 API
+  * asyncio.gather 并发所有请求，避免线程切换开销
+  * 保留 ThreadPoolExecutor 作为 yfinance K 线下载的回退方案
+- K 线图历史数据保留 @st.cache_data(ttl=300) 缓存
+- 报价失败保留分级错误提示（网络错误 / 代码不存在 / 限流）
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import asyncio
 from datetime import datetime
 import logging
 import urllib.error
 
+import httpx
 import pandas as pd
 import plotly.graph_objects as go
 import requests
@@ -115,7 +119,15 @@ st.sidebar.caption(MSG.quote_ticker_hint)
 st_autorefresh(interval=refresh_interval * 1000, key="auto_refresh")
 
 
-# ── 数据获取（ThreadPoolExecutor 并行） ──────────────────
+# ── 数据获取（asyncio + httpx 异步并发） ─────────────────
+
+# Yahoo Finance Query2 API endpoint for real-time quote
+_YF_QUOTE_URL = "https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=2d"
+_HTTPX_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+_HTTPX_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; OmniFinance/1.5)",
+    "Accept": "application/json",
+}
 
 # Error category constants
 _ERR_NETWORK = "network"
@@ -123,9 +135,9 @@ _ERR_NOTFOUND = "notfound"
 _ERR_OK = "ok"
 
 
-def _fetch_one(ticker_str: str) -> dict:
-    """获取单个标的的报价，包含分级错误信息。"""
-    base = {
+def _make_base(ticker_str: str) -> dict:
+    """Return an empty result skeleton for *ticker_str*."""
+    return {
         "代码": ticker_str,
         "当前价格": None,
         "涨跌幅(%)": None,
@@ -134,44 +146,97 @@ def _fetch_one(ticker_str: str) -> dict:
         "成交量": None,
         "_error": None,
     }
+
+
+def _parse_yf_response(ticker_str: str, data: dict) -> dict:
+    """Parse a Yahoo Finance chart API JSON response into a quote row.
+
+    Args:
+        ticker_str: The ticker symbol being parsed.
+        data: Parsed JSON dict from the Yahoo Finance chart endpoint.
+
+    Returns:
+        A quote row dict with price, change, high, low, volume and _error fields.
+
+    Raises:
+        KeyError: If expected keys are missing from the response.
+        TypeError: If values are of unexpected types.
+        ValueError: If numeric conversion fails.
+    """
+    base = _make_base(ticker_str)
+    result = data["chart"]["result"]
+    if not result:
+        base["_error"] = _ERR_NOTFOUND
+        return base
+
+    meta: dict = result[0]["meta"]
+    current: float | None = meta.get("regularMarketPrice")
+    prev_close: float | None = meta.get("previousClose") or meta.get("chartPreviousClose")
+    day_high: float | None = meta.get("regularMarketDayHigh")
+    day_low: float | None = meta.get("regularMarketDayLow")
+    volume: int | None = meta.get("regularMarketVolume")
+
+    if current is None and prev_close is None:
+        base["_error"] = _ERR_NOTFOUND
+        return base
+
+    change_pct: float | None = (
+        (current / prev_close - 1) * 100 if current and prev_close else None
+    )
+    return {
+        **base,
+        "当前价格": current,
+        "涨跌幅(%)": change_pct,
+        "今日最高": day_high,
+        "今日最低": day_low,
+        "成交量": volume,
+        "_error": _ERR_OK,
+    }
+
+
+async def _async_fetch_one(
+    client: httpx.AsyncClient,
+    ticker_str: str,
+) -> dict:
+    """Asynchronously fetch a single ticker quote via Yahoo Finance chart API.
+
+    Args:
+        client: Shared ``httpx.AsyncClient`` instance.
+        ticker_str: The ticker symbol to fetch.
+
+    Returns:
+        A quote row dict; ``_error`` is set to ``_ERR_NETWORK`` or
+        ``_ERR_NOTFOUND`` on failure, ``_ERR_OK`` on success.
+    """
+    base = _make_base(ticker_str)
+    url = _YF_QUOTE_URL.format(ticker=ticker_str)
     try:
-        tk = yf.Ticker(ticker_str)
-        fi = tk.fast_info
-
-        current = getattr(fi, "last_price", None)
-        prev_close = getattr(fi, "previous_close", None)
-        day_high = getattr(fi, "day_high", None)
-        day_low = getattr(fi, "day_low", None)
-        volume = getattr(fi, "last_volume", None)
-
-        # Distinguish "symbol not found" from "got data"
-        if current is None and prev_close is None:
-            base["_error"] = _ERR_NOTFOUND
-            return base
-
-        change_pct = ((current / prev_close - 1) * 100) if current and prev_close else None
-        return {
-            **base,
-            "当前价格": current,
-            "涨跌幅(%)": change_pct,
-            "今日最高": day_high,
-            "今日最低": day_low,
-            "成交量": volume,
-            "_error": _ERR_OK,
-        }
-    except (urllib.error.URLError, requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout, requests.exceptions.SSLError) as exc:
-        # Network-level failures: DNS, TCP, TLS, timeout
+        resp = await client.get(url)
+        resp.raise_for_status()
+        data: dict = resp.json()
+        return _parse_yf_response(ticker_str, data)
+    except httpx.TimeoutException as exc:
+        _logger.warning("[%s] 请求超时: %s", ticker_str, exc, exc_info=True)
+        base["_error"] = _ERR_NETWORK
+        return base
+    except httpx.NetworkError as exc:
         _logger.warning("[%s] 网络错误: %s", ticker_str, exc, exc_info=True)
         base["_error"] = _ERR_NETWORK
         return base
-    except (KeyError, TypeError, ValueError, AttributeError) as exc:
-        # Data-shape or missing-field errors → treat as symbol not found
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status in (404, 400):
+            _logger.warning("[%s] 标的不存在 (HTTP %s)", ticker_str, status)
+            base["_error"] = _ERR_NOTFOUND
+        else:
+            _logger.warning("[%s] HTTP 错误 %s: %s", ticker_str, status, exc, exc_info=True)
+            base["_error"] = _ERR_NETWORK
+        return base
+    except (KeyError, TypeError, ValueError) as exc:
         _logger.warning("[%s] 数据解析错误: %s", ticker_str, exc, exc_info=True)
         base["_error"] = _ERR_NOTFOUND
         return base
-    except Exception as exc:  # noqa: BLE001 — last-resort catch to keep the panel alive
-        # Unexpected errors: log full traceback for debugging
+    except Exception as exc:  # noqa: BLE001 — last-resort: keep panel alive
         _logger.error("[%s] 未预期异常: %s", ticker_str, exc, exc_info=True)
         err_str = str(exc).lower()
         base["_error"] = _ERR_NETWORK if any(
@@ -180,16 +245,41 @@ def _fetch_one(ticker_str: str) -> dict:
         return base
 
 
+async def _async_fetch_all(tickers: tuple[str, ...]) -> list[dict]:
+    """Concurrently fetch all tickers using a single shared AsyncClient.
+
+    Args:
+        tickers: Tuple of ticker symbols to fetch.
+
+    Returns:
+        List of quote row dicts in the same order as *tickers*.
+    """
+    async with httpx.AsyncClient(
+        headers=_HTTPX_HEADERS,
+        timeout=_HTTPX_TIMEOUT,
+        follow_redirects=True,
+    ) as client:
+        tasks = [_async_fetch_one(client, t) for t in tickers]
+        results: list[dict] = await asyncio.gather(*tasks)
+    return results
+
+
 @st.cache_data(ttl=CFG.quote.quote_cache_ttl)
 def fetch_quotes(tickers: tuple[str, ...]) -> pd.DataFrame:
-    """使用线程池并行获取所有标的报价。"""
-    results: dict[str, dict] = {}
-    with ThreadPoolExecutor(max_workers=CFG.quote.thread_pool_workers) as pool:
-        futures = {pool.submit(_fetch_one, t): t for t in tickers}
-        for future in as_completed(futures):
-            ticker_str = futures[future]
-            results[ticker_str] = future.result()
-    rows = [results[t] for t in tickers]
+    """Fetch real-time quotes for all *tickers* using asyncio + httpx.
+
+    Replaces the previous ``ThreadPoolExecutor`` implementation with a
+    single-event-loop ``asyncio.gather`` call, reducing thread-switching
+    overhead and connection setup cost.
+
+    Args:
+        tickers: Tuple of ticker symbols (hashable for ``@st.cache_data``).
+
+    Returns:
+        DataFrame with columns: 代码, 当前价格, 涨跌幅(%), 今日最高,
+        今日最低, 成交量, _error.
+    """
+    rows: list[dict] = asyncio.run(_async_fetch_all(tickers))
     return pd.DataFrame(rows)
 
 
