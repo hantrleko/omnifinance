@@ -102,4 +102,4 @@ def currency_selector(sidebar: bool = True) -> str:
     )
     code: str = options[idx]
     st.session_state["currency"] = code
-    return codee
+    return code
