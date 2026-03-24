@@ -29,7 +29,7 @@ st.title("💡 50/30/20 预算分配建议器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 收入与支出")
-currency_selector()
+pass
 
 income = st.sidebar.number_input(
     "月收入（税后，元）",

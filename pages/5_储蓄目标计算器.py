@@ -36,7 +36,7 @@ st.title("🎯 储蓄目标达成计算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 参数设置")
-currency_selector()
+pass
 
 current_savings = st.sidebar.number_input(
     "目前储蓄金额（元）",

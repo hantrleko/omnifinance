@@ -27,7 +27,7 @@ st.title("💰 复利计算器")
 
 # ── 侧边栏：输入参数 ──────────────────────────────────────
 st.sidebar.header("📋 参数设置")
-currency_selector()
+pass
 
 mode = st.sidebar.radio("投资模式", ["一次性投资", "定期定投"], horizontal=True)
 

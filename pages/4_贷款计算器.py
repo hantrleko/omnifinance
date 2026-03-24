@@ -31,7 +31,7 @@ st.title("🏦 贷款计算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 贷款参数")
-currency_selector()
+pass
 
 loan_amount = st.sidebar.number_input(
     "贷款金额（元）",

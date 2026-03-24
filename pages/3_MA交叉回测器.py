@@ -54,7 +54,7 @@ st.title("📈 策略回测器")
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("⚙️ 回测参数")
 
-currency_selector()
+pass
 
 strategy = st.sidebar.selectbox("策略选择", STRATEGY_NAMES)
 

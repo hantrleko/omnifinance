@@ -20,7 +20,7 @@ st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-c
 st.title("🏠 资产净值追踪器")
 
 st.sidebar.header("📋 设置")
-currency_selector()
+pass
 
 _NW_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "networth.json"
 

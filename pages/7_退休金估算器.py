@@ -33,7 +33,7 @@ st.title("🏖️ 退休金需求估算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("👤 退休前参数")
-currency_selector()
+pass
 
 current_age = st.sidebar.number_input("目前年龄", 18, 80, 35)
 retire_age = st.sidebar.number_input("预计退休年龄", current_age + 1, 90, max(65, current_age + 1))
