@@ -17,6 +17,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from core.theme import inject_theme
+inject_theme()
 import yfinance as yf
 
 from core.chart_config import build_layout, render_empty_state

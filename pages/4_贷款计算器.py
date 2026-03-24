@@ -14,6 +14,8 @@ from core.planning import calculate_loan
 from core.storage import scheme_manager_ui
 import plotly.graph_objects as go
 import streamlit as st
+from core.theme import inject_theme
+inject_theme()
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="贷款计算器", page_icon="🏦", layout="wide")

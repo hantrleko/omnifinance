@@ -10,6 +10,8 @@
 
 import io
 import streamlit as st
+from core.theme import inject_theme
+inject_theme()
 import pandas as pd
 import plotly.graph_objects as go
 

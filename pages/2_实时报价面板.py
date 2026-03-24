@@ -22,6 +22,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from core.theme import inject_theme
+inject_theme()
 import yfinance as yf
 from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh

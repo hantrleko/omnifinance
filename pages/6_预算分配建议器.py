@@ -6,6 +6,8 @@
 
 import plotly.graph_objects as go
 import streamlit as st
+from core.theme import inject_theme
+inject_theme()
 
 from core.chart_config import build_layout
 from core.config import CFG, MSG

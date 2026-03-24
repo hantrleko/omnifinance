@@ -10,6 +10,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.theme import inject_theme
+inject_theme()
 
 from core.chart_config import build_layout, render_empty_state
 from core.config import CFG, MSG

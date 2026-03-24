@@ -23,6 +23,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import requests
 import streamlit as st
+from core.theme import inject_theme
+inject_theme()
 import yfinance as yf
 
 from core.backtest import STRATEGY_NAMES, apply_strategy, simulate_trades, compute_metrics

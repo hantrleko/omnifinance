@@ -2,7 +2,7 @@ import streamlit as st
 
 from core.currency import get_symbol, fmt, currency_selector
 
-VERSION = "v1.7"
+VERSION = "v1.8"
 
 st.set_page_config(
     page_title="全能理财家 (OmniFinance)",
@@ -19,14 +19,8 @@ with st.sidebar:
     currency_selector()
     dark_mode = st.toggle("🌙 深色模式", value=True, key="dark_mode")
 
-if not dark_mode:
-    st.markdown("""
-    <style>
-        [data-testid="stAppViewContainer"] { background-color: #ffffff; color: #1a1a1a; }
-        [data-testid="stSidebar"] { background-color: #f5f5f5; }
-        .stMetric { background-color: #f0f0f0 !important; border-color: #e0e0e0 !important; }
-    </style>
-    """, unsafe_allow_html=True)
+from core.theme import inject_theme
+inject_theme()
 
 st.markdown("---")
 
@@ -48,7 +42,23 @@ st.markdown("""
 11. **📐 11_投资组合优化器**：马科维茨均值-方差优化，计算最优资产权重与有效前沿
 """)
 
-with st.expander("🆕 最近更新（v1.7）", expanded=True):
+with st.expander("✨ 闪耀升级（v1.8）", expanded=True):
+    st.markdown("""
+**v1.8 Premium 视觉与体验重构**
+
+💎 **全新 Glassmorphism (玻璃拟态) 设计**
+- 全局引入现代字体（Inter），排版更加优雅、专业。
+- 指标卡片、折叠面板与模块均采用毛玻璃半透明材质，配以微妙的光影边框。
+
+🌟 **动态交互与微动画**
+- 为卡片与按钮增加了平滑的上浮（Hover）微动画与发光阴影特效，让界面更具沉浸感和生命力。
+- 全面优化了亮色/深色模式的对比度，提供商业级数据看板的视觉体验。
+
+🚀 **全局 UI 无缝部署**
+- 全新视觉方案已同步至所有核心工具包，切换页面时保持一致的高级体验。
+""")
+
+with st.expander("📋 v1.7 更新记录"):
     st.markdown("""
 **v1.7 功能扩展与体验增强**
 
