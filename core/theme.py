@@ -29,9 +29,16 @@ def inject_theme():
         /* Import premium font */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         
-        /* Apply font to everything */
+        /* Apply font to everything but prevent overriding Material Icons */
         html, body, [class*="st-"] {{
-            font-family: 'Inter', sans-serif !important;
+            font-family: 'Inter', sans-serif;
+        }}
+        
+        /* Explicitly restore Streamlit's icon fonts */
+        .material-symbols-rounded, 
+        [data-testid="stIconMaterial"], 
+        .stIcon {{
+            font-family: 'Material Symbols Rounded' !important;
         }}
         
         /* Main background & text */
