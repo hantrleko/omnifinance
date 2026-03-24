@@ -36,7 +36,6 @@ with st.sidebar:
     st.markdown("🔗 **旗下服务矩阵**")
     st.page_link("https://financial-analysis-agent-eugenefinance02.streamlit.app/", label="Fin-Analysis", icon="🤖")
     st.page_link("https://github.com/hantrleko?tab=repositories", label="GitHub 开源生态", icon="🐙")
-    st.toggle("🌙 深色模式", value=st.session_state["global_dark_mode"], key="dark_mode_toggle", on_change=update_dark_mode)
 
 # ── 模块分类与导航路由 (v1.8.3) ─────────────────────────
 p_home = st.Page("home.py", title="仪表盘首页", icon="🏠", default=True)
