@@ -1,9 +1,10 @@
 import streamlit as st
 from core.currency import get_symbol, fmt
 
-VERSION = "v1.8.3"
+VERSION = "v1.8.4"
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
+st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
 st.markdown("---")
 
 st.markdown("""
@@ -18,7 +19,15 @@ st.markdown("""
 - 🏖️ **高级人生规划**：精准估算退休缺口、蒙特卡洛随机概率模拟防范退休破产危机。
 """)
 
-with st.expander("✨ 全新导航架构（v1.8.3）", expanded=True):
+with st.expander("✨ 品牌生态升级（v1.8.4）", expanded=True):
+    st.markdown("""
+**v1.8.4 Eugene Finance 品牌与矩阵互联**
+- **品牌升级**：在全局侧边栏以及首页引入了 Eugene Finance 专属品牌 Slogan：“*Empower Your Knowledge, Enrich Your Life*”。
+- **矩阵互联**：侧边栏新增了旗下矩阵服务快速导航，可一键直达 Fin-Analysis 智能分析系统及 GitHub 开源生态库。
+- **Logo 注入**：内置了安全的 Logo 渲染接口，支持在左上角展示品牌商标。
+""")
+
+with st.expander("✨ 全新导航架构（v1.8.3）"):
     st.markdown("""
 **v1.8.3 模块化侧边栏与导航体验升级**
 

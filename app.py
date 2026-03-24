@@ -20,10 +20,22 @@ def update_dark_mode():
 # ── 注入核心主题 ───────────────────────────────────────
 inject_theme()
 
-# ── 侧边栏全局设置 ───────────────────────────────────────
+# ── 侧边栏全局设置与品牌信息 ────────────────────────────
+import os
+if os.path.exists("assets/logo.png"):
+    st.logo("assets/logo.png", link="https://github.com/hantrleko")
+
 with st.sidebar:
     st.header("⚙️ 全局设置")
     currency_selector()
+    st.toggle("🌙 深色模式", value=st.session_state["global_dark_mode"], key="dark_mode_toggle", on_change=update_dark_mode)
+    
+    st.markdown("---")
+    st.markdown("### Eugene Finance")
+    st.caption("✨ *Empower Your Knowledge, Enrich Your Life.*")
+    st.markdown("🔗 **旗下服务矩阵**")
+    st.page_link("https://financial-analysis-agent-eugenefinance02.streamlit.app/", label="Fin-Analysis", icon="🤖")
+    st.page_link("https://github.com/hantrleko?tab=repositories", label="GitHub 开源生态", icon="🐙")
     st.toggle("🌙 深色模式", value=st.session_state["global_dark_mode"], key="dark_mode_toggle", on_change=update_dark_mode)
 
 # ── 模块分类与导航路由 (v1.8.3) ─────────────────────────
