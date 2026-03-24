@@ -1,7 +1,7 @@
 import streamlit as st
 from core.currency import get_symbol, fmt
 
-VERSION = "v1.8.4"
+VERSION = "v1.9.0"
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
@@ -19,15 +19,15 @@ st.markdown("""
 - 🏖️ **高级人生规划**：精准估算退休缺口、蒙特卡洛随机概率模拟防范退休破产危机。
 """)
 
-with st.expander("✨ 品牌生态升级（v1.8.4）", expanded=True):
+with st.expander("🚀 全场景财务诊断报告上线（v1.9.0）", expanded=True):
     st.markdown("""
-**v1.8.4 Eugene Finance 品牌与矩阵互联**
-- **品牌升级**：在全局侧边栏以及首页引入了 Eugene Finance 专属品牌 Slogan：“*Empower Your Knowledge, Enrich Your Life*”。
-- **矩阵互联**：侧边栏新增了旗下矩阵服务快速导航，可一键直达 Fin-Analysis 智能分析系统及 GitHub 开源生态库。
-- **Logo 注入**：内置了安全的 Logo 渲染接口，支持在左上角展示品牌商标。
+**v1.9.0 个人财务体检中心正式落成**
+- **全景数据洞察**：在主页控制台底端，全新新增了《全景诊断报告》的一键编译生成功能！系统底层打通了所有 11 个子计算工具的内存状态，实现了对用户财务足迹的无损汇聚。
+- **离线高阶交互式存取**：生成高度兼容现代化暗色自适应模式的精美企业级 HTML 战报。随时可用浏览器自带的 `Ctrl+P` 功能极速转储为矢量级商业 PDF 便于长久收藏与决策辅助分析。
+- **技术突破**：该高感知模块作为大语言模型 AI 智能顾问引入前的最后一个里程碑，全程实现了真正的 0 外部 API 依赖。
 """)
 
-with st.expander("✨ 全新导航架构（v1.8.3）"):
+with st.expander("✨ 品牌生态升级（v1.8 - v1.8.5）"):
     st.markdown("""
 **v1.8.3 模块化侧边栏与导航体验升级**
 
@@ -122,5 +122,32 @@ if has_data:
 else:
     st.info("👆 请先使用左侧工具进行计算，仪表盘将自动汇总各工具的关键指标。")
 
+# ── 综合财务诊断报告生成引擎 ─────────────────────────────────────
 st.markdown("---")
-st.caption("***构建您的智能化个人理财体系***")
+st.subheader("📄 个人财务全景诊断归档")
+st.write("一键全维扫描您的交互记录，提取所有核心指标并瞬间熔铸，为您秒级生成可脱机离线查阅的专属企业级 HTML 视觉财报。特别适配深浅明暗多主题无感切换；极度推荐查阅时按下 `Ctrl/Cmd + P` 轻松转储为纯矢量高清 PDF。")
+
+from core.report_generator import generate_html_report
+
+metrics_dict = {}
+if dash_compound: metrics_dict["compound"] = dash_compound
+if dash_loan: metrics_dict["loan"] = dash_loan
+if dash_savings: metrics_dict["savings"] = dash_savings
+if dash_budget: metrics_dict["budget"] = dash_budget
+if dash_retirement: metrics_dict["retirement"] = dash_retirement
+if dash_insurance: metrics_dict["insurance"] = dash_insurance
+if dash_networth: metrics_dict["networth"] = dash_networth
+
+html_content = generate_html_report(metrics_dict)
+
+st.download_button(
+    label="📥 编译并下载我的专属财务诊断报告 (HTML)",
+    data=html_content,
+    file_name="OmniFinance_Health_Report.html",
+    mime="text/html",
+    type="primary",
+    use_container_width=True
+)
+
+st.markdown("---")
+st.caption("***Eugene Finance 核心架构驱动 | Empower Your Knowledge, Enrich Your Life***")
