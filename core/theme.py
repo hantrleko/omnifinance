@@ -7,7 +7,7 @@ def inject_theme():
     Features: Glassmorphism, modern typography (Inter), rounded corners, soft shadows, 
     and micro-animations on interactive elements.
     """
-    dark_mode = st.session_state.get("dark_mode", True)
+    dark_mode = st.session_state.get("global_dark_mode", True)
     
     if dark_mode:
         bg_color = "#0e1117"
@@ -41,12 +41,26 @@ def inject_theme():
             transition: background-color 0.3s ease;
         }}
         
-        /* Sidebar Glassmorphism */
+        /* Sidebar Glassmorphism & Text Colors */
         [data-testid="stSidebar"] {{
             background-color: {card_bg};
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-right: 1px solid {border_color};
+        }}
+        [data-testid="stSidebar"] p, 
+        [data-testid="stSidebar"] span, 
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] h1,
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3,
+        [data-testid="stSidebarNav"] a,
+        [data-testid="stSidebarNav"] span {{
+            color: {text_color} !important;
+        }}
+        [data-testid="stSidebarNav"] svg {{
+            fill: {text_color} !important;
+            stroke: {text_color} !important;
         }}
         
         /* Glassmorphism for Metrics, Dataframes, and Expanders */

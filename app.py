@@ -14,10 +14,16 @@ st.set_page_config(
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 
 # ── 全局设置 & 主题 ───────────────────────────────────────
+if "global_dark_mode" not in st.session_state:
+    st.session_state["global_dark_mode"] = True
+
+def update_dark_mode():
+    st.session_state["global_dark_mode"] = st.session_state["dark_mode_toggle"]
+
 with st.sidebar:
     st.header("⚙️ 全局设置")
     currency_selector()
-    dark_mode = st.toggle("🌙 深色模式", value=True, key="dark_mode")
+    st.toggle("🌙 深色模式", value=st.session_state["global_dark_mode"], key="dark_mode_toggle", on_change=update_dark_mode)
 
 from core.theme import inject_theme
 inject_theme()
@@ -42,9 +48,9 @@ st.markdown("""
 11. **📐 11_投资组合优化器**：马科维茨均值-方差优化，计算最优资产权重与有效前沿
 """)
 
-with st.expander("✨ 闪耀升级（v1.8）", expanded=True):
+with st.expander("✨ 闪耀升级（v1.8.1）", expanded=True):
     st.markdown("""
-**v1.8 Premium 视觉与体验重构**
+**v1.8 & 1.8.1 Premium 视觉与体验重构**
 
 💎 **全新 Glassmorphism (玻璃拟态) 设计**
 - 全局引入现代字体（Inter），排版更加优雅、专业。
@@ -54,8 +60,10 @@ with st.expander("✨ 闪耀升级（v1.8）", expanded=True):
 - 为卡片与按钮增加了平滑的上浮（Hover）微动画与发光阴影特效，让界面更具沉浸感和生命力。
 - 全面优化了亮色/深色模式的对比度，提供商业级数据看板的视觉体验。
 
-🚀 **全局 UI 无缝部署**
-- 全新视觉方案已同步至所有核心工具包，切换页面时保持一致的高级体验。
+🚀 **UI 无缝部署与交互修复**
+- 全新视觉方案已同步至 11 个核心工具包。
+- 完美修复侧边栏深色模式文字重影与不可见的 Bug。
+- 彻底解决主页到子功能跳转的深浅色主题状态无法持久化的历史问题。
 """)
 
 with st.expander("📋 v1.7 更新记录"):
