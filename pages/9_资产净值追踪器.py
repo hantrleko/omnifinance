@@ -103,6 +103,26 @@ if len(records) >= 2:
     fig_t.add_trace(go.Scatter(x=tdf["date"], y=tdf["total_liabilities"], mode="lines", name="总负债", line=dict(width=2, dash="dot", color="#EF553B")))
     fig_t.update_layout(**build_layout(xaxis_title="日期", yaxis_title="金额", yaxis_tickformat=","))
     st.plotly_chart(fig_t, use_container_width=True)
+
+    # Debt ratio trend
+    st.subheader("📉 负债率趋势")
+    tdf["debt_ratio"] = tdf.apply(
+        lambda r: r["total_liabilities"] / r["total_assets"] * 100 if r["total_assets"] > 0 else 0.0,
+        axis=1,
+    )
+    fig_dr = go.Figure()
+    fig_dr.add_trace(go.Scatter(
+        x=tdf["date"], y=tdf["debt_ratio"],
+        mode="lines+markers", name="负债率",
+        line=dict(width=2.5, color="#AB63FA"),
+        hovertemplate="%{x|%Y-%m-%d}<br>负债率: %{y:.1f}%<extra></extra>",
+    ))
+    fig_dr.add_hline(y=CFG.networth.debt_ratio_medium, line_dash="dash", line_color="#FFA726",
+                     annotation_text=f"警戒线 {CFG.networth.debt_ratio_medium:.0f}%", annotation_position="bottom right")
+    fig_dr.add_hline(y=CFG.networth.debt_ratio_high, line_dash="dash", line_color="#EF553B",
+                     annotation_text=f"危险线 {CFG.networth.debt_ratio_high:.0f}%", annotation_position="bottom right")
+    fig_dr.update_layout(**build_layout(xaxis_title="日期", yaxis_title="负债率（%）"))
+    st.plotly_chart(fig_dr, use_container_width=True)
 elif len(records) == 1:
     st.info(MSG.networth_trend_hint)
 
@@ -112,9 +132,33 @@ if records:
     hdf.columns = ["日期","总资产","总负债","净资产"]
     for c in ["总资产","总负债","净资产"]: hdf[c] = hdf[c].apply(lambda v: fmt(v, decimals=0))
     st.dataframe(hdf, use_container_width=True, hide_index=True)
+
     with st.expander("🗑️ 管理记录"):
-        if st.button("清除所有记录", key="nw_clear"):
-            _save_records([]); st.success(MSG.networth_cleared); st.rerun()
+        col_del, col_clear = st.columns(2)
+        with col_del:
+            st.markdown("**删除单条记录**")
+            date_options = [f"第{i+1}条 — {r['date']}" for i, r in enumerate(records)]
+            del_idx = st.selectbox("选择要删除的记录", range(len(date_options)), format_func=lambda i: date_options[i], key="nw_del_idx")
+            if st.button("🗑️ 删除选中记录", key="nw_del_one"):
+                records.pop(del_idx)
+                _save_records(records)
+                st.success(f"已删除第 {del_idx + 1} 条记录")
+                st.rerun()
+        with col_clear:
+            st.markdown("**清除所有记录**")
+            if st.button("⚠️ 清除所有记录", key="nw_clear"):
+                _save_records([]); st.success(MSG.networth_cleared); st.rerun()
+
+    # CSV export
+    raw_df = pd.DataFrame(records)[["date","cash","stocks","real_estate","other_assets","mortgage","car_loan","credit_card","other_liab","total_assets","total_liabilities","net_worth"]].copy()
+    raw_df.columns = ["日期","现金","股票基金","房产","其他资产","房贷","车贷消费贷","信用卡","其他负债","总资产","总负债","净资产"]
+    st.download_button(
+        "📥 导出历史记录 CSV",
+        data=raw_df.to_csv(index=False, encoding="utf-8-sig"),
+        file_name="资产净值历史.csv",
+        mime="text/csv",
+        key="nw_csv",
+    )
 
 st.subheader("📤 导出报告")
 def _build_nw_report() -> str:

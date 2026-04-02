@@ -255,6 +255,7 @@ def simulate_trades(
                 net_cash = cash - fee
                 shares = net_cash / buy_price
                 entry_price = buy_price
+                slippage_cost = net_cash * slippage_rate / (1.0 + slippage_rate) if slippage_rate > 0 else 0.0
                 total_costs += fee
                 cash = 0.0
                 trades.append({
@@ -263,6 +264,7 @@ def simulate_trades(
                     "价格": buy_price,
                     "数量": shares,
                     "手续费": fee,
+                    "滑点损耗": slippage_cost,
                     "盈亏": None,
                     "盈亏率(%)": None,
                 })
@@ -274,6 +276,7 @@ def simulate_trades(
             cash = gross_value - fee
             pnl = (sell_price - entry_price) * shares - fee
             pnl_pct = (sell_price / entry_price - 1.0) * 100.0 if entry_price > 0 else 0.0
+            slippage_cost = shares * price * slippage_rate if slippage_rate > 0 else 0.0
             total_costs += fee
             trades.append({
                 "日期": idx_values[i],
@@ -281,6 +284,7 @@ def simulate_trades(
                 "价格": sell_price,
                 "数量": shares,
                 "手续费": fee,
+                "滑点损耗": slippage_cost,
                 "盈亏": pnl,
                 "盈亏率(%)": pnl_pct,
             })
@@ -294,8 +298,10 @@ def simulate_trades(
     trades_df = pd.DataFrame(trades)
     if not trades_df.empty:
         trades_df.attrs["total_costs"] = float(trades_df["手续费"].sum())
+        trades_df.attrs["total_slippage"] = float(trades_df["滑点损耗"].sum())
     else:
         trades_df.attrs["total_costs"] = total_costs
+        trades_df.attrs["total_slippage"] = 0.0
 
     return df, trades_df
 
