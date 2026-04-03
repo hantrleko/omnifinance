@@ -103,9 +103,23 @@ n_simulations = st.sidebar.select_slider(
     help="模拟次数越多结果越稳定，但计算耗时增加。",
 )
 
-# ── 执行模拟 ──────────────────────────────────────────────
-with st.spinner(f"正在运行 {n_simulations:,} 次蒙特卡洛模拟…"):
-    mc = run_retirement_montecarlo(
+# ── 执行模拟（带缓存，避免每次参数微调都重新运行） ────────────────────────────
+@st.cache_data(ttl=600, show_spinner=False)
+def _cached_montecarlo(
+    current_age: int,
+    retire_age: int,
+    life_expectancy: int,
+    current_assets: float,
+    monthly_saving: float,
+    monthly_expense: float,
+    inflation: float,
+    pre_return: float,
+    pre_volatility: float,
+    post_return: float,
+    post_volatility: float,
+    n_simulations: int,
+):
+    return run_retirement_montecarlo(
         current_age=current_age,
         retire_age=retire_age,
         life_expectancy=life_expectancy,
@@ -118,6 +132,23 @@ with st.spinner(f"正在运行 {n_simulations:,} 次蒙特卡洛模拟…"):
         post_return_pct=post_return,
         post_volatility_pct=post_volatility,
         n_simulations=n_simulations,
+    )
+
+
+with st.spinner(f"正在运行 {n_simulations:,} 次蒙特卡洛模拟…"):
+    mc = _cached_montecarlo(
+        current_age,
+        retire_age,
+        life_expectancy,
+        current_assets,
+        monthly_saving,
+        monthly_expense,
+        inflation,
+        pre_return,
+        pre_volatility,
+        post_return,
+        post_volatility,
+        n_simulations,
     )
 
 sym = get_symbol()

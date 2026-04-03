@@ -2,14 +2,19 @@
 
 v1.4: Added schema_version field and forward-compatible migration mechanism.
       Old files without version field are automatically treated as v1 and migrated.
+v1.5: Added file-level locking (fcntl on POSIX, msvcrt on Windows) to prevent
+      data corruption under concurrent access.  Corrupt JSON now surfaces a
+      user-visible warning instead of silently returning an empty dict.
 """
 from __future__ import annotations
 
 import json
 import os
+import sys
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, Callable, Generator, Optional, TypedDict
 
 import streamlit as st
 
@@ -29,6 +34,45 @@ class SchemeEntry(TypedDict):
 
 # Alias for the top-level mapping: scheme_name -> SchemeEntry
 SchemeStore = dict[str, SchemeEntry]
+
+
+# ── File locking ──────────────────────────────────────────
+
+@contextmanager
+def _file_lock(path: Path) -> Generator[None, None, None]:
+    """Acquire an exclusive advisory lock on *path* for the duration of the block.
+
+    Uses ``fcntl.flock`` on POSIX systems and ``msvcrt.locking`` on Windows.
+    Falls back to a no-op on platforms where neither is available.
+    """
+    lock_path = path.with_suffix(".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_fh = lock_path.open("a+b")  # binary mode required for msvcrt.locking
+    try:
+        if sys.platform == "win32":
+            import msvcrt  # noqa: PLC0415
+            try:
+                lock_fh.seek(0)
+                msvcrt.locking(lock_fh.fileno(), msvcrt.LK_LOCK, 0x7FFFFFFF)
+            except OSError:
+                # Best-effort: proceed without lock if acquisition fails
+                pass
+        else:
+            import fcntl  # noqa: PLC0415
+            fcntl.flock(lock_fh.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        if sys.platform == "win32":
+            import msvcrt  # noqa: PLC0415
+            try:
+                lock_fh.seek(0)
+                msvcrt.locking(lock_fh.fileno(), msvcrt.LK_UNLCK, 0x7FFFFFFF)
+            except OSError:
+                pass
+        else:
+            import fcntl  # noqa: PLC0415
+            fcntl.flock(lock_fh.fileno(), fcntl.LOCK_UN)
+        lock_fh.close()
 
 
 # ── Internal helpers ──────────────────────────────────────
@@ -74,26 +118,39 @@ def _migrate(data: dict[str, Any]) -> tuple[SchemeStore, bool]:
 def _load_all(tool_name: str) -> SchemeStore:
     """Load all saved schemes for *tool_name* from disk.
 
-    Returns an empty dict when the file does not exist or is corrupt.
+    Returns an empty dict when the file does not exist.
+    If the file is corrupt, shows a Streamlit warning and returns an empty dict.
     """
     path = _tool_path(tool_name)
     if not path.exists():
         return {}
     try:
-        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        with _file_lock(path):
+            raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         data, migrated = _migrate(raw)
         if migrated:
             # Persist migrated data transparently
-            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            with _file_lock(path):
+                path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         return data  # type: ignore[return-value]
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError:
+        try:
+            st.warning(
+                f"⚠️ 方案文件 `{path.name}` 已损坏（JSON 格式错误），已跳过加载。"
+                "若问题持续，可删除该文件后重新保存方案。"
+            )
+        except Exception:  # noqa: BLE001 — Streamlit may not be active in tests
+            pass
+        return {}
+    except OSError:
         return {}
 
 
 def _save_all(tool_name: str, data: SchemeStore) -> None:
-    """Persist *data* for *tool_name* to disk."""
+    """Persist *data* for *tool_name* to disk (with exclusive file lock)."""
     path = _tool_path(tool_name)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    with _file_lock(path):
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 # ── Public API ────────────────────────────────────────────

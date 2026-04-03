@@ -509,6 +509,8 @@ else:
     display_trades["数量"] = display_trades["数量"].apply(lambda v: f"{v:,.4f}")
     if "手续费" in display_trades.columns:
         display_trades["手续费"] = display_trades["手续费"].apply(lambda v: fmt(v))
+    if "滑点损耗" in display_trades.columns:
+        display_trades["滑点损耗"] = display_trades["滑点损耗"].apply(lambda v: fmt(v))
     display_trades["盈亏"] = display_trades["盈亏"].apply(lambda v: fmt(v) if pd.notna(v) else "—")
     display_trades["盈亏率(%)"] = display_trades["盈亏率(%)"].apply(lambda v: f"{v:+.2f}%" if pd.notna(v) else "—")
 
@@ -522,6 +524,34 @@ else:
         file_name=f"{ticker}_trades.csv",
         mime="text/csv",
     )
+
+    # ── 交易成本分解（手续费 vs 滑点） ────────────────────────
+    total_fee = trades_df.attrs.get("total_costs", 0.0)
+    total_slip = trades_df.attrs.get("total_slippage", 0.0)
+    total_cost_all = total_fee + total_slip
+    if total_cost_all > 0:
+        with st.expander("💸 交易成本分解（手续费 vs 滑点损耗）"):
+            cc1, cc2, cc3 = st.columns(3)
+            cc1.metric("总手续费", fmt(total_fee), help="按每笔交易金额 × 手续费率计算")
+            cc2.metric("总滑点损耗", fmt(total_slip), help="买入高买、卖出低卖产生的隐性成本")
+            cc3.metric("合计交易成本", fmt(total_cost_all), delta=f"{total_cost_all / initial_capital * 100:.2f}% 占初始资金", delta_color="inverse")
+
+            fig_cost = go.Figure(go.Bar(
+                x=["手续费", "滑点损耗"],
+                y=[total_fee, total_slip],
+                text=[fmt(total_fee), fmt(total_slip)],
+                textposition="outside",
+                marker_color=["#636EFA", "#EF553B"],
+            ))
+            fig_cost.update_layout(**build_layout(
+                yaxis_title="成本金额",
+                yaxis_tickformat=",",
+                showlegend=False,
+                margin=dict(t=30, b=30),
+                height=300,
+            ))
+            st.plotly_chart(fig_cost, use_container_width=True)
+            st.caption("手续费：券商佣金（单边固定比率）；滑点损耗：实际成交价与理论价的偏差，反映市场流动性成本。")
 
 # ── 参数网格搜索 ──────────────────────────────────────────
 with st.expander("🔍 参数网格搜索"):

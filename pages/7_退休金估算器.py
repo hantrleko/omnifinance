@@ -205,6 +205,63 @@ else:
     st.caption(MSG.retirement_gap_reason.format(gap=fmt(result_gap, decimals=0)))
     st.caption(MSG.retirement_gap_next.format(extra=fmt(result_extra, decimals=0)))
 
+# ── 通胀调整后实际购买力 ──────────────────────────────────
+with st.expander("💹 通胀调整：实际购买力分析", expanded=False):
+    st.caption(
+        f"以下金额均以今日购买力衡量（折现率 = 通胀率 {inflation:.1f}%），"
+        "帮助理解退休金的真实价值。"
+    )
+    _inf = inflation / 100
+    _years_to_retire = result.years_to_retire
+    _years_total = result.years_to_retire + result.years_in_retire
+
+    # Projected asset at retirement, in today's money
+    projected_real = result.projected_at_retire / (1 + _inf) ** _years_to_retire
+    needed_real = result_total_needed / (1 + _inf) ** _years_to_retire
+
+    # Monthly expense at retirement, in today's money (should equal monthly_expense_today)
+    future_expense_real = result.future_monthly_expense / (1 + _inf) ** _years_to_retire
+
+    rp1, rp2, rp3 = st.columns(3)
+    rp1.metric(
+        "退休时资产（今日购买力）",
+        fmt(projected_real, decimals=0),
+        delta=f"名义值 {fmt(result.projected_at_retire, decimals=0)}",
+        delta_color="off",
+        help="扣除通胀后，相当于今天的购买力",
+    )
+    rp2.metric(
+        "所需总资产（今日购买力）",
+        fmt(needed_real, decimals=0),
+        delta=f"名义值 {fmt(result_total_needed, decimals=0)}",
+        delta_color="off",
+    )
+    rp3.metric(
+        "退休首月实际消费能力",
+        fmt(future_expense_real, decimals=0),
+        delta=f"名义月支出 {fmt(result.future_monthly_expense, decimals=0)}",
+        delta_color="off",
+        help="名义月支出折现后的今日等价购买力",
+    )
+
+    # Purchasing power erosion table over retirement years
+    erosion_rows = []
+    for yr_offset in [0, 5, 10, 15, 20]:
+        age = retire_age + yr_offset
+        if age > life_expectancy:
+            break
+        nom = result.future_monthly_expense * (1 + _inf) ** yr_offset
+        erosion_pct = (nom / monthly_expense - 1) * 100
+        erosion_rows.append({
+            "退休后年数": f"第 {yr_offset} 年（{age} 岁）",
+            "名义月支出": fmt(nom, decimals=0),
+            "等价今日购买力": fmt(monthly_expense, decimals=0),
+            "名义通胀累积": f"+{erosion_pct:.1f}%",
+        })
+    if erosion_rows:
+        st.dataframe(pd.DataFrame(erosion_rows), use_container_width=True, hide_index=True)
+        st.caption("名义月支出随年份增加，但折现后对应的今日购买力保持不变。表格直观展示通胀对生活成本的累积影响。")
+
 # ── 成长曲线 ──────────────────────────────────────────────
 st.subheader("📈 资产成长曲线")
 

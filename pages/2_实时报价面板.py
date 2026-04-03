@@ -10,11 +10,19 @@ v1.5:
   * 保留 ThreadPoolExecutor 作为 yfinance K 线下载的回退方案
 - K 线图历史数据保留 @st.cache_data(ttl=300) 缓存
 - 报价失败保留分级错误提示（网络错误 / 代码不存在 / 限流）
+
+v1.6:
+- 单个报价请求加入指数退避重试（最多 3 次，间隔 1 / 2 / 4 秒）
+- 新增持久化磁盘缓存（~/.omnifinance/quote_last_cache.json），
+  网络故障时加载上次成功的报价数据并标注"缓存"
 """
 
 import asyncio
 from datetime import datetime
+import json
 import logging
+import os
+from pathlib import Path
 import urllib.error
 
 import httpx
@@ -34,6 +42,30 @@ from core.storage import save_scheme, load_scheme, list_schemes
 
 # ── 模块级 logger ─────────────────────────────────────────
 _logger = logging.getLogger(__name__)
+
+# ── 持久化磁盘报价缓存路径 ────────────────────────────────
+_QUOTE_DISK_CACHE_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "quote_last_cache.json"
+
+
+def _load_disk_cache() -> dict[str, dict]:
+    """加载上次成功保存的报价缓存（磁盘持久化）。"""
+    if not _QUOTE_DISK_CACHE_PATH.exists():
+        return {}
+    try:
+        return json.loads(_QUOTE_DISK_CACHE_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_disk_cache(cache: dict[str, dict]) -> None:
+    """将当前成功报价持久化到磁盘，供下次网络故障时使用。"""
+    try:
+        _QUOTE_DISK_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _QUOTE_DISK_CACHE_PATH.write_text(
+            json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except OSError as exc:
+        _logger.warning("无法写入磁盘报价缓存: %s", exc)
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="实时报价面板", page_icon="📊", layout="wide")
@@ -200,12 +232,19 @@ def _parse_yf_response(ticker_str: str, data: dict) -> dict:
 async def _async_fetch_one(
     client: httpx.AsyncClient,
     ticker_str: str,
+    *,
+    max_retries: int = 3,
 ) -> dict:
     """Asynchronously fetch a single ticker quote via Yahoo Finance chart API.
+
+    Retries transient network failures with exponential back-off
+    (1 s → 2 s → 4 s).  Non-retryable errors (ticker not found, bad parse)
+    return immediately.
 
     Args:
         client: Shared ``httpx.AsyncClient`` instance.
         ticker_str: The ticker symbol to fetch.
+        max_retries: Maximum number of attempts (default 3).
 
     Returns:
         A quote row dict; ``_error`` is set to ``_ERR_NETWORK`` or
@@ -213,39 +252,62 @@ async def _async_fetch_one(
     """
     base = _make_base(ticker_str)
     url = _YF_QUOTE_URL.format(ticker=ticker_str)
-    try:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        data: dict = resp.json()
-        return _parse_yf_response(ticker_str, data)
-    except httpx.TimeoutException as exc:
-        _logger.warning("[%s] 请求超时: %s", ticker_str, exc, exc_info=True)
-        base["_error"] = _ERR_NETWORK
-        return base
-    except httpx.NetworkError as exc:
-        _logger.warning("[%s] 网络错误: %s", ticker_str, exc, exc_info=True)
-        base["_error"] = _ERR_NETWORK
-        return base
-    except httpx.HTTPStatusError as exc:
-        status = exc.response.status_code
-        if status in (404, 400):
-            _logger.warning("[%s] 标的不存在 (HTTP %s)", ticker_str, status)
-            base["_error"] = _ERR_NOTFOUND
-        else:
-            _logger.warning("[%s] HTTP 错误 %s: %s", ticker_str, status, exc, exc_info=True)
+    for attempt in range(max_retries):
+        try:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data: dict = resp.json()
+            return _parse_yf_response(ticker_str, data)
+        except httpx.TimeoutException as exc:
+            _logger.warning("[%s] 请求超时 (尝试 %d/%d): %s", ticker_str, attempt + 1, max_retries, exc)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
             base["_error"] = _ERR_NETWORK
-        return base
-    except (KeyError, TypeError, ValueError) as exc:
-        _logger.warning("[%s] 数据解析错误: %s", ticker_str, exc, exc_info=True)
-        base["_error"] = _ERR_NOTFOUND
-        return base
-    except Exception as exc:  # noqa: BLE001 — last-resort: keep panel alive
-        _logger.error("[%s] 未预期异常: %s", ticker_str, exc, exc_info=True)
-        err_str = str(exc).lower()
-        base["_error"] = _ERR_NETWORK if any(
-            kw in err_str for kw in ("connection", "timeout", "network", "ssl", "read")
-        ) else _ERR_NOTFOUND
-        return base
+            return base
+        except httpx.NetworkError as exc:
+            _logger.warning("[%s] 网络错误 (尝试 %d/%d): %s", ticker_str, attempt + 1, max_retries, exc)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            base["_error"] = _ERR_NETWORK
+            return base
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            if status in (404, 400):
+                _logger.warning("[%s] 标的不存在 (HTTP %s)", ticker_str, status)
+                base["_error"] = _ERR_NOTFOUND
+            elif status == 429:
+                _logger.warning("[%s] 限流 (HTTP 429, 尝试 %d/%d)", ticker_str, attempt + 1, max_retries)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                base["_error"] = _ERR_NETWORK
+            else:
+                _logger.warning("[%s] HTTP 错误 %s: %s", ticker_str, status, exc, exc_info=True)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                base["_error"] = _ERR_NETWORK
+            return base
+        except (KeyError, TypeError, ValueError) as exc:
+            _logger.warning("[%s] 数据解析错误: %s", ticker_str, exc, exc_info=True)
+            base["_error"] = _ERR_NOTFOUND
+            return base
+        except Exception as exc:  # noqa: BLE001 — last-resort: keep panel alive
+            _logger.error("[%s] 未预期异常: %s", ticker_str, exc, exc_info=True)
+            err_str = str(exc).lower()
+            is_network = any(
+                kw in err_str for kw in ("connection", "timeout", "network", "ssl", "read")
+            )
+            if is_network and attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            base["_error"] = _ERR_NETWORK if is_network else _ERR_NOTFOUND
+            return base
+    # Should not be reached, but guard just in case
+    base["_error"] = _ERR_NETWORK
+    return base
 
 
 async def _async_fetch_all(tickers: tuple[str, ...]) -> list[dict]:
@@ -357,22 +419,37 @@ if "quote_cache" not in st.session_state:
 cache = st.session_state["quote_cache"]
 used_cache = False
 
+# Load disk cache for offline fallback (only once per session)
+if "quote_disk_cache" not in st.session_state:
+    st.session_state["quote_disk_cache"] = _load_disk_cache()
+disk_cache = st.session_state["quote_disk_cache"]
+disk_cache_dirty = False
+
 for i, row in quotes_df.iterrows():
     ticker_code = row["代码"]
     if row["_error"] == _ERR_OK and pd.notna(row["当前价格"]):
-        cache[ticker_code] = {
+        entry = {
             "当前价格": row["当前价格"],
             "涨跌幅(%)": row["涨跌幅(%)"],
             "今日最高": row["今日最高"],
             "今日最低": row["今日最低"],
             "成交量": row["成交量"],
         }
-    elif row["_error"] != _ERR_OK and ticker_code in cache:
-        cached = cache[ticker_code]
-        for col in ["当前价格", "涨跌幅(%)", "今日最高", "今日最低", "成交量"]:
-            quotes_df.at[i, col] = cached[col]
-        quotes_df.at[i, "_error"] = "cached"
-        used_cache = True
+        cache[ticker_code] = entry
+        disk_cache[ticker_code] = {**entry, "cached_at": datetime.now().isoformat()}
+        disk_cache_dirty = True
+    elif row["_error"] != _ERR_OK:
+        # Try session cache first, then disk cache
+        fallback = cache.get(ticker_code) or disk_cache.get(ticker_code)
+        if fallback:
+            for col in ["当前价格", "涨跌幅(%)", "今日最高", "今日最低", "成交量"]:
+                quotes_df.at[i, col] = fallback[col]
+            quotes_df.at[i, "_error"] = "cached"
+            used_cache = True
+
+# Persist updated disk cache only when new successful data was received
+if disk_cache_dirty:
+    _save_disk_cache(disk_cache)
 
 # ── 分级错误提示 ──────────────────────────────────────────
 network_errs = quotes_df[quotes_df["_error"] == _ERR_NETWORK]["代码"].tolist()

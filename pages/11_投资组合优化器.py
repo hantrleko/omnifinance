@@ -151,13 +151,32 @@ if len(returns_df) < 60:
     st.error("❌ 历史数据不足（少于 60 个交易日），请选择更长的数据周期。")
     st.stop()
 
-# ── 运行优化 ──────────────────────────────────────────────
+# ── 运行优化（带缓存，避免每次调参重新优化） ────────────────────
+@st.cache_data(ttl=600, show_spinner=False)
+def _cached_optimize(
+    _returns_df: pd.DataFrame,
+    risk_free_rate: float,
+    n_frontier: int,
+) -> EfficientFrontierResult:
+    """Cached wrapper around optimize_portfolio.
+
+    Leading underscore on *_returns_df* tells Streamlit not to hash the
+    DataFrame by value (it uses its contents implicitly via the other args
+    and the upstream price-download TTL cache).
+    """
+    return optimize_portfolio(
+        returns_df=_returns_df,
+        risk_free_rate_pct=risk_free_rate,
+        n_frontier_points=n_frontier,
+    )
+
+
 try:
     with st.spinner("正在运行马科维茨均值-方差优化…"):
-        result: EfficientFrontierResult = optimize_portfolio(
-            returns_df=returns_df,
-            risk_free_rate_pct=risk_free_rate,
-            n_frontier_points=n_frontier,
+        result: EfficientFrontierResult = _cached_optimize(
+            returns_df,
+            risk_free_rate,
+            n_frontier,
         )
 except ValueError as exc:
     st.error(f"优化失败：{exc}")
