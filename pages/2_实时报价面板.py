@@ -1,20 +1,14 @@
 """多标的实时股票 / 加密货币报价面板
 
 使用 yfinance (fast_info) + asyncio + httpx 并发获取数据，
+AKShare 获取 A 股实时行情，
 streamlit-autorefresh 自动刷新，Streamlit 展示。
 
-v1.5:
-- 将 ThreadPoolExecutor 替换为 asyncio + httpx 异步并发获取报价
-  * 每个标的通过 httpx.AsyncClient 异步请求 Yahoo Finance Query2 API
-  * asyncio.gather 并发所有请求，避免线程切换开销
-  * 保留 ThreadPoolExecutor 作为 yfinance K 线下载的回退方案
-- K 线图历史数据保留 @st.cache_data(ttl=300) 缓存
-- 报价失败保留分级错误提示（网络错误 / 代码不存在 / 限流）
-
-v1.6:
-- 单个报价请求加入指数退避重试（最多 3 次，间隔 1 / 2 / 4 秒）
-- 新增持久化磁盘缓存（~/.omnifinance/quote_last_cache.json），
-  网络故障时加载上次成功的报价数据并标注"缓存"
+v1.7:
+- 新增 A 股支持（通过 AKShare 获取沪深两市实时行情）
+- 侧边栏快捷选择新增「A股」分组
+- A 股代码格式：6 位数字（如 600519、000858）
+- K 线图支持 A 股历史数据（通过 AKShare）
 """
 
 import asyncio
@@ -40,15 +34,12 @@ from core.chart_config import render_empty_state
 from core.config import CFG, MSG
 from core.storage import save_scheme, load_scheme, list_schemes
 
-# ── 模块级 logger ─────────────────────────────────────────
 _logger = logging.getLogger(__name__)
 
-# ── 持久化磁盘报价缓存路径 ────────────────────────────────
 _QUOTE_DISK_CACHE_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "quote_last_cache.json"
 
 
 def _load_disk_cache() -> dict[str, dict]:
-    """加载上次成功保存的报价缓存（磁盘持久化）。"""
     if not _QUOTE_DISK_CACHE_PATH.exists():
         return {}
     try:
@@ -58,7 +49,6 @@ def _load_disk_cache() -> dict[str, dict]:
 
 
 def _save_disk_cache(cache: dict[str, dict]) -> None:
-    """将当前成功报价持久化到磁盘，供下次网络故障时使用。"""
     try:
         _QUOTE_DISK_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         _QUOTE_DISK_CACHE_PATH.write_text(
@@ -67,18 +57,25 @@ def _save_disk_cache(cache: dict[str, dict]) -> None:
     except OSError as exc:
         _logger.warning("无法写入磁盘报价缓存: %s", exc)
 
-# ── 页面配置 ──────────────────────────────────────────────
+
 st.set_page_config(page_title="实时报价面板", page_icon="📊", layout="wide")
 
-# ── 预设标的 ──────────────────────────────────────────────
 PRESETS: dict[str, list[str]] = {
+    "A股": ["600519", "000858", "601318", "000333", "300750"],
     "美股": ["AAPL", "TSLA", "NVDA", "MSFT", "GOOGL"],
     "港股": ["0700.HK", "9988.HK", "3690.HK"],
     "加密货币": ["BTC-USD", "ETH-USD", "SOL-USD"],
 }
 ALL_TICKERS = [t for group in PRESETS.values() for t in group]
 
-# ── 自定义样式 ────────────────────────────────────────────
+_ASHARE_LABELS: dict[str, str] = {
+    "600519": "贵州茅台",
+    "000858": "五粮液",
+    "601318": "中国平安",
+    "000333": "美的集团",
+    "300750": "宁德时代",
+}
+
 st.markdown("""
 <style>
   .block-container { padding-top: 1.5rem; }
@@ -91,10 +88,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── 侧边栏 ───────────────────────────────────────────────
 st.sidebar.header("📋 标的选择")
 
-quick = st.sidebar.radio("快捷选择", ["自定义", "全选", "美股", "港股", "加密货币"], horizontal=True)
+quick = st.sidebar.radio("快捷选择", ["自定义", "全选", "A股", "美股", "港股", "加密货币"], horizontal=True)
 if quick == "全选":
     default_tickers = ALL_TICKERS
 elif quick in PRESETS:
@@ -106,9 +102,10 @@ selected = st.sidebar.multiselect(
     "选择标的代码",
     options=ALL_TICKERS,
     default=default_tickers,
+    format_func=lambda x: f"{x} {_ASHARE_LABELS[x]}" if x in _ASHARE_LABELS else x,
 )
 
-custom_input = st.sidebar.text_input("添加自定义代码（逗号分隔）", placeholder="如 AMZN, META")
+custom_input = st.sidebar.text_input("添加自定义代码（逗号分隔）", placeholder="如 AMZN, META, 601988")
 if custom_input:
     extras = [s.strip().upper() for s in custom_input.split(",") if s.strip()]
     selected = list(dict.fromkeys(selected + extras))
@@ -121,11 +118,10 @@ refresh_interval = st.sidebar.slider(
     step=CFG.quote.refresh_interval_step,
 )
 
-# ── 关注列表持久化 ─────────────────────────────────────────
 st.sidebar.divider()
 st.sidebar.subheader("💾 关注列表管理")
 
-wl_name = st.sidebar.text_input("列表名称", placeholder="如 我的美股组合", key="wl_name")
+wl_name = st.sidebar.text_input("列表名称", placeholder="如 我的A股组合", key="wl_name")
 if st.sidebar.button("💾 保存当前列表", key="wl_save_btn"):
     if wl_name.strip() and selected:
         save_scheme("watchlist", wl_name.strip(), {"tickers": selected})
@@ -167,15 +163,108 @@ if st.sidebar.button("🗑️ 清除所有预警", key="pa_clear"):
 
 st.sidebar.divider()
 st.sidebar.caption(MSG.data_source_yfinance)
+st.sidebar.caption("A 股数据由 AKShare 提供，其余由 Yahoo Finance 提供。")
 st.sidebar.caption(MSG.quote_ticker_hint)
 
-# ── 自动刷新 ──────────────────────────────────────────────
 st_autorefresh(interval=refresh_interval * 1000, key="auto_refresh")
 
 
-# ── 数据获取（asyncio + httpx 异步并发） ─────────────────
+# ── A 股相关工具 ──────────────────────────────────────────
 
-# Yahoo Finance Query2 API endpoint for real-time quote
+def _is_ashare(ticker_str: str) -> bool:
+    return ticker_str.isdigit() and len(ticker_str) == 6
+
+
+def _ashare_full_code(code: str) -> str:
+    """返回带市场前缀的完整代码，用于 AKShare。"""
+    if code.startswith(("6", "9")):
+        return f"sh{code}"
+    return f"sz{code}"
+
+
+@st.cache_data(ttl=CFG.quote.quote_cache_ttl)
+def fetch_ashare_quotes(codes: tuple[str, ...]) -> pd.DataFrame:
+    """通过 AKShare 获取 A 股实时报价。"""
+    try:
+        import akshare as ak
+        df_sh = ak.stock_sh_a_spot_em()
+        df_sz = ak.stock_sz_a_spot_em()
+        df_all = pd.concat([df_sh, df_sz], ignore_index=True)
+    except Exception as exc:
+        _logger.error("AKShare 获取 A 股数据失败: %s", exc, exc_info=True)
+        rows = []
+        for code in codes:
+            base = _make_base(code)
+            base["_error"] = _ERR_NETWORK
+            rows.append(base)
+        return pd.DataFrame(rows)
+
+    col_map = {
+        "代码": "代码",
+        "最新价": "当前价格",
+        "涨跌幅": "涨跌幅(%)",
+        "最高": "今日最高",
+        "最低": "今日最低",
+        "成交量": "成交量",
+    }
+    rows = []
+    for code in codes:
+        base = _make_base(code)
+        match = df_all[df_all["代码"] == code]
+        if match.empty:
+            base["_error"] = _ERR_NOTFOUND
+            rows.append(base)
+            continue
+        r = match.iloc[0]
+        try:
+            rows.append({
+                "代码": code,
+                "当前价格": float(r.get("最新价", 0) or 0),
+                "涨跌幅(%)": float(r.get("涨跌幅", 0) or 0),
+                "今日最高": float(r.get("最高", 0) or 0),
+                "今日最低": float(r.get("最低", 0) or 0),
+                "成交量": float(r.get("成交量", 0) or 0),
+                "_error": _ERR_OK,
+            })
+        except (KeyError, TypeError, ValueError) as exc:
+            _logger.warning("[%s] A股数据解析错误: %s", code, exc)
+            base["_error"] = _ERR_NOTFOUND
+            rows.append(base)
+
+    return pd.DataFrame(rows)
+
+
+@st.cache_data(ttl=CFG.quote.kline_cache_ttl)
+def fetch_ashare_kline(code: str, period: str = "daily", count: int = 120) -> pd.DataFrame:
+    """通过 AKShare 获取 A 股历史 K 线数据。"""
+    try:
+        import akshare as ak
+        end_date = datetime.now().strftime("%Y%m%d")
+        df = ak.stock_zh_a_hist(
+            symbol=code,
+            period=period,
+            start_date="20230101",
+            end_date=end_date,
+            adjust="qfq",
+        )
+        df = df.rename(columns={
+            "日期": "Date",
+            "开盘": "Open",
+            "收盘": "Close",
+            "最高": "High",
+            "最低": "Low",
+            "成交量": "Volume",
+        })
+        df["Date"] = pd.to_datetime(df["Date"])
+        df = df.set_index("Date")
+        return df[["Open", "High", "Low", "Close", "Volume"]].tail(count)
+    except Exception as exc:
+        _logger.error("[%s] AKShare K线数据失败: %s", code, exc, exc_info=True)
+        return pd.DataFrame()
+
+
+# ── Yahoo Finance 数据获取（保持原有逻辑） ────────────────
+
 _YF_QUOTE_URL = "https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=2d"
 _HTTPX_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 _HTTPX_HEADERS = {
@@ -183,14 +272,12 @@ _HTTPX_HEADERS = {
     "Accept": "application/json",
 }
 
-# Error category constants
 _ERR_NETWORK = "network"
 _ERR_NOTFOUND = "notfound"
 _ERR_OK = "ok"
 
 
 def _make_base(ticker_str: str) -> dict:
-    """Return an empty result skeleton for *ticker_str*."""
     return {
         "代码": ticker_str,
         "当前价格": None,
@@ -203,20 +290,6 @@ def _make_base(ticker_str: str) -> dict:
 
 
 def _parse_yf_response(ticker_str: str, data: dict) -> dict:
-    """Parse a Yahoo Finance chart API JSON response into a quote row.
-
-    Args:
-        ticker_str: The ticker symbol being parsed.
-        data: Parsed JSON dict from the Yahoo Finance chart endpoint.
-
-    Returns:
-        A quote row dict with price, change, high, low, volume and _error fields.
-
-    Raises:
-        KeyError: If expected keys are missing from the response.
-        TypeError: If values are of unexpected types.
-        ValueError: If numeric conversion fails.
-    """
     base = _make_base(ticker_str)
     result = data["chart"]["result"]
     if not result:
@@ -254,21 +327,6 @@ async def _async_fetch_one(
     *,
     max_retries: int = 3,
 ) -> dict:
-    """Asynchronously fetch a single ticker quote via Yahoo Finance chart API.
-
-    Retries transient network failures with exponential back-off
-    (1 s → 2 s → 4 s).  Non-retryable errors (ticker not found, bad parse)
-    return immediately.
-
-    Args:
-        client: Shared ``httpx.AsyncClient`` instance.
-        ticker_str: The ticker symbol to fetch.
-        max_retries: Maximum number of attempts (default 3).
-
-    Returns:
-        A quote row dict; ``_error`` is set to ``_ERR_NETWORK`` or
-        ``_ERR_NOTFOUND`` on failure, ``_ERR_OK`` on success.
-    """
     base = _make_base(ticker_str)
     url = _YF_QUOTE_URL.format(ticker=ticker_str)
     for attempt in range(max_retries):
@@ -294,16 +352,13 @@ async def _async_fetch_one(
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
             if status in (404, 400):
-                _logger.warning("[%s] 标的不存在 (HTTP %s)", ticker_str, status)
                 base["_error"] = _ERR_NOTFOUND
             elif status == 429:
-                _logger.warning("[%s] 限流 (HTTP 429, 尝试 %d/%d)", ticker_str, attempt + 1, max_retries)
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
                     continue
                 base["_error"] = _ERR_NETWORK
             else:
-                _logger.warning("[%s] HTTP 错误 %s: %s", ticker_str, status, exc, exc_info=True)
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
                     continue
@@ -313,7 +368,7 @@ async def _async_fetch_one(
             _logger.warning("[%s] 数据解析错误: %s", ticker_str, exc, exc_info=True)
             base["_error"] = _ERR_NOTFOUND
             return base
-        except Exception as exc:  # noqa: BLE001 — last-resort: keep panel alive
+        except Exception as exc:  # noqa: BLE001
             _logger.error("[%s] 未预期异常: %s", ticker_str, exc, exc_info=True)
             err_str = str(exc).lower()
             is_network = any(
@@ -324,20 +379,11 @@ async def _async_fetch_one(
                 continue
             base["_error"] = _ERR_NETWORK if is_network else _ERR_NOTFOUND
             return base
-    # Should not be reached, but guard just in case
     base["_error"] = _ERR_NETWORK
     return base
 
 
 async def _async_fetch_all(tickers: tuple[str, ...]) -> list[dict]:
-    """Concurrently fetch all tickers using a single shared AsyncClient.
-
-    Args:
-        tickers: Tuple of ticker symbols to fetch.
-
-    Returns:
-        List of quote row dicts in the same order as *tickers*.
-    """
     async with httpx.AsyncClient(
         headers=_HTTPX_HEADERS,
         timeout=_HTTPX_TIMEOUT,
@@ -350,26 +396,12 @@ async def _async_fetch_all(tickers: tuple[str, ...]) -> list[dict]:
 
 @st.cache_data(ttl=CFG.quote.quote_cache_ttl)
 def fetch_quotes(tickers: tuple[str, ...]) -> pd.DataFrame:
-    """Fetch real-time quotes for all *tickers* using asyncio + httpx.
-
-    Replaces the previous ``ThreadPoolExecutor`` implementation with a
-    single-event-loop ``asyncio.gather`` call, reducing thread-switching
-    overhead and connection setup cost.
-
-    Args:
-        tickers: Tuple of ticker symbols (hashable for ``@st.cache_data``).
-
-    Returns:
-        DataFrame with columns: 代码, 当前价格, 涨跌幅(%), 今日最高,
-        今日最低, 成交量, _error.
-    """
     rows: list[dict] = asyncio.run(_async_fetch_all(tickers))
     return pd.DataFrame(rows)
 
 
 @st.cache_data(ttl=CFG.quote.kline_cache_ttl)
 def fetch_kline_history(ticker_str: str, period: str = CFG.quote.kline_default_period) -> pd.DataFrame:
-    """下载 K 线历史数据，结果缓存 5 分钟，避免重复请求。"""
     try:
         hist = yf.download(ticker_str, period=period, progress=False, auto_adjust=True)
         if isinstance(hist.columns, pd.MultiIndex):
@@ -377,14 +409,12 @@ def fetch_kline_history(ticker_str: str, period: str = CFG.quote.kline_default_p
         return hist
     except (urllib.error.URLError, requests.exceptions.ConnectionError,
             requests.exceptions.Timeout) as exc:
-        # Network failure while downloading historical data
         _logger.warning("[%s] K线数据网络错误: %s", ticker_str, exc, exc_info=True)
         return pd.DataFrame()
     except (KeyError, ValueError) as exc:
-        # Malformed or empty response from yfinance
         _logger.warning("[%s] K线数据解析错误: %s", ticker_str, exc, exc_info=True)
         return pd.DataFrame()
-    except Exception as exc:  # noqa: BLE001 — keep UI alive on unexpected failures
+    except Exception as exc:  # noqa: BLE001
         _logger.error("[%s] K线数据未预期异常: %s", ticker_str, exc, exc_info=True)
         return pd.DataFrame()
 
@@ -428,8 +458,20 @@ if not selected:
     st.warning(MSG.quote_no_selection)
     st.stop()
 
+# ── 分拣 A 股和非 A 股 ────────────────────────────────────
+ashare_codes = tuple(t for t in selected if _is_ashare(t))
+other_tickers = tuple(t for t in selected if not _is_ashare(t))
+
 with st.spinner("正在获取行情数据…"):
-    quotes_df = fetch_quotes(tuple(selected))
+    frames = []
+    if other_tickers:
+        frames.append(fetch_quotes(other_tickers))
+    if ashare_codes:
+        frames.append(fetch_ashare_quotes(ashare_codes))
+    if frames:
+        quotes_df = pd.concat(frames, ignore_index=True)
+    else:
+        quotes_df = pd.DataFrame(columns=["代码", "当前价格", "涨跌幅(%)", "今日最高", "今日最低", "成交量", "_error"])
 
 # ── Session 级缓存回退 ────────────────────────────────────
 if "quote_cache" not in st.session_state:
@@ -438,7 +480,6 @@ if "quote_cache" not in st.session_state:
 cache = st.session_state["quote_cache"]
 used_cache = False
 
-# Load disk cache for offline fallback (only once per session)
 if "quote_disk_cache" not in st.session_state:
     st.session_state["quote_disk_cache"] = _load_disk_cache()
 disk_cache = st.session_state["quote_disk_cache"]
@@ -458,7 +499,6 @@ for i, row in quotes_df.iterrows():
         disk_cache[ticker_code] = {**entry, "cached_at": datetime.now().isoformat()}
         disk_cache_dirty = True
     elif row["_error"] != _ERR_OK:
-        # Try session cache first, then disk cache
         fallback = cache.get(ticker_code) or disk_cache.get(ticker_code)
         if fallback:
             for col in ["当前价格", "涨跌幅(%)", "今日最高", "今日最低", "成交量"]:
@@ -466,7 +506,6 @@ for i, row in quotes_df.iterrows():
             quotes_df.at[i, "_error"] = "cached"
             used_cache = True
 
-# Persist updated disk cache only when new successful data was received
 if disk_cache_dirty:
     _save_disk_cache(disk_cache)
 
@@ -483,7 +522,6 @@ cached_tickers = quotes_df[quotes_df["_error"] == "cached"]["代码"].tolist()
 if cached_tickers:
     st.info(MSG.quote_cached_info.format(tickers=', '.join(cached_tickers)))
 
-# 仅展示成功获取的数据
 display_quotes = quotes_df[quotes_df["_error"].isin([_ERR_OK, "cached"])].copy()
 
 # ── 顶部指标卡片 ──────────────────────────────────────────
@@ -494,7 +532,8 @@ if top_n > 0:
         row = display_quotes.iloc[i]
         price = f"{row['当前价格']:,.2f}" if pd.notna(row["当前价格"]) else "—"
         delta = f"{row['涨跌幅(%)']:.2f}%" if pd.notna(row["涨跌幅(%)"]) else None
-        cols[i].metric(label=row["代码"], value=price, delta=delta)
+        label = f"{row['代码']} {_ASHARE_LABELS[row['代码']]}" if row["代码"] in _ASHARE_LABELS else row["代码"]
+        cols[i].metric(label=label, value=price, delta=delta)
 
 st.markdown("---")
 
@@ -518,10 +557,13 @@ if st.session_state.get("price_alerts") and not display_quotes.empty:
         active_alerts = [f"{t}（上限:{v['high']:.2f}/下限:{v['low']:.2f}）" for t, v in st.session_state["price_alerts"].items()]
         st.success(f"✅ 已监控 {len(active_alerts)} 个预警条件，当前均未触发：{', '.join(active_alerts)}")
 
-# ── 表格：st.dataframe + pandas Styler ───────────────────
+# ── 表格 ──────────────────────────────────────────────────
 if not display_quotes.empty:
     table_df = display_quotes.drop(columns=["_error"]).copy()
     table_df["成交量"] = table_df["成交量"].apply(format_volume)
+    table_df["代码"] = table_df["代码"].apply(
+        lambda x: f"{x} {_ASHARE_LABELS[x]}" if x in _ASHARE_LABELS else x
+    )
 
     fmt_dict = {
         "当前价格": "{:,.2f}",
@@ -553,12 +595,20 @@ else:
 st.markdown("---")
 st.markdown("## 📈 K线图 & 技术指标")
 
-valid_tickers = display_quotes["代码"].tolist() if not display_quotes.empty else selected
-kline_ticker = st.selectbox("选择标的", valid_tickers if valid_tickers else selected, key="kline_ticker")
+valid_tickers = display_quotes["代码"].str.split(" ").str[0].tolist() if not display_quotes.empty else selected
+kline_ticker = st.selectbox(
+    "选择标的",
+    valid_tickers if valid_tickers else selected,
+    key="kline_ticker",
+    format_func=lambda x: f"{x} {_ASHARE_LABELS[x]}" if x in _ASHARE_LABELS else x,
+)
 
 if kline_ticker:
     with st.spinner(MSG.quote_kline_loading.format(ticker=kline_ticker)):
-        hist = fetch_kline_history(kline_ticker)
+        if _is_ashare(kline_ticker):
+            hist = fetch_ashare_kline(kline_ticker)
+        else:
+            hist = fetch_kline_history(kline_ticker)
 
     if hist.empty:
         render_empty_state(
@@ -624,8 +674,9 @@ if kline_ticker:
                 row=2, col=1,
             )
 
+        title_label = f"{kline_ticker} {_ASHARE_LABELS[kline_ticker]}" if kline_ticker in _ASHARE_LABELS else kline_ticker
         fig.update_layout(
-            title=f"{kline_ticker} — 近6个月K线图",
+            title=f"{title_label} — 近6个月K线图",
             xaxis_rangeslider_visible=False,
             height=650,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
