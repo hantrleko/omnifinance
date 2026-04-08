@@ -1,7 +1,7 @@
 import streamlit as st
 from core.currency import get_symbol, fmt
 
-VERSION = "v1.9.5"
+VERSION = "v1.9.6"
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
@@ -15,11 +15,23 @@ st.markdown("""
 **核心功能模块导览：**
 - 💰 **基础理财管理**：计算投资复利收益、规划储蓄路径、50/30/20 预算分配建议。
 - ⚖️ **资产与债务管理**：全局跟踪资产负债净值、计算贷款本息明细、评估储蓄型保单回报率。
-- 📈 **投资分析引擎**：查看全球实时行情、自动化策略回测对比、马科维茨投资组合均值-方差优化。
+- 📈 **投资分析引擎**：查看全球实时行情（含 A 股）、自动化策略回测对比、马科维茨投资组合均值-方差优化。
 - 🏖️ **高级人生规划**：精准估算退休缺口、蒙特卡洛随机概率模拟防范退休破产危机。
 """)
 
-with st.expander("🚀 功能全面升级（v1.9.5）", expanded=True):
+with st.expander("🚀 功能更新（v1.9.6）", expanded=True):
+    st.markdown("""
+**v1.9.6 实时报价面板新增 A 股支持**
+
+- 📊 **实时报价面板**：接入 AKShare 数据源，新增沪深两市 A 股实时行情支持。
+  - 侧边栏快捷选择新增「A股」分组，预置贵州茅台、五粮液、中国平安、美的集团、宁德时代。
+  - A 股实时报价（当前价格、涨跌幅、今日最高/最低、成交量）由 AKShare 提供。
+  - K 线图同步支持 A 股历史数据（前复权），与美股/港股保持一致的图表体验。
+  - 自定义代码输入支持直接填入 6 位 A 股代码（如 601988）。
+  - 美股、港股、加密货币继续走 Yahoo Finance 通道，双数据源并行互不影响。
+""")
+
+with st.expander("🚀 功能全面升级（v1.9.5）"):
     st.markdown("""
 **v1.9.5 十二项功能优化全面上线**
 
