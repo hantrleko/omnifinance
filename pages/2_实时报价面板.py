@@ -533,7 +533,7 @@ if not display_quotes.empty:
     styled = (
         table_df.style
         .format(fmt_dict, na_rep="—")
-        .applymap(style_change, subset=["涨跌幅(%)"])
+        .map(style_change, subset=["涨跌幅(%)"])
     )
 
     st.dataframe(

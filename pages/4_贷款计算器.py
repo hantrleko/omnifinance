@@ -273,7 +273,7 @@ with st.expander("⚙️ 设置转贷条件", expanded=False):
     rf_cost = st.number_input(
         "转贷手续费（元）",
         min_value=0.0,
-        value=round(loan_amount * 0.005 / 100) * 100,
+        value=float(round(loan_amount * 0.005 / 100) * 100),
         step=500.0,
         format="%.0f",
         key="rf_cost",
