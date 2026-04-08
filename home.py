@@ -119,6 +119,45 @@ if has_data:
         cols[6].caption(f"资产 {fmt(dash_networth['total_assets'], decimals=0)}")
 
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")
+
+    # Cross-tool insights
+    st.markdown("---")
+    st.subheader("🔗 跨工具综合分析")
+    insights = []
+
+    if dash_retirement and dash_savings:
+        gap = dash_retirement.get("gap", 0)
+        months = dash_savings.get("months_needed", 0)
+        if gap > 0 and months > 0:
+            insights.append(f"🏖️💰 **联动分析**：退休缺口约 {fmt(gap, decimals=0)}，而您的储蓄目标还需 {months // 12} 年达成。建议优先补齐退休缺口（额外月存 {fmt(dash_retirement.get('extra_monthly', 0), decimals=0)}），同时维持储蓄计划。")
+
+    if dash_loan and dash_budget:
+        loan_interest = dash_loan.get("total_interest", 0)
+        savings_amt = dash_budget.get("amt_save", 0)
+        if loan_interest > 0 and savings_amt > 0:
+            loan_payment = dash_loan.get("monthly_payment", 0)
+            insights.append(f"🏦💡 **债务 vs 储蓄**：当前月贷款还款 {fmt(loan_payment, decimals=0)}，月储蓄 {fmt(savings_amt, decimals=0)}。债务成本优先偿还可节省总利息 {fmt(loan_interest, decimals=0)}。")
+
+    if dash_networth and dash_retirement:
+        nw = dash_networth.get("net_worth", 0)
+        gap = dash_retirement.get("gap", 0)
+        if nw > 0 and gap > 0:
+            coverage_pct = min(100.0, nw / gap * 100)
+            insights.append(f"🏠🏖️ **净资产覆盖率**：当前净资产 {fmt(nw, decimals=0)} 可覆盖退休缺口的 **{coverage_pct:.1f}%**。{'建议继续增加投资资产。' if coverage_pct < 100 else '净资产已足以覆盖退休缺口，财务状况良好！'}")
+
+    if dash_insurance and dash_compound:
+        irr = dash_insurance.get("irr_pct", 0)
+        compound_rate = dash_compound.get("final_balance", 0)
+        if irr > 0:
+            if irr < 3:
+                insights.append(f"🛡️💰 **保险效率提示**：当前保单 IRR 为 {irr:.2f}%，属于低收益型。若理财目标以增值为主，可考虑将保险支出转向复利投资。")
+
+    if insights:
+        for insight in insights:
+            st.info(insight)
+    else:
+        st.caption("使用更多工具后，这里将显示跨工具的综合分析洞察。")
+
 else:
     st.info("👆 请先使用左侧工具进行计算，仪表盘将自动汇总各工具的关键指标。")
 

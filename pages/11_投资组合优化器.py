@@ -80,6 +80,31 @@ n_frontier = st.sidebar.slider(
     help="有效前沿上的采样点数，越多曲线越平滑但计算稍慢。",
 )
 
+st.sidebar.divider()
+st.sidebar.subheader("⚖️ 权重约束")
+enable_constraints = st.sidebar.checkbox("启用权重约束", value=False, help="限制单一资产的最高/最低持仓比例")
+max_weight = 1.0
+min_weight = 0.0
+if enable_constraints:
+    max_weight = st.sidebar.slider(
+        "单资产最大权重（%）",
+        min_value=10,
+        max_value=100,
+        value=60,
+        step=5,
+        help="例如：设为 60% 表示任何单一资产不超过总组合的 60%",
+    ) / 100.0
+    min_weight = st.sidebar.slider(
+        "单资产最小权重（%）",
+        min_value=0,
+        max_value=20,
+        value=0,
+        step=1,
+        help="例如：设为 5% 表示每个资产至少占总组合的 5%",
+    ) / 100.0
+    if min_weight * len(raw_tickers if 'raw_tickers' not in dir() else [1]) > 1.0:
+        st.sidebar.warning("最小权重 × 资产数量超过 100%，请调低最小权重。")
+
 # ── 解析标的 ──────────────────────────────────────────────
 raw_tickers = [
     t.strip().upper()
@@ -171,13 +196,39 @@ def _cached_optimize(
     )
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _cached_optimize_constrained(
+    _returns_df: pd.DataFrame,
+    risk_free_rate: float,
+    n_frontier: int,
+    max_weight: float,
+    min_weight: float,
+) -> EfficientFrontierResult:
+    return optimize_portfolio(
+        returns_df=_returns_df,
+        risk_free_rate_pct=risk_free_rate,
+        n_frontier_points=n_frontier,
+        max_weight_per_asset=max_weight,
+        min_weight_per_asset=min_weight,
+    )
+
+
 try:
     with st.spinner("正在运行马科维茨均值-方差优化…"):
-        result: EfficientFrontierResult = _cached_optimize(
-            returns_df,
-            risk_free_rate,
-            n_frontier,
-        )
+        if enable_constraints:
+            result: EfficientFrontierResult = _cached_optimize_constrained(
+                returns_df,
+                risk_free_rate,
+                n_frontier,
+                max_weight,
+                min_weight,
+            )
+        else:
+            result: EfficientFrontierResult = _cached_optimize(
+                returns_df,
+                risk_free_rate,
+                n_frontier,
+            )
 except ValueError as exc:
     st.error(f"优化失败：{exc}")
     st.stop()

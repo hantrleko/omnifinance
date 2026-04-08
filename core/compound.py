@@ -14,6 +14,7 @@ def compute_schedule(
     compound_freq: int,
     contribution: float = 0.0,
     contrib_freq: int = 12,
+    inflation_pct: float = 0.0,
 ) -> pd.DataFrame:
     """Compute a year-by-year compound-interest schedule.
 
@@ -27,14 +28,17 @@ def compute_schedule(
             *contrib_freq* interval (default ``0.0``).
         contrib_freq: Number of contribution payments per year
             (default ``12`` for monthly).
+        inflation_pct: Annual inflation rate in percent (default ``0.0``).
+            When non-zero, an additional ``实际购买力`` column is appended.
 
     Returns:
         A :class:`pandas.DataFrame` with one row per year (year 0 through
         *years*) and columns: ``年份``, ``年初余额``, ``当年投入``,
-        ``当年利息``, ``年末余额``, ``累计投入``.
+        ``当年利息``, ``年末余额``, ``累计投入``, and optionally ``实际购买力``.
     """
     r: float = annual_rate_pct / 100.0
     rate_per_period: float = r / compound_freq
+    inflation: float = inflation_pct / 100.0
 
     rows: list[dict[str, Any]] = []
     balance = principal
@@ -50,6 +54,7 @@ def compute_schedule(
                     "当年利息": 0.0,
                     "年末余额": balance,
                     "累计投入": total_contributions,
+                    "实际购买力": balance,
                 }
             )
             continue
@@ -76,6 +81,7 @@ def compute_schedule(
 
         total_contributions += yearly_contribution
 
+        real_purchasing_power = balance / ((1 + inflation) ** year) if inflation > 0 else balance
         rows.append(
             {
                 "年份": year,
@@ -84,9 +90,14 @@ def compute_schedule(
                 "当年利息": interest_year,
                 "年末余额": balance,
                 "累计投入": total_contributions,
+                "实际购买力": real_purchasing_power,
             }
         )
 
+    if inflation == 0.0:
+        df = pd.DataFrame(rows)
+        df.drop(columns=["实际购买力"], inplace=True)
+        return df
     return pd.DataFrame(rows)
 
 

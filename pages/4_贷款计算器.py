@@ -236,6 +236,118 @@ def _build_loan_report() -> str:
 st.download_button("📥 下载报告 (HTML)", data=_build_loan_report(), file_name="贷款报告.html", mime="text/html")
 st.caption(MSG.print_hint)
 
+# ── 再融资（转贷）模拟器 ──────────────────────────────────
+st.markdown("---")
+st.subheader("🔄 再融资（转贷）模拟器")
+st.caption("模拟在当前贷款进行到某一期后，降低利率或延长/缩短期限的转贷收益分析。")
+
+with st.expander("⚙️ 设置转贷条件", expanded=False):
+    rf_col1, rf_col2, rf_col3 = st.columns(3)
+    _max_rf_period = max(1, int(summary["实际期数"]) - 1)
+    rf_period = rf_col1.number_input(
+        "转贷发生在第几期",
+        min_value=1,
+        max_value=_max_rf_period,
+        value=min(24, _max_rf_period),
+        step=1,
+        key="rf_period",
+        help="转贷前已还的期数",
+    )
+    rf_new_rate = rf_col2.number_input(
+        "转贷后新年利率（%）",
+        min_value=0.01,
+        max_value=CFG.loan.rate_max,
+        value=max(0.01, annual_rate - 1.0),
+        step=CFG.loan.rate_step,
+        format="%.2f",
+        key="rf_rate",
+    )
+    rf_new_years = rf_col3.number_input(
+        "转贷后剩余年限（年）",
+        min_value=1,
+        max_value=CFG.loan.years_max,
+        value=max(1, loan_years - int(rf_period) // periods_per_year),
+        step=1,
+        key="rf_years",
+    )
+    rf_cost = st.number_input(
+        "转贷手续费（元）",
+        min_value=0.0,
+        value=round(loan_amount * 0.005 / 100) * 100,
+        step=500.0,
+        format="%.0f",
+        key="rf_cost",
+        help="转贷通常产生评估费、律师费等，一般为贷款余额的 0.3%–1%",
+    )
+
+    _rf_period_int = int(rf_period)
+    _period_row = schedule[schedule["期数"] == _rf_period_int]
+    if not _period_row.empty:
+        rf_remaining = float(_period_row["剩余本金"].values[0])
+        _orig_remaining_periods = max(1, int(summary["实际期数"]) - _rf_period_int)
+        _orig_remaining_years = max(1, _orig_remaining_periods // periods_per_year)
+
+        original_remaining_schedule, original_remaining_summary = calculate_loan(
+            rf_remaining, annual_rate,
+            _orig_remaining_years,
+            periods_per_year, repay_method,
+        )
+        new_schedule_rf, new_summary_rf = calculate_loan(
+            rf_remaining, rf_new_rate, int(rf_new_years), periods_per_year, repay_method,
+        )
+
+        original_interest_remaining = original_remaining_summary["总利息"]
+        new_total_cost = new_summary_rf["总利息"] + rf_cost
+        savings_rf = original_interest_remaining - new_total_cost
+
+        monthly_saving_rf = original_remaining_summary["首期还款"] - new_summary_rf["首期还款"]
+        break_even_periods = int(rf_cost / monthly_saving_rf) + 1 if monthly_saving_rf > 0 else 0
+
+        rf_c1, rf_c2, rf_c3, rf_c4 = st.columns(4)
+        rf_c1.metric("转贷时剩余本金", fmt(rf_remaining, decimals=0))
+        rf_c2.metric(
+            "转贷后利息节省",
+            fmt(max(0, savings_rf), decimals=0),
+            delta="扣除手续费后净节省" if savings_rf > 0 else "转贷不划算",
+            delta_color="normal" if savings_rf > 0 else "inverse",
+        )
+        rf_c3.metric(
+            "转贷后每期还款",
+            fmt(new_summary_rf["首期还款"], decimals=0),
+            delta=fmt(new_summary_rf["首期还款"] - original_remaining_summary["首期还款"], decimals=0),
+            delta_color="inverse" if new_summary_rf["首期还款"] > original_remaining_summary["首期还款"] else "normal",
+        )
+        rf_c4.metric(
+            "手续费回本期数",
+            f"{break_even_periods} 期" if break_even_periods > 0 else "立即回本",
+            delta=f"约 {break_even_periods // periods_per_year} 年" if break_even_periods > periods_per_year else "",
+            delta_color="off",
+        )
+
+        if savings_rf > 0:
+            st.success(f"转贷划算：综合手续费后净节省利息 {fmt(savings_rf, decimals=0)}，新利率 {rf_new_rate:.2f}% 低于原利率 {annual_rate:.2f}%。")
+        else:
+            st.warning(f"转贷不划算：手续费 {fmt(rf_cost, decimals=0)} 超过节省的利息 {fmt(max(0, original_interest_remaining - new_summary_rf['总利息']), decimals=0)}，建议等待利率下降幅度更大时再转贷。")
+
+        fig_rf = go.Figure()
+        fig_rf.add_trace(go.Scatter(
+            x=original_remaining_schedule["期数"],
+            y=original_remaining_schedule["剩余本金"],
+            mode="lines", name=f"原贷款继续（{annual_rate:.2f}%）",
+            line=dict(width=2, color="#EF553B"),
+        ))
+        fig_rf.add_trace(go.Scatter(
+            x=new_schedule_rf["期数"],
+            y=new_schedule_rf["剩余本金"],
+            mode="lines", name=f"转贷后（{rf_new_rate:.2f}%，{int(rf_new_years)}年）",
+            line=dict(width=2, color="#00CC96"),
+        ))
+        from core.chart_config import build_layout as _bl
+        fig_rf.update_layout(**_bl(xaxis_title="剩余期数", yaxis_title="剩余本金（元）", yaxis_tickformat=","))
+        st.plotly_chart(fig_rf, use_container_width=True)
+    else:
+        st.warning("所选转贷期数超出还款明细范围，请调整参数。")
+
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.loan_footer)

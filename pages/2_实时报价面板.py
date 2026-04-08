@@ -147,6 +147,25 @@ if "wl_loaded" in st.session_state:
     selected = st.session_state.pop("wl_loaded")
 
 st.sidebar.divider()
+st.sidebar.subheader("🔔 价格预警设置")
+st.sidebar.caption("设置价格突破阈值时的预警提示。")
+
+if "price_alerts" not in st.session_state:
+    st.session_state["price_alerts"] = {}
+
+pa_ticker = st.sidebar.selectbox("选择标的", options=selected if selected else [""], key="pa_ticker")
+pa_col1, pa_col2 = st.sidebar.columns(2)
+pa_high = pa_col1.number_input("价格上限", min_value=0.0, value=0.0, step=1.0, format="%.2f", key="pa_high", help="当价格超过此值时发出警告（0 = 不设限）")
+pa_low = pa_col2.number_input("价格下限", min_value=0.0, value=0.0, step=1.0, format="%.2f", key="pa_low", help="当价格低于此值时发出警告（0 = 不设限）")
+if st.sidebar.button("✅ 设置预警", key="pa_set"):
+    if pa_ticker:
+        st.session_state["price_alerts"][pa_ticker] = {"high": pa_high, "low": pa_low}
+        st.sidebar.success(f"已为 {pa_ticker} 设置预警")
+if st.sidebar.button("🗑️ 清除所有预警", key="pa_clear"):
+    st.session_state["price_alerts"] = {}
+    st.sidebar.success("已清除所有预警")
+
+st.sidebar.divider()
 st.sidebar.caption(MSG.data_source_yfinance)
 st.sidebar.caption(MSG.quote_ticker_hint)
 
@@ -478,6 +497,26 @@ if top_n > 0:
         cols[i].metric(label=row["代码"], value=price, delta=delta)
 
 st.markdown("---")
+
+# ── 价格预警检查 ─────────────────────────────────────────
+if st.session_state.get("price_alerts") and not display_quotes.empty:
+    triggered_alerts = []
+    for _, row in display_quotes.iterrows():
+        t_code = row["代码"]
+        alert = st.session_state["price_alerts"].get(t_code)
+        if alert and pd.notna(row["当前价格"]):
+            price_val = float(row["当前价格"])
+            if alert["high"] > 0 and price_val > alert["high"]:
+                triggered_alerts.append(f"⬆️ **{t_code}** 当前价格 {price_val:,.2f} 突破上限 {alert['high']:,.2f}")
+            if alert["low"] > 0 and price_val < alert["low"]:
+                triggered_alerts.append(f"⬇️ **{t_code}** 当前价格 {price_val:,.2f} 跌破下限 {alert['low']:,.2f}")
+
+    if triggered_alerts:
+        for alert_msg in triggered_alerts:
+            st.warning(f"🔔 价格预警：{alert_msg}")
+    elif st.session_state["price_alerts"]:
+        active_alerts = [f"{t}（上限:{v['high']:.2f}/下限:{v['low']:.2f}）" for t, v in st.session_state["price_alerts"].items()]
+        st.success(f"✅ 已监控 {len(active_alerts)} 个预警条件，当前均未触发：{', '.join(active_alerts)}")
 
 # ── 表格：st.dataframe + pandas Styler ───────────────────
 if not display_quotes.empty:

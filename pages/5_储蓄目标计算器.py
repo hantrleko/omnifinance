@@ -308,6 +308,77 @@ _sav_dl_col2.download_button(
 )
 st.caption(MSG.print_hint)
 
+# ── 多目标管理器 ──────────────────────────────────────────
+st.markdown("---")
+st.subheader("🗂️ 多目标储蓄规划")
+st.caption("同时规划多个储蓄目标（如购房、旅行、教育），并对比各目标所需时间。")
+
+if "multi_goals" not in st.session_state:
+    st.session_state["multi_goals"] = []
+
+with st.expander("➕ 添加新目标", expanded=len(st.session_state["multi_goals"]) == 0):
+    mg_col1, mg_col2, mg_col3, mg_col4 = st.columns(4)
+    mg_name = mg_col1.text_input("目标名称", placeholder="如：买房首付", key="mg_name")
+    mg_goal = mg_col2.number_input("目标金额（元）", min_value=1000.0, value=500000.0, step=10000.0, format="%.0f", key="mg_goal")
+    mg_current = mg_col3.number_input("当前已存（元）", min_value=0.0, value=0.0, step=1000.0, format="%.0f", key="mg_current")
+    mg_priority = mg_col4.selectbox("优先级", ["高", "中", "低"], key="mg_priority")
+    mg_color_map = {"高": "#EF553B", "中": "#FFA726", "低": "#00CC96"}
+
+    if st.button("✅ 添加到目标列表", key="mg_add"):
+        if mg_name.strip():
+            st.session_state["multi_goals"].append({
+                "名称": mg_name.strip(),
+                "目标金额": mg_goal,
+                "当前已存": mg_current,
+                "优先级": mg_priority,
+            })
+            st.success(f"已添加目标：{mg_name.strip()}")
+            st.rerun()
+        else:
+            st.warning("请输入目标名称")
+
+if st.session_state["multi_goals"]:
+    mg_results = []
+    for idx, goal_item in enumerate(st.session_state["multi_goals"]):
+        mg_r = calculate_savings_goal(
+            goal_item["当前已存"],
+            goal_item["目标金额"],
+            annual_rate,
+            effective_deposit,
+        )
+        mg_y = mg_r.months_needed // 12 if mg_r.reached and mg_r.months_needed > 0 else None
+        mg_m = mg_r.months_needed % 12 if mg_r.reached and mg_r.months_needed > 0 else None
+        time_str_mg = f"{mg_y}年{mg_m}个月" if mg_y is not None else ("已达成" if mg_r.months_needed == 0 else "无法达成")
+        progress_pct_mg = min(1.0, goal_item["当前已存"] / goal_item["目标金额"])
+        mg_results.append({
+            "目标名称": goal_item["名称"],
+            "优先级": goal_item["优先级"],
+            "目标金额": fmt(goal_item["目标金额"], decimals=0),
+            "当前已存": fmt(goal_item["当前已存"], decimals=0),
+            "当前进度": f"{progress_pct_mg * 100:.1f}%",
+            "预计达成时间": time_str_mg,
+            "总利息": fmt(mg_r.total_interest, decimals=0) if mg_r.reached else "—",
+        })
+
+    mg_df = pd.DataFrame(mg_results)
+    st.dataframe(mg_df, use_container_width=True, hide_index=True)
+
+    st.markdown("**目标进度可视化**")
+    for idx, (goal_item, mg_res) in enumerate(zip(st.session_state["multi_goals"], mg_results)):
+        pct = min(1.0, goal_item["当前已存"] / goal_item["目标金额"])
+        priority_icon = {"高": "🔴", "中": "🟡", "低": "🟢"}.get(goal_item["优先级"], "")
+        st.progress(
+            pct,
+            text=f"{priority_icon} {goal_item['名称']}：{pct*100:.1f}% ({fmt(goal_item['当前已存'], decimals=0)} / {fmt(goal_item['目标金额'], decimals=0)}) — 预计：{mg_res['预计达成时间']}",
+        )
+
+    total_goals_needed = sum(g["目标金额"] - g["当前已存"] for g in st.session_state["multi_goals"])
+    st.info(f"所有目标合计还需储蓄：{fmt(total_goals_needed, decimals=0)}，按当前月投入 {fmt(effective_deposit, decimals=0)} 估算。")
+
+    if st.button("🗑️ 清空所有目标", key="mg_clear"):
+        st.session_state["multi_goals"] = []
+        st.rerun()
+
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.savings_footer)

@@ -65,12 +65,15 @@ def run_retirement_montecarlo(
     post_volatility_pct: float,
     n_simulations: int = 2000,
     seed: int | None = 42,
+    return_distribution: str = "normal",
+    t_df: float = 5.0,
 ) -> MonteCarloResult:
-    """Run a Monte Carlo retirement simulation using log-normal monthly returns.
+    """Run a Monte Carlo retirement simulation.
+
+    Supports both log-normal (normal) and Student-t fat-tail return distributions.
 
     Accumulation phase: each month the balance grows by a random return drawn
-    from a log-normal distribution with the specified mean and volatility, then
-    ``monthly_saving`` is added.
+    from the selected distribution, then ``monthly_saving`` is added.
 
     Drawdown phase: each month a random return is applied and
     ``monthly_expense_today * (1+inflation)^year`` is withdrawn.
@@ -89,10 +92,16 @@ def run_retirement_montecarlo(
         post_volatility_pct: Annual portfolio volatility, post-retirement (%).
         n_simulations: Number of Monte Carlo paths to simulate.
         seed: Random seed for reproducibility (``None`` for non-deterministic).
+        return_distribution: ``"normal"`` for log-normal (default) or ``"t"`` for
+            Student-t fat-tail distribution that better captures extreme market events.
+        t_df: Degrees of freedom for the Student-t distribution (default 5).
+            Lower values = fatter tails; typical range 3–10.
 
     Returns:
         :class:`MonteCarloResult` with percentile paths and success rate.
     """
+    from scipy.stats import t as scipy_t
+
     rng = np.random.default_rng(seed)
 
     years_pre = retire_age - current_age
@@ -112,8 +121,15 @@ def run_retirement_montecarlo(
 
     # Draw all random returns at once for performance
     # Shape: (n_simulations, n_months_pre) and (n_simulations, n_months_post)
-    pre_returns = rng.normal(mu_pre, sig_pre, size=(n_simulations, n_months_pre))
-    post_returns = rng.normal(mu_post, sig_post, size=(n_simulations, n_months_post))
+    if return_distribution == "t" and t_df > 0:
+        scale_factor = np.sqrt((t_df - 2) / t_df) if t_df > 2 else 1.0
+        pre_z = scipy_t.rvs(df=t_df, size=(n_simulations, n_months_pre), random_state=int(seed) if seed is not None else None)
+        post_z = scipy_t.rvs(df=t_df, size=(n_simulations, n_months_post), random_state=int(seed) + 1 if seed is not None else None)
+        pre_returns = mu_pre + sig_pre / scale_factor * pre_z
+        post_returns = mu_post + sig_post / scale_factor * post_z
+    else:
+        pre_returns = rng.normal(mu_pre, sig_pre, size=(n_simulations, n_months_pre))
+        post_returns = rng.normal(mu_post, sig_post, size=(n_simulations, n_months_post))
 
     # ── Track yearly balances (shape: n_simulations × total_years+1) ──
     balances = np.zeros((n_simulations, total_years + 1))

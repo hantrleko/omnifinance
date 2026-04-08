@@ -98,6 +98,17 @@ risk_free_rate = st.sidebar.number_input("无風险利率（%）", min_value=CFG
 fee_rate = st.sidebar.number_input("单边手续费（%）", min_value=CFG.backtest.fee_rate_min, max_value=CFG.backtest.fee_rate_max, value=CFG.backtest.fee_rate_default, step=CFG.backtest.fee_rate_step)
 slippage_rate = st.sidebar.number_input("单边滑点（%）", min_value=CFG.backtest.slippage_rate_min, max_value=CFG.backtest.slippage_rate_max, value=CFG.backtest.slippage_rate_default, step=CFG.backtest.slippage_rate_step)
 
+st.sidebar.divider()
+st.sidebar.subheader("📊 指数基准对比")
+enable_benchmark = st.sidebar.checkbox("启用指数基准对比", value=False, help="下载指数数据进行超额收益对比")
+benchmark_ticker = st.sidebar.text_input(
+    "基准指数代码",
+    value="^GSPC",
+    key="benchmark_ticker",
+    help="如：标普500 ^GSPC、纳斯达克 ^IXIC、沪深300 000300.SS、恒生 ^HSI",
+    disabled=not enable_benchmark,
+)
+
 # ── 方案管理 ──────────────────────────────────────────────
 current_params = {
     "strategy": strategy,
@@ -446,6 +457,65 @@ fig_equity.update_layout(
     **build_layout(xaxis_title="日期", yaxis_title="资产净值", yaxis_tickformat=","),
 )
 st.plotly_chart(fig_equity, use_container_width=True)
+
+# ── 指数基准超额收益对比 ──────────────────────────────────
+if enable_benchmark and benchmark_ticker.strip():
+    st.subheader(f"📊 超额收益对比（vs {benchmark_ticker.strip().upper()}）")
+    with st.spinner(f"正在下载 {benchmark_ticker.strip().upper()} 基准数据…"):
+        bm_data = get_data(benchmark_ticker.strip().upper(), start_date, end_date)
+
+    if bm_data is not None and not bm_data.empty:
+        bm_aligned = bm_data["Close"].reindex(result_df.index, method="ffill").dropna()
+        if not bm_aligned.empty:
+            bm_equity = bm_aligned / bm_aligned.iloc[0] * initial_capital
+            strategy_norm = result_df["Equity"] / initial_capital
+            bm_norm = bm_equity / initial_capital
+
+            excess_return = (result_df["Equity"].iloc[-1] - bm_equity.iloc[-1]) / initial_capital * 100
+
+            bm_c1, bm_c2, bm_c3 = st.columns(3)
+            bm_c1.metric(
+                f"策略总收益",
+                f"{metrics['总回报率(%)']:+.2f}%",
+            )
+            bm_bm_total = (bm_equity.iloc[-1] / initial_capital - 1) * 100
+            bm_c2.metric(
+                f"{benchmark_ticker.strip().upper()} 收益",
+                f"{bm_bm_total:+.2f}%",
+            )
+            bm_c3.metric(
+                "超额收益（Alpha）",
+                f"{excess_return:+.2f}%",
+                delta_color="normal" if excess_return >= 0 else "inverse",
+            )
+
+            fig_bm = go.Figure()
+            fig_bm.add_trace(go.Scatter(
+                x=result_df.index, y=strategy_norm,
+                mode="lines", name="策略净值",
+                line=dict(width=2.5, color="#00CC96"),
+                hovertemplate=f"%{{x|%Y-%m-%d}}<br>策略: %{{y:.4f}}<extra></extra>",
+            ))
+            fig_bm.add_trace(go.Scatter(
+                x=bm_aligned.index, y=bm_norm,
+                mode="lines", name=f"{benchmark_ticker.strip().upper()} 基准",
+                line=dict(width=2, color="#EF553B", dash="dash"),
+                hovertemplate=f"%{{x|%Y-%m-%d}}<br>基准: %{{y:.4f}}<extra></extra>",
+            ))
+            fig_bm.add_trace(go.Scatter(
+                x=result_df.index, y=result_df["Benchmark"] / initial_capital,
+                mode="lines", name="买入持有（原标的）",
+                line=dict(width=1.5, color="#636EFA", dash="dot"),
+                hovertemplate=f"%{{x|%Y-%m-%d}}<br>持有: %{{y:.4f}}<extra></extra>",
+            ))
+            fig_bm.update_layout(
+                **build_layout(xaxis_title="日期", yaxis_title="归一化净值（起始=1）"),
+            )
+            st.plotly_chart(fig_bm, use_container_width=True)
+        else:
+            st.warning(f"基准数据与策略日期区间不匹配，无法对比。")
+    else:
+        st.warning(f"无法获取 {benchmark_ticker.strip().upper()} 的历史数据，请检查代码是否正确。")
 
 # ── 策略对比（缓存计算） ──────────────────────────────────
 with st.expander("📊 策略对比（默认参数）"):

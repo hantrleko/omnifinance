@@ -160,6 +160,59 @@ if records:
         key="nw_csv",
     )
 
+st.markdown("---")
+st.subheader("🔮 未来净资产预测")
+st.caption("基于自定义增长参数，预测未来净资产走势。")
+
+with st.expander("⚙️ 设置预测参数", expanded=False):
+    proj_col1, proj_col2, proj_col3 = st.columns(3)
+    proj_asset_growth = proj_col1.number_input(
+        "年资产增长率（%）",
+        min_value=-20.0, max_value=50.0, value=7.0, step=0.5, format="%.1f", key="proj_ag",
+        help="预期资产年化增长率（含投资收益和新增储蓄）",
+    )
+    proj_liab_change = proj_col2.number_input(
+        "年负债变化率（%）",
+        min_value=-50.0, max_value=20.0, value=-5.0, step=0.5, format="%.1f", key="proj_lc",
+        help="负债每年变化比例（负数 = 逐年还清）",
+    )
+    proj_years = proj_col3.slider("预测年限", min_value=1, max_value=20, value=10, key="proj_yr")
+
+    base_assets = total_assets if total_assets > 0 else (records[-1].get("total_assets", 0) if records else 0.0)
+    base_liab = total_liab if total_assets > 0 else (records[-1].get("total_liabilities", 0) if records else 0.0)
+    base_nw = base_assets - base_liab
+
+    if base_assets > 0:
+        from datetime import date as _date
+        current_year = _date.today().year
+        proj_rows = []
+        _pa, _pl = base_assets, base_liab
+        for yr in range(proj_years + 1):
+            proj_rows.append({"年份": f"{current_year + yr}年", "预测资产": _pa, "预测负债": _pl, "预测净资产": _pa - _pl})
+            _pa = _pa * (1 + proj_asset_growth / 100)
+            _pl = max(0.0, _pl * (1 + proj_liab_change / 100))
+
+        proj_df = pd.DataFrame(proj_rows)
+
+        fig_proj = go.Figure()
+        sym_proj = get_symbol()
+        fig_proj.add_trace(go.Scatter(x=proj_df["年份"], y=proj_df["预测净资产"], mode="lines+markers", name="预测净资产", line=dict(width=2.5, color="#00CC96"), hovertemplate=f"%{{x}}<br>净资产: {sym_proj}%{{y:,.0f}}<extra></extra>"))
+        fig_proj.add_trace(go.Scatter(x=proj_df["年份"], y=proj_df["预测资产"], mode="lines", name="预测资产", line=dict(width=2, dash="dash", color="#636EFA")))
+        fig_proj.add_trace(go.Scatter(x=proj_df["年份"], y=proj_df["预测负债"], mode="lines", name="预测负债", line=dict(width=2, dash="dot", color="#EF553B")))
+        fig_proj.update_layout(**build_layout(xaxis_title="年份", yaxis_title="金额", yaxis_tickformat=","))
+        st.plotly_chart(fig_proj, use_container_width=True)
+
+        proj_display = proj_df.copy()
+        for col in ["预测资产", "预测负债", "预测净资产"]:
+            proj_display[col] = proj_display[col].apply(lambda v: fmt(v, decimals=0))
+        st.dataframe(proj_display, use_container_width=True, hide_index=True)
+
+        final_nw = proj_df.iloc[-1]["预测净资产"]
+        growth_factor = (final_nw / base_nw - 1) * 100 if base_nw > 0 else 0.0
+        st.info(f"按设定增长率，{proj_years} 年后预测净资产为 **{fmt(final_nw, decimals=0)}**，较当前增长约 **{growth_factor:.1f}%**。")
+    else:
+        st.info("请先在上方录入资产数据，再进行预测。")
+
 st.subheader("📤 导出报告")
 def _build_nw_report() -> str:
     s = get_symbol()

@@ -408,6 +408,92 @@ if yearly_rows:
 
 st.caption(MSG.print_hint)
 
+# ── 提款策略模拟 ──────────────────────────────────────────
+st.markdown("---")
+st.subheader("💡 提款策略对比模拟")
+st.caption("对比三种常见的退休提款策略，了解不同策略的资产耗尽风险。")
+
+with st.expander("🔧 配置提款策略模拟", expanded=False):
+    st.markdown("以退休时资产 **{}** 为起点，模拟不同提款策略下的资产变化。".format(fmt(result.projected_at_retire, decimals=0)))
+
+    _ws_years = result.years_in_retire
+    _ws_assets = result.projected_at_retire
+    _ws_post_r = post_return / 100
+    _ws_post_rm = (1 + _ws_post_r) ** (1 / 12) - 1
+    _ws_inflation = inflation / 100
+    _ws_expense = result.future_monthly_expense
+
+    if _ws_assets > 0 and _ws_years > 0:
+        ws_rows_fixed: list[dict] = []
+        ws_rows_pct: list[dict] = []
+        ws_rows_dynamic: list[dict] = []
+
+        bal_fixed = _ws_assets
+        bal_pct = _ws_assets
+        bal_dynamic = _ws_assets
+
+        pct_rate = 0.04
+
+        for yr in range(1, _ws_years + 1):
+            age = retire_age + yr
+
+            fixed_expense = _ws_expense * (1 + _ws_inflation) ** yr
+            pct_expense = bal_pct * pct_rate / 12
+            dynamic_floor = _ws_expense * 0.85 * (1 + _ws_inflation) ** yr
+            dynamic_expense = max(dynamic_floor, min(_ws_expense * 1.15 * (1 + _ws_inflation) ** yr, _ws_expense * (1 + _ws_inflation) ** yr))
+
+            for _ in range(12):
+                bal_fixed = max(0.0, bal_fixed * (1 + _ws_post_rm) - fixed_expense)
+                bal_pct = max(0.0, bal_pct * (1 + _ws_post_rm) - pct_expense)
+                bal_dynamic = max(0.0, bal_dynamic * (1 + _ws_post_rm) - dynamic_expense / 12)
+
+            ws_rows_fixed.append({"年龄": age, "资产": bal_fixed, "策略": "固定金额提款"})
+            ws_rows_pct.append({"年龄": age, "资产": bal_pct, "策略": f"固定比例提款(4%/年)"})
+            ws_rows_dynamic.append({"年龄": age, "资产": bal_dynamic, "策略": "动态弹性提款"})
+
+        ws_df = pd.concat([
+            pd.DataFrame(ws_rows_fixed),
+            pd.DataFrame(ws_rows_pct),
+            pd.DataFrame(ws_rows_dynamic),
+        ])
+
+        fig_ws = go.Figure()
+        color_map = {"固定金额提款": "#636EFA", "固定比例提款(4%/年)": "#EF553B", "动态弹性提款": "#00CC96"}
+        for strategy_name, color in color_map.items():
+            subset = ws_df[ws_df["策略"] == strategy_name]
+            fig_ws.add_trace(go.Scatter(
+                x=subset["年龄"], y=subset["资产"],
+                mode="lines", name=strategy_name,
+                line=dict(width=2, color=color),
+                hovertemplate=f"%{{x}} 岁<br>资产: {sym}%{{y:,.0f}}<extra></extra>",
+            ))
+
+        fig_ws.update_layout(
+            **build_layout(xaxis_title="年龄", yaxis_title="资产（元）", yaxis_tickformat=","),
+        )
+        st.plotly_chart(fig_ws, use_container_width=True)
+
+        final_ws_rows = []
+        for strategy_name in color_map.keys():
+            subset = ws_df[ws_df["策略"] == strategy_name]
+            final_asset = subset.iloc[-1]["资产"] if not subset.empty else 0.0
+            depleted = subset[subset["资产"] <= 0]
+            deplete_age = int(depleted.iloc[0]["年龄"]) if not depleted.empty else None
+            final_ws_rows.append({
+                "提款策略": strategy_name,
+                "终末资产": fmt(final_asset, decimals=0),
+                "资产耗尽年龄": f"{deplete_age} 岁" if deplete_age else f"未耗尽（{life_expectancy}岁时余 {fmt(final_asset, decimals=0)}）",
+            })
+
+        st.dataframe(pd.DataFrame(final_ws_rows), use_container_width=True, hide_index=True)
+        st.caption(
+            "**固定金额提款**：每月按通胀调整后的固定金额提款，简单但受市场波动影响大。\n\n"
+            "**固定比例提款（4%）**：每年提取当年资产的 4%，适应资产规模变化，不会提前耗尽（4%法则）。\n\n"
+            "**动态弹性提款**：以固定金额为基准，允许 ±15% 弹性调整，兼顾稳定性与灵活性。"
+        )
+    else:
+        st.info("当前方案退休资产为零或退休年数为零，无法进行提款策略模拟。")
+
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.retirement_footer)

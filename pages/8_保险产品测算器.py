@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from core.theme import inject_theme
@@ -173,6 +174,88 @@ st.download_button(
     file_name="保险产品分析.csv",
     mime="text/csv",
 )
+
+# ── 退保场景模拟 ──────────────────────────────────────────
+st.markdown("---")
+st.subheader("🔓 退保场景分析")
+st.caption("模拟不同年份提前退保时的损失和 IRR，帮助判断最佳持有时间。")
+
+with st.expander("⚙️ 配置退保分析", expanded=False):
+    st.markdown("以下假设退保价值（现金价值）随时间线性从 0 增长到满期值，实际产品以合同条款为准。")
+    surrender_ratio_start = st.slider(
+        "第1年退保率（占满期金比例 %）",
+        min_value=0,
+        max_value=60,
+        value=0,
+        step=5,
+        key="surr_start",
+        help="保险合同通常第1年退保损失最大（现金价值最低）",
+    )
+    surrender_ratio_end = st.slider(
+        "缴费期末退保率（占满期金比例 %）",
+        min_value=40,
+        max_value=100,
+        value=80,
+        step=5,
+        key="surr_end",
+    )
+
+    from core.planning import solve_irr as _sirr
+    surr_rows = []
+    for yr in range(1, int(coverage_years) + 1):
+        if yr <= int(pay_years):
+            t = (yr - 1) / max(int(pay_years) - 1, 1)
+            surr_value = maturity_benefit * (surrender_ratio_start / 100 + t * (surrender_ratio_end / 100 - surrender_ratio_start / 100))
+        else:
+            t = (yr - int(pay_years)) / max(int(coverage_years) - int(pay_years), 1)
+            surr_value = maturity_benefit * (surrender_ratio_end / 100 + t * (1 - surrender_ratio_end / 100))
+
+        premiums_paid = annual_premium * min(yr, int(pay_years))
+        loss = premiums_paid - surr_value
+        loss_pct = loss / premiums_paid * 100 if premiums_paid > 0 else 0.0
+
+        cfs = [0.0]
+        for y2 in range(1, yr + 1):
+            cf = -annual_premium if y2 <= int(pay_years) else 0.0
+            if y2 == yr:
+                cf += surr_value
+            cfs.append(cf)
+        surr_irr = _sirr(cfs) * 100
+
+        surr_rows.append({
+            "退保年度": yr,
+            "已缴保费": fmt(premiums_paid, decimals=0),
+            "现金价值（估）": fmt(surr_value, decimals=0),
+            "退保损失": fmt(max(0.0, loss), decimals=0),
+            "损失率": f"{max(0.0, loss_pct):.1f}%",
+            "IRR": f"{surr_irr:.2f}%",
+        })
+
+    surr_df = pd.DataFrame(surr_rows)
+    st.dataframe(surr_df, use_container_width=True, hide_index=True)
+
+    surr_irr_vals = [float(r["IRR"].replace("%", "")) for r in surr_rows]
+    surr_years_list = [r["退保年度"] for r in surr_rows]
+
+    fig_surr = go.Figure()
+    fig_surr.add_trace(go.Scatter(
+        x=surr_years_list, y=surr_irr_vals,
+        mode="lines+markers", name="退保 IRR",
+        line=dict(width=2, color="#636EFA"),
+        hovertemplate="第 %{x} 年退保<br>IRR: %{y:.2f}%<extra></extra>",
+    ))
+    fig_surr.add_hline(y=0, line_dash="dash", line_color="#EF553B", annotation_text="保本线 IRR=0%")
+    if alt_return_pct > 0:
+        fig_surr.add_hline(y=alt_return_pct, line_dash="dot", line_color="#FFA726", annotation_text=f"替代投资 {alt_return_pct:.1f}%")
+    from core.chart_config import build_layout as _ins_bl
+    fig_surr.update_layout(**_ins_bl(xaxis_title="退保年度", yaxis_title="IRR（%）"))
+    st.plotly_chart(fig_surr, use_container_width=True)
+
+    positive_irr_years = [r["退保年度"] for r in surr_rows if float(r["IRR"].replace("%", "")) >= 0]
+    if positive_irr_years:
+        st.info(f"从第 **{positive_irr_years[0]}** 年开始退保 IRR 转正（不亏本），建议最短持有至第 {positive_irr_years[0]} 年。")
+    else:
+        st.warning("在当前设定下，退保期内 IRR 始终为负，建议持有至满期或重新评估产品价值。")
 
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()

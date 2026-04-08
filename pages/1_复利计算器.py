@@ -47,15 +47,26 @@ if mode == "定期定投":
     contrib_freq_label = st.sidebar.selectbox("定投频率", list(contrib_freq_options.keys()))
     contrib_freq_n = contrib_freq_options[contrib_freq_label]
 
-current_params = {"principal": principal, "annual_rate": annual_rate, "years": years, "freq": freq_label, "mode": mode, "contribution": contribution}
+st.sidebar.divider()
+inflation_rate = st.sidebar.number_input(
+    "年通胀率（%）",
+    min_value=0.0,
+    max_value=20.0,
+    value=0.0,
+    step=0.1,
+    format="%.1f",
+    help="设置通胀率后，图表将同时展示实际购买力曲线，帮助理解资产真实增值情况。",
+)
+
+current_params = {"principal": principal, "annual_rate": annual_rate, "years": years, "freq": freq_label, "mode": mode, "contribution": contribution, "inflation_rate": inflation_rate}
 loaded = scheme_manager_ui("compound", current_params)
 
-schedule = compute_schedule(principal, annual_rate, years, n, contribution, contrib_freq_n)
+schedule = compute_schedule(principal, annual_rate, years, n, contribution, contrib_freq_n, inflation_rate)
 schedule = add_annualized_return(schedule)
 
 # 误差分析：利率 ±1%
-schedule_hi = compute_schedule(principal, annual_rate + 1, years, n, contribution, contrib_freq_n)
-schedule_lo = compute_schedule(principal, max(0, annual_rate - 1), years, n, contribution, contrib_freq_n)
+schedule_hi = compute_schedule(principal, annual_rate + 1, years, n, contribution, contrib_freq_n, inflation_rate)
+schedule_lo = compute_schedule(principal, max(0, annual_rate - 1), years, n, contribution, contrib_freq_n, inflation_rate)
 
 # ── 结果概览 ──────────────────────────────────────────────
 final = schedule.iloc[-1]
@@ -64,10 +75,24 @@ total_interest = final["年末余额"] - final["累计投入"]
 st.session_state["dashboard_compound"] = {"final_balance": final["年末余额"], "total_interest": total_interest}
 
 st.divider()
-col1, col2, col3 = st.columns(3)
-col1.metric("最终余额", fmt(final['年末余额']))
-col2.metric("累计投入", fmt(final['累计投入']))
-col3.metric("累计收益", fmt(total_interest))
+if inflation_rate > 0 and "实际购买力" in schedule.columns:
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("最终余额（名义）", fmt(final['年末余额']))
+    col2.metric("累计投入", fmt(final['累计投入']))
+    col3.metric("累计收益", fmt(total_interest))
+    real_pp = schedule.iloc[-1]["实际购买力"]
+    col4.metric(
+        f"实际购买力（扣通胀）",
+        fmt(real_pp),
+        delta=fmt(real_pp - final['年末余额']),
+        delta_color="inverse",
+        help=f"按年通胀率 {inflation_rate:.1f}% 折现后的今日等价购买力",
+    )
+else:
+    col1, col2, col3 = st.columns(3)
+    col1.metric("最终余额", fmt(final['年末余额']))
+    col2.metric("累计投入", fmt(final['累计投入']))
+    col3.metric("累计收益", fmt(total_interest))
 
 # ── 增长曲线（深色主题 + 年化收益率） ─────────────────────
 st.subheader("📈 余额增长曲线")
@@ -85,6 +110,13 @@ fig.add_trace(go.Scatter(
     line=dict(width=2, dash="dash", color="#EF553B"),
     hovertemplate=f"第 %{{x}} 年<br>累计投入: {get_symbol()}%{{y:,.2f}}<extra></extra>",
 ))
+if inflation_rate > 0 and "实际购买力" in schedule.columns:
+    fig.add_trace(go.Scatter(
+        x=schedule["年份"], y=schedule["实际购买力"],
+        mode="lines", name=f"实际购买力（扣通胀{inflation_rate:.1f}%）",
+        line=dict(width=2, dash="dot", color="#FFA726"),
+        hovertemplate=f"第 %{{x}} 年<br>实际购买力: {get_symbol()}%{{y:,.2f}}<extra></extra>",
+    ))
 # 年化收益率放在右 Y 轴
 fig.add_trace(go.Scatter(
     x=schedule["年份"], y=schedule["年化收益率(%)"],

@@ -103,6 +103,26 @@ n_simulations = st.sidebar.select_slider(
     help="模拟次数越多结果越稳定，但计算耗时增加。",
 )
 
+st.sidebar.divider()
+st.sidebar.subheader("📐 收益分布假设")
+return_dist = st.sidebar.radio(
+    "收益率分布模型",
+    ["正态分布（对数正态）", "学生 t 分布（厚尾）"],
+    index=0,
+    help="厚尾分布更真实地反映金融市场中极端事件（暴涨暴跌）的频率。",
+)
+t_df = 5.0
+if "t 分布" in return_dist:
+    t_df = st.sidebar.slider(
+        "自由度（df）",
+        min_value=3,
+        max_value=15,
+        value=5,
+        step=1,
+        help="自由度越小，尾部越厚（极端事件越频繁）。3=极厚尾，10≈接近正态。",
+    )
+dist_key = "t" if "t 分布" in return_dist else "normal"
+
 # ── 执行模拟（带缓存，避免每次参数微调都重新运行） ────────────────────────────
 @st.cache_data(ttl=600, show_spinner=False)
 def _cached_montecarlo(
@@ -118,6 +138,8 @@ def _cached_montecarlo(
     post_return: float,
     post_volatility: float,
     n_simulations: int,
+    dist_key: str = "normal",
+    t_df: float = 5.0,
 ):
     return run_retirement_montecarlo(
         current_age=current_age,
@@ -132,10 +154,12 @@ def _cached_montecarlo(
         post_return_pct=post_return,
         post_volatility_pct=post_volatility,
         n_simulations=n_simulations,
+        return_distribution=dist_key,
+        t_df=t_df,
     )
 
 
-with st.spinner(f"正在运行 {n_simulations:,} 次蒙特卡洛模拟…"):
+with st.spinner(f"正在运行 {n_simulations:,} 次蒙特卡洛模拟（{return_dist}）…"):
     mc = _cached_montecarlo(
         current_age,
         retire_age,
@@ -149,6 +173,8 @@ with st.spinner(f"正在运行 {n_simulations:,} 次蒙特卡洛模拟…"):
         post_return,
         post_volatility,
         n_simulations,
+        dist_key,
+        float(t_df),
     )
 
 sym = get_symbol()
@@ -316,20 +342,27 @@ st.download_button(
 
 # ── 参数假设说明 ──────────────────────────────────────────
 with st.expander("ℹ️ 方法论说明"):
+    dist_note = (
+        f"学生 t 分布（自由度 df={int(t_df)}）— 厚尾分布，更真实地反映极端市场事件"
+        if dist_key == "t"
+        else "对数正态分布（Log-normal）— 经典假设，适合长期平均估计"
+    )
     st.markdown(f"""
-**模拟方法**：对数正态随机收益路径（Log-normal Monthly Returns）
+**模拟方法**：{dist_note}
 
 - 退休前年化期望收益：**{pre_return:.1f}%**，年化波动率：**{pre_volatility:.1f}%**
 - 退休后年化期望收益：**{post_return:.1f}%**，年化波动率：**{post_volatility:.1f}%**
-- 每个月的随机收益 $r_t$ 服从正态分布 $N(\\mu_m, \\sigma_m)$，其中
-  $\\mu_m = \\ln(1 + r_{{annual}}) / 12$，$\\sigma_m = \\sigma_{{annual}} / \\sqrt{{12}}$
+- 每个月的随机收益基于月度均值和标准差参数化生成
 - 共运行 **{n_simulations:,}** 条独立路径
 - 成功定义：在预期寿命（{life_expectancy}岁）时资产余额仍大于零
 
+**两种分布的区别**：
+- **正态分布**：收益极端值概率偏低，适合长期平均分析
+- **学生 t 分布**：极端负收益（市场崩溃）概率更高，更接近真实金融市场
+
 **注意事项**：
-1. 本模拟基于参数假设，实际市场波动可能更极端（厚尾风险）。
-2. 未考虑税收、通胀以外的流动性风险、重大支出冲击等。
-3. 仅供参考，不构成投资建议。
+1. 未考虑税收、通胀以外的流动性风险、重大支出冲击等。
+2. 仅供参考，不构成投资建议。
 """)
 
 # ── 页脚 ──────────────────────────────────────────────────

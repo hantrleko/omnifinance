@@ -70,6 +70,9 @@ def optimize_portfolio(
     risk_free_rate_pct: float = 2.0,
     n_frontier_points: int = 50,
     trading_days_per_year: int = 252,
+    max_weight_per_asset: float = 1.0,
+    min_weight_per_asset: float = 0.0,
+    asset_weight_constraints: dict[str, tuple[float, float]] | None = None,
 ) -> EfficientFrontierResult:
     """Run Markowitz mean-variance optimisation on *returns_df*.
 
@@ -81,6 +84,13 @@ def optimize_portfolio(
         n_frontier_points: Number of points along the efficient frontier.
         trading_days_per_year: Used to annualise daily statistics
             (default 252).
+        max_weight_per_asset: Global maximum weight for any single asset
+            (default 1.0 = no limit). Use e.g. 0.4 to cap each asset at 40%.
+        min_weight_per_asset: Global minimum weight for any single asset
+            (default 0.0 = allow zero). Use e.g. 0.05 to enforce at least 5%.
+        asset_weight_constraints: Optional per-asset (min, max) weight bounds
+            dict, e.g. ``{"AAPL": (0.0, 0.3)}``. Overrides global bounds for
+            specific assets.
 
     Returns:
         :class:`EfficientFrontierResult` with optimised portfolios and the
@@ -103,7 +113,16 @@ def optimize_portfolio(
     mu = df.mean().values * trading_days_per_year       # shape (n,)
     cov = df.cov().values * trading_days_per_year       # shape (n, n)
 
-    bounds = tuple((0.0, 1.0) for _ in range(n))
+    # Build per-asset bounds
+    bounds_list = []
+    for t in tickers:
+        if asset_weight_constraints and t in asset_weight_constraints:
+            lo, hi = asset_weight_constraints[t]
+        else:
+            lo, hi = min_weight_per_asset, max_weight_per_asset
+        bounds_list.append((float(lo), float(hi)))
+    bounds = tuple(bounds_list)
+
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
     w0 = np.ones(n) / n  # equal-weight starting point
 
