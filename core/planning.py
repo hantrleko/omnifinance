@@ -68,6 +68,9 @@ def calculate_budget(income: float, fixed_expense: float, pct_needs: int, pct_wa
 def solve_irr(cash_flows: list[float], tol: float = 1e-10, max_iter: int = 1000) -> float:
     """Solve for the Internal Rate of Return (IRR) via Newton-Raphson iteration.
 
+    Falls back to Brent's method (scipy.optimize.brentq) if Newton-Raphson
+    does not converge within *max_iter* iterations.
+
     Args:
         cash_flows: Sequence of periodic cash flows where index 0 is the
             initial outflow (negative) and subsequent values are inflows.
@@ -77,10 +80,10 @@ def solve_irr(cash_flows: list[float], tol: float = 1e-10, max_iter: int = 1000)
 
     Returns:
         The periodic IRR as a decimal (e.g. ``0.005`` for 0.5% per period).
-        Returns the last computed estimate if convergence is not reached.
+        Returns the last computed estimate if all methods fail.
     """
     rate = 0.005
-    for _ in range(max_iter):
+    for iteration in range(max_iter):
         npv = sum(cf / (1 + rate) ** t for t, cf in enumerate(cash_flows))
         dnpv = sum(-t * cf / (1 + rate) ** (t + 1) for t, cf in enumerate(cash_flows))
         if abs(dnpv) < 1e-14:
@@ -88,7 +91,25 @@ def solve_irr(cash_flows: list[float], tol: float = 1e-10, max_iter: int = 1000)
         rate_new = rate - npv / dnpv
         if abs(rate_new - rate) < tol:
             return rate_new
+        # Divergence detection: if rate goes out of reasonable bounds, break
+        if abs(rate_new) > 10.0:
+            break
         rate = rate_new
+
+    # Fallback: try Brent's method on a bracketed interval
+    try:
+        from scipy.optimize import brentq
+
+        def _npv_at(r: float) -> float:
+            return sum(cf / (1 + r) ** t for t, cf in enumerate(cash_flows))
+
+        # Search for bracket where NPV changes sign
+        lo, hi = -0.999, 10.0
+        if _npv_at(lo) * _npv_at(hi) < 0:
+            return brentq(_npv_at, lo, hi, xtol=tol, maxiter=max_iter)
+    except (ImportError, ValueError):
+        pass
+
     return rate
 
 

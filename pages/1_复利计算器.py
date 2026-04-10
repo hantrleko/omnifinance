@@ -204,16 +204,25 @@ year_contribution = schedule.loc[schedule["年份"] == detail_year, "当年投�
 r = annual_rate / 100.0
 
 # — 月度明细 —
-monthly_rate = r / 12
+# Use the same compounding logic as core engine: compound n times/year
+# Monthly detail uses the per-period rate from the selected compounding frequency
+monthly_period_rate = r / n  # per-period rate matching compound_freq
+periods_per_month = n / 12   # how many compounding periods per month
 monthly_contrib = year_contribution / 12 if contribution > 0 else 0.0
 month_rows: list[dict] = []
 bal = year_start_balance
 for m in range(1, 13):
-    interest_m = bal * monthly_rate
-    bal += interest_m + monthly_contrib
+    month_start = bal
+    interest_m = 0.0
+    # Simulate compounding periods within this month
+    for _ in range(max(1, int(round(periods_per_month)))):
+        period_interest = bal * monthly_period_rate / max(1, int(round(periods_per_month)))
+        interest_m += period_interest
+        bal += period_interest
+    bal += monthly_contrib
     month_rows.append({
         "月份": f"{m} 月",
-        "月初余额": bal - interest_m - monthly_contrib,
+        "月初余额": month_start,
         "当月利息": interest_m,
         "当月投入": monthly_contrib,
         "月末余额": bal,
@@ -221,7 +230,9 @@ for m in range(1, 13):
 monthly_df = pd.DataFrame(month_rows)
 
 # — 日度明细 —
-daily_rate = r / 365
+# Use effective daily rate derived from compounding frequency
+effective_annual = (1 + r / n) ** n - 1 if n > 0 else r
+daily_rate = (1 + effective_annual) ** (1 / 365) - 1
 daily_contrib = year_contribution / 365 if contribution > 0 else 0.0
 day_rows: list[dict] = []
 bal_d = year_start_balance

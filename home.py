@@ -1,7 +1,7 @@
 import streamlit as st
 from core.currency import get_symbol, fmt
 
-VERSION = "v1.9.6"
+VERSION = "v1.9.7"
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
@@ -19,7 +19,27 @@ st.markdown("""
 - 🏖️ **高级人生规划**：精准估算退休缺口、蒙特卡洛随机概率模拟防范退休破产危机。
 """)
 
-with st.expander("🚀 功能更新（v1.9.6）", expanded=True):
+with st.expander("🚀 功能优化（v1.9.7）", expanded=True):
+    st.markdown("""
+**v1.9.7 全面功能优化与工程加固**
+
+- 🐛 **Bug 修复**：储蓄目标计算器修复"年通谀率"错别字；贷款计算器 & 预算建议器图表硬编码 ¥ 改为动态货币符号。
+- 📊 **复利计算器**：月/日利息明细改用与核心引擎一致的复利频率精确计算，不再使用简化 r/12、r/365。
+- 🏠 **仪表盘**：跨工具分析新增复利年化收益率 vs 保险 IRR 对比，修复 compound_rate 未使用的死代码。
+- 🏖️ **退休金估算器**：4% 法则提款策略改为标准实现（首年 4% × 初始资产，后续按通胀调整），而非每年重新计算资产的 4%。
+- 🎲 **蒙特卡洛模拟**：Student-t 分布改用 np.random.default_rng 统一随机数生成，告别已弃用的 scipy RandomState。
+- 📐 **投资组合优化器**：修复权重约束校验逻辑（原先 raw_tickers 未定义导致约束失效），现在解析完标的后才验证。
+- 🧾 **税务计算器**：全面集成到平台（仪表盘联动、方案管理、HTML 报告导出），新增独立导航分类。
+- 📈 **策略回测器**：移除无用 _cached_comparison 占位函数；参数网格搜索改用 joblib 并行加速。
+- 📊 **实时报价面板**：A 股代码检测升级，支持沪深交易所前缀校验（科创板 688、创业板 300 等）。
+- 🎨 **图表主题**：chart_config 新增暗色/亮色模式自动适配，所有 Plotly 图表背景、字体、网格线随主题切换。
+- 💾 **储蓄多目标**：多目标规划列表改用 core/storage.py 持久化存储，页面刷新不再丢失。
+- 🛡️ **保险测算器**：退保场景新增"指数增长"模式，更贴近真实保单前慢后快的现金价值增长曲线。
+- ⚙️ **IRR 求解器**：新增收敛检测与 scipy.optimize.brentq 回退机制，防止 Newton-Raphson 发散。
+- 🔧 **报告生成器**：新增通用 build_single_report 模板函数，统一暗色适配 + 打印友好样式。
+""")
+
+with st.expander("🚀 功能更新（v1.9.6）"):
     st.markdown("""
 **v1.9.6 实时报价面板新增 A 股支持**
 
@@ -111,8 +131,9 @@ dash_budget = st.session_state.get("dashboard_budget")
 dash_retirement = st.session_state.get("dashboard_retirement")
 dash_insurance = st.session_state.get("dashboard_insurance")
 dash_networth = st.session_state.get("dashboard_networth")
+dash_tax = st.session_state.get("dashboard_tax")
 
-has_data = any([dash_compound, dash_loan, dash_savings, dash_budget, dash_retirement, dash_insurance, dash_networth])
+has_data = any([dash_compound, dash_loan, dash_savings, dash_budget, dash_retirement, dash_insurance, dash_networth, dash_tax])
 
 if has_data:
     cols = st.columns(7)
@@ -151,6 +172,13 @@ if has_data:
         cols[6].metric("🏠 净资产", fmt(dash_networth['net_worth'], decimals=0))
         cols[6].caption(f"资产 {fmt(dash_networth['total_assets'], decimals=0)}")
 
+    if dash_tax:
+        st.columns(1)  # spacer
+        tax_col = st.columns(3)
+        tax_col[0].metric("🧾 年应缴个税", fmt(dash_tax['annual_tax'], decimals=0))
+        tax_col[1].metric("🧾 实际税率", f"{dash_tax['effective_rate']:.2f}%")
+        tax_col[2].metric("🧾 税后月到手", fmt(dash_tax['after_tax_monthly'], decimals=0))
+
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")
 
     # Cross-tool insights
@@ -180,10 +208,17 @@ if has_data:
 
     if dash_insurance and dash_compound:
         irr = dash_insurance.get("irr_pct", 0)
-        compound_rate = dash_compound.get("final_balance", 0)
-        if irr > 0:
-            if irr < 3:
-                insights.append(f"🛡️💰 **保险效率提示**：当前保单 IRR 为 {irr:.2f}%，属于低收益型。若理财目标以增值为主，可考虑将保险支出转向复利投资。")
+        compound_interest = dash_compound.get("total_interest", 0)
+        final_balance = dash_compound.get("final_balance", 0)
+        # Estimate annualized compound return from final_balance
+        compound_annualized = (compound_interest / final_balance * 100) if final_balance > 0 and compound_interest > 0 else 0.0
+        if irr > 0 and compound_annualized > 0:
+            if irr < compound_annualized:
+                insights.append(f"🛡️💰 **保险效率提示**：当前保单 IRR 为 {irr:.2f}%，低于复利投资年化收益约 {compound_annualized:.1f}%。若理财目标以增值为主，可考虑将部分保险支出转向复利投资。")
+            else:
+                insights.append(f"🛡️💰 **保险回报良好**：保单 IRR {irr:.2f}% 与复利投资收益相当，兼顾保障与收益。")
+        elif irr > 0 and irr < 3:
+            insights.append(f"🛡️💰 **保险效率提示**：当前保单 IRR 为 {irr:.2f}%，属于低收益型。若理财目标以增值为主，可考虑将保险支出转向复利投资。")
 
     if insights:
         for insight in insights:
@@ -209,6 +244,7 @@ if dash_budget: metrics_dict["budget"] = dash_budget
 if dash_retirement: metrics_dict["retirement"] = dash_retirement
 if dash_insurance: metrics_dict["insurance"] = dash_insurance
 if dash_networth: metrics_dict["networth"] = dash_networth
+if dash_tax: metrics_dict["tax"] = dash_tax
 
 html_content = generate_html_report(metrics_dict)
 

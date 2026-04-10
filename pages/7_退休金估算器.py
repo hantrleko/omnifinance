@@ -433,12 +433,15 @@ with st.expander("🔧 配置提款策略模拟", expanded=False):
         bal_dynamic = _ws_assets
 
         pct_rate = 0.04
+        # 4% rule: first year withdrawal = 4% of initial assets, then adjust for inflation
+        pct_initial_withdrawal = _ws_assets * pct_rate / 12  # monthly first-year withdrawal
 
         for yr in range(1, _ws_years + 1):
             age = retire_age + yr
 
             fixed_expense = _ws_expense * (1 + _ws_inflation) ** yr
-            pct_expense = bal_pct * pct_rate / 12
+            # Traditional 4% rule: only first year uses 4% of assets, subsequent years adjust for inflation
+            pct_expense = pct_initial_withdrawal * (1 + _ws_inflation) ** (yr - 1)
             dynamic_floor = _ws_expense * 0.85 * (1 + _ws_inflation) ** yr
             dynamic_expense = max(dynamic_floor, min(_ws_expense * 1.15 * (1 + _ws_inflation) ** yr, _ws_expense * (1 + _ws_inflation) ** yr))
 
@@ -448,7 +451,7 @@ with st.expander("🔧 配置提款策略模拟", expanded=False):
                 bal_dynamic = max(0.0, bal_dynamic * (1 + _ws_post_rm) - dynamic_expense / 12)
 
             ws_rows_fixed.append({"年龄": age, "资产": bal_fixed, "策略": "固定金额提款"})
-            ws_rows_pct.append({"年龄": age, "资产": bal_pct, "策略": f"固定比例提款(4%/年)"})
+            ws_rows_pct.append({"年龄": age, "资产": bal_pct, "策略": f"4%法则（首年{pct_rate*100:.0f}%+通胀调整）"})
             ws_rows_dynamic.append({"年龄": age, "资产": bal_dynamic, "策略": "动态弹性提款"})
 
         ws_df = pd.concat([
@@ -458,7 +461,7 @@ with st.expander("🔧 配置提款策略模拟", expanded=False):
         ])
 
         fig_ws = go.Figure()
-        color_map = {"固定金额提款": "#636EFA", "固定比例提款(4%/年)": "#EF553B", "动态弹性提款": "#00CC96"}
+        color_map = {"固定金额提款": "#636EFA", f"4%法则（首年{pct_rate*100:.0f}%+通胀调整）": "#EF553B", "动态弹性提款": "#00CC96"}
         for strategy_name, color in color_map.items():
             subset = ws_df[ws_df["策略"] == strategy_name]
             fig_ws.add_trace(go.Scatter(
@@ -488,7 +491,7 @@ with st.expander("🔧 配置提款策略模拟", expanded=False):
         st.dataframe(pd.DataFrame(final_ws_rows), use_container_width=True, hide_index=True)
         st.caption(
             "**固定金额提款**：每月按通胀调整后的固定金额提款，简单但受市场波动影响大。\n\n"
-            "**固定比例提款（4%）**：每年提取当年资产的 4%，适应资产规模变化，不会提前耗尽（4%法则）。\n\n"
+            "**4%法则（通胀调整）**：首年提取初始资产的 4%，此后每年按通胀率调整提款额，经典永续提款策略。\n\n"
             "**动态弹性提款**：以固定金额为基准，允许 ±15% 弹性调整，兼顾稳定性与灵活性。"
         )
     else:

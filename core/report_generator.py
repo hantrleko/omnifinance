@@ -1,6 +1,51 @@
 import datetime
 from core.currency import fmt
 
+
+def build_single_report(title: str, subtitle: str, body_html: str) -> str:
+    """Build a single-page HTML report with consistent styling.
+
+    This reusable template provides dark/light mode support, print-friendly
+    layout, and glassmorphism cards. All page-specific reports should use this
+    instead of defining their own HTML templates.
+
+    Args:
+        title: Main heading (e.g. "🏦 贷款计算报告").
+        subtitle: Metadata line shown below the title.
+        body_html: Inner HTML content (cards, tables, etc.).
+
+    Returns:
+        Complete HTML document string.
+    """
+    today_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title}</title>
+<style>
+:root {{--bg:#f9fafb;--text:#1f2937;--primary:#2563eb;--card:#fff;--border:#e5e7eb;--warn:#dc2626}}
+@media(prefers-color-scheme:dark){{:root{{--bg:#0f1115;--text:#f3f4f6;--primary:#3b82f6;--card:#1f2228;--border:#374151;--warn:#ef4444}}}}
+body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:30px 20px;line-height:1.6}}
+.container{{max-width:900px;margin:0 auto}}
+h1{{font-size:1.8rem;margin-bottom:6px}}h2{{color:var(--primary);margin-top:24px}}
+table{{border-collapse:collapse;width:100%;margin-top:12px}}
+th,td{{border:1px solid var(--border);padding:6px 10px;text-align:right;font-size:13px}}
+th{{background:var(--card)}}
+.summary{{display:flex;gap:20px;margin:16px 0;flex-wrap:wrap}}
+.summary div{{background:var(--card);padding:12px 20px;border-radius:8px;border:1px solid var(--border)}}
+.label{{font-size:12px;opacity:0.7}}.value{{font-size:18px;font-weight:bold}}
+.highlight{{font-weight:600;color:var(--primary)}}.warn{{font-weight:600;color:var(--warn)}}
+.footer{{margin-top:40px;text-align:center;font-size:0.85rem;opacity:0.5;border-top:1px solid var(--border);padding-top:20px}}
+@media print{{body{{background:#fff;color:#000}}.summary div{{border:1px solid #ddd}}}}
+</style></head><body>
+<div class="container">
+<h1>{title}</h1>
+<p style="opacity:0.7">{subtitle}</p>
+<p style="font-size:0.85rem;opacity:0.5">生成时间：{today_str}</p>
+{body_html}
+<div class="footer">Eugene Finance 核心分析引擎 | 仅供参考，不构成投资建议</div>
+</div></body></html>"""
+
 def generate_html_report(metrics_dict: dict) -> str:
     """
     Generates a beautiful HTML report from the dashboard metrics.
@@ -81,6 +126,17 @@ def generate_html_report(metrics_dict: dict) -> str:
             <h3>🏠 全局资产净值监控</h3>
             <p>全盘资产评估: <span class="highlight">{fmt(m.get('total_assets', 0), decimals=2)}</span></p>
             <p>去杠杆核心净值: <span class="highlight">{fmt(m.get('net_worth', 0), decimals=2)}</span></p>
+        </div>
+        """)
+
+    if "tax" in metrics_dict:
+        m = metrics_dict["tax"]
+        sections.append(f"""
+        <div class="card">
+            <h3>🧾 税务计算分析</h3>
+            <p>年应缴个税: <span class="warn">{fmt(m.get('annual_tax', 0), decimals=2)}</span></p>
+            <p>实际税率: <strong>{m.get('effective_rate', 0):.2f}%</strong></p>
+            <p>税后月到手: <span class="highlight">{fmt(m.get('after_tax_monthly', 0), decimals=2)}</span></p>
         </div>
         """)
 

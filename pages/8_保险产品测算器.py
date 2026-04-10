@@ -181,7 +181,14 @@ st.subheader("🔓 退保场景分析")
 st.caption("模拟不同年份提前退保时的损失和 IRR，帮助判断最佳持有时间。")
 
 with st.expander("⚙️ 配置退保分析", expanded=False):
-    st.markdown("以下假设退保价值（现金价值）随时间线性从 0 增长到满期值，实际产品以合同条款为准。")
+    surrender_mode = st.radio(
+        "现金价值增长模式",
+        ["线性增长", "指数增长（前慢后快）"],
+        horizontal=True,
+        key="surr_mode",
+        help="线性：匀速增长；指数：前期增长缓慢，后期加速回升，更贴近多数保险产品实际情况。",
+    )
+    st.markdown(f"当前模式：**{surrender_mode}**。以下假设退保价值随时间增长到满期值，实际产品以合同条款为准。")
     surrender_ratio_start = st.slider(
         "第1年退保率（占满期金比例 %）",
         min_value=0,
@@ -205,10 +212,19 @@ with st.expander("⚙️ 配置退保分析", expanded=False):
     for yr in range(1, int(coverage_years) + 1):
         if yr <= int(pay_years):
             t = (yr - 1) / max(int(pay_years) - 1, 1)
-            surr_value = maturity_benefit * (surrender_ratio_start / 100 + t * (surrender_ratio_end / 100 - surrender_ratio_start / 100))
+            if surrender_mode == "指数增长（前慢后快）":
+                # Exponential: t^2 curve for slower early growth
+                t_eff = t ** 2
+            else:
+                t_eff = t
+            surr_value = maturity_benefit * (surrender_ratio_start / 100 + t_eff * (surrender_ratio_end / 100 - surrender_ratio_start / 100))
         else:
             t = (yr - int(pay_years)) / max(int(coverage_years) - int(pay_years), 1)
-            surr_value = maturity_benefit * (surrender_ratio_end / 100 + t * (1 - surrender_ratio_end / 100))
+            if surrender_mode == "指数增长（前慢后快）":
+                t_eff = t ** 1.5
+            else:
+                t_eff = t
+            surr_value = maturity_benefit * (surrender_ratio_end / 100 + t_eff * (1 - surrender_ratio_end / 100))
 
         premiums_paid = annual_premium * min(yr, int(pay_years))
         loss = premiums_paid - surr_value

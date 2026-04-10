@@ -172,7 +172,18 @@ st_autorefresh(interval=refresh_interval * 1000, key="auto_refresh")
 # ── A 股相关工具 ──────────────────────────────────────────
 
 def _is_ashare(ticker_str: str) -> bool:
-    return ticker_str.isdigit() and len(ticker_str) == 6
+    """Detect A-share codes: 6-digit number with valid exchange prefix.
+    
+    Shanghai: 600xxx, 601xxx, 603xxx, 605xxx, 688xxx (STAR), 900xxx (B)
+    Shenzhen: 000xxx, 001xxx, 002xxx, 003xxx, 300xxx (ChiNext), 301xxx, 200xxx (B)
+    """
+    if not (ticker_str.isdigit() and len(ticker_str) == 6):
+        return False
+    prefix2 = ticker_str[:2]
+    prefix3 = ticker_str[:3]
+    valid_sh = {"60", "68", "90"}
+    valid_sz_3 = {"000", "001", "002", "003", "200", "300", "301"}
+    return prefix2 in valid_sh or prefix3 in valid_sz_3
 
 
 def _ashare_full_code(code: str) -> str:

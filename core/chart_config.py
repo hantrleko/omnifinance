@@ -29,6 +29,9 @@ LAYOUT_BASE: dict[str, Any] = dict(
 def build_layout(**overrides: Any) -> dict[str, Any]:
     """Return a copy of LAYOUT_BASE merged with any keyword overrides.
 
+    Automatically adapts chart background and font colors based on the
+    current dark/light mode stored in ``st.session_state["global_dark_mode"]``.
+
     Args:
         **overrides: Any Plotly layout keyword arguments to merge on top of
             :data:`LAYOUT_BASE` (e.g. ``xaxis_title``, ``yaxis_tickformat``).
@@ -45,6 +48,24 @@ def build_layout(**overrides: Any) -> dict[str, Any]:
         ))
     """
     layout: dict[str, Any] = dict(LAYOUT_BASE)
+
+    # Dynamic theme-aware colors
+    is_dark = st.session_state.get("global_dark_mode", True)
+    if is_dark:
+        layout["paper_bgcolor"] = "rgba(0,0,0,0)"
+        layout["plot_bgcolor"] = "rgba(0,0,0,0)"
+        layout["font"] = dict(color="#fafafa")
+        layout.setdefault("legend", {}).update({"font": {"color": "#fafafa"}})
+        layout["xaxis"] = {**layout.get("xaxis", {}), "gridcolor": "rgba(255,255,255,0.08)"}
+        layout["yaxis"] = {**layout.get("yaxis", {}), "gridcolor": "rgba(255,255,255,0.08)"}
+    else:
+        layout["paper_bgcolor"] = "rgba(0,0,0,0)"
+        layout["plot_bgcolor"] = "rgba(0,0,0,0)"
+        layout["font"] = dict(color="#1a1a1a")
+        layout.setdefault("legend", {}).update({"font": {"color": "#1a1a1a"}})
+        layout["xaxis"] = {**layout.get("xaxis", {}), "gridcolor": "rgba(0,0,0,0.08)"}
+        layout["yaxis"] = {**layout.get("yaxis", {}), "gridcolor": "rgba(0,0,0,0.08)"}
+
     layout.update(overrides)
     return layout
 

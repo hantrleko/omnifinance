@@ -100,8 +100,6 @@ def run_retirement_montecarlo(
     Returns:
         :class:`MonteCarloResult` with percentile paths and success rate.
     """
-    from scipy.stats import t as scipy_t
-
     rng = np.random.default_rng(seed)
 
     years_pre = retire_age - current_age
@@ -123,8 +121,13 @@ def run_retirement_montecarlo(
     # Shape: (n_simulations, n_months_pre) and (n_simulations, n_months_post)
     if return_distribution == "t" and t_df > 0:
         scale_factor = np.sqrt((t_df - 2) / t_df) if t_df > 2 else 1.0
-        pre_z = scipy_t.rvs(df=t_df, size=(n_simulations, n_months_pre), random_state=int(seed) if seed is not None else None)
-        post_z = scipy_t.rvs(df=t_df, size=(n_simulations, n_months_post), random_state=int(seed) + 1 if seed is not None else None)
+        # Use rng-based generation for reproducibility via default_rng
+        pre_z_normal = rng.standard_normal(size=(n_simulations, n_months_pre))
+        post_z_normal = rng.standard_normal(size=(n_simulations, n_months_post))
+        chi2_pre = rng.chisquare(df=t_df, size=(n_simulations, n_months_pre))
+        chi2_post = rng.chisquare(df=t_df, size=(n_simulations, n_months_post))
+        pre_z = pre_z_normal / np.sqrt(chi2_pre / t_df)
+        post_z = post_z_normal / np.sqrt(chi2_post / t_df)
         pre_returns = mu_pre + sig_pre / scale_factor * pre_z
         post_returns = mu_post + sig_post / scale_factor * post_z
     else:

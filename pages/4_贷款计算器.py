@@ -9,7 +9,7 @@ import pandas as pd
 
 from core.chart_config import build_layout
 from core.config import CFG, MSG
-from core.currency import currency_selector, fmt, fmt_delta
+from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.planning import calculate_loan
 from core.storage import scheme_manager_ui
 import plotly.graph_objects as go
@@ -28,6 +28,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🏦 贷款计算器")
+
+sym = get_symbol()
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 贷款参数")
@@ -148,7 +150,7 @@ with tab_line:
         mode="lines", name="剩余本金",
         line=dict(width=2.5, color="#636EFA"),
         fill="tozeroy", fillcolor="rgba(99,110,250,0.15)",
-        hovertemplate="第 %{x} 期<br>剩余本金: ¥%{y:,.2f}<extra></extra>",
+        hovertemplate=f"第 %{{x}} 期<br>剩余本金: {sym}%{{y:,.2f}}<extra></extra>",
     ))
     fig_bal.update_layout(
         **build_layout(xaxis_title="期数", yaxis_title="剩余本金（元）", yaxis_tickformat=","),
@@ -160,12 +162,12 @@ with tab_bar:
     fig_bar.add_trace(go.Bar(
         x=schedule["期数"], y=schedule["本金"],
         name="本金", marker_color="#00CC96",
-        hovertemplate="第 %{x} 期<br>本金: ¥%{y:,.2f}<extra></extra>",
+        hovertemplate=f"第 %{{x}} 期<br>本金: {sym}%{{y:,.2f}}<extra></extra>",
     ))
     fig_bar.add_trace(go.Bar(
         x=schedule["期数"], y=schedule["利息"],
         name="利息", marker_color="#EF553B",
-        hovertemplate="第 %{x} 期<br>利息: ¥%{y:,.2f}<extra></extra>",
+        hovertemplate=f"第 %{{x}} 期<br>利息: {sym}%{{y:,.2f}}<extra></extra>",
     ))
     fig_bar.update_layout(
         **build_layout(barmode="stack", xaxis_title="期数", yaxis_title="金额（元）", yaxis_tickformat=","),

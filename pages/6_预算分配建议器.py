@@ -11,7 +11,7 @@ inject_theme()
 
 from core.chart_config import build_layout
 from core.config import CFG, MSG
-from core.currency import currency_selector, fmt, fmt_delta
+from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.planning import calculate_budget
 from core.storage import scheme_manager_ui
 
@@ -134,7 +134,7 @@ fig = go.Figure(data=[go.Pie(
     marker=dict(colors=colors, line=dict(color="white", width=3)),
     textinfo="label+percent",
     textfont=dict(size=14),
-    hovertemplate="%{label}<br>¥%{value:,.0f}<br>%{percent}<extra></extra>",
+    hovertemplate=f"%{{label}}<br>{get_symbol()}%{{value:,.0f}}<br>%{{percent}}<extra></extra>",
 )])
 
 fig.update_layout(
