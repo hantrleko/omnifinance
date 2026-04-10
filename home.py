@@ -1,7 +1,7 @@
 import streamlit as st
 from core.currency import get_symbol, fmt
 
-VERSION = "v1.9.7"
+VERSION = "v1.9.8"
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
@@ -13,13 +13,46 @@ st.markdown("""
 这是一个集成了多项实用金融工具的统一平台。我们已经将所有子功能**按类别进行了清晰的划分**，您可以从左侧边栏的专属分类中快速找到需要的工具。
 
 **核心功能模块导览：**
-- 💰 **基础理财管理**：计算投资复利收益、规划储蓄路径、50/30/20 预算分配建议。
-- ⚖️ **资产与债务管理**：全局跟踪资产负债净值、计算贷款本息明细、评估储蓄型保单回报率。
-- 📈 **投资分析引擎**：查看全球实时行情（含 A 股）、自动化策略回测对比、马科维茨投资组合均值-方差优化。
-- 🏖️ **高级人生规划**：精准估算退休缺口、蒙特卡洛随机概率模拟防范退休破产危机。
+- 💰 **基础理财管理**：计算投资复利收益、规划储蓄路径、50/30/20 预算分配建议、教育基金规划。
+- ⚖️ **资产与债务管理**：全局跟踪资产负债净值、计算贷款本息明细、评估储蓄型保单回报率、债务还清策略。
+- 📈 **投资分析引擎**：查看全球实时行情（含 A 股）、自动化策略回测对比、马科维茨投资组合优化、资产再平衡模拟、外汇对冲分析。
+- 🏖️ **高级人生规划**：精准估算退休缺口、蒙特卡洛概率模拟、税务优化提款、历史回测储蓄模拟。
+- 🔬 **分析与工具**：场景对比分析、财务日历时间线、跨工具数据导入导出。
 """)
 
-with st.expander("🚀 功能优化（v1.9.7）", expanded=True):
+with st.expander("🚀 重大版本升级（v1.9.8）", expanded=True):
+    st.markdown("""
+**v1.9.8 平台大扩展 — 19项新功能与增强**
+
+📦 **5 个全新工具模块**
+- 💳 **债务还清规划器**：雪球法/雪崩法/混合法三策略对比，多笔债务同时管理，可视化还清时间线。
+- 🏫 **教育基金规划器**：子女教育经费模拟，教育通胀调整（默认5-7%），奖学金场景分析，月度定投路径。
+- 🏘️ **房产投资分析器**：买房 vs 租房全面对比，租金回报率分析，房产+贷款+增值 ROI 综合评估。
+- 💱 **外汇对冲计算器**：多币种资产敞口评估，利率平价远期汇率计算，对冲成本分析，汇率情景模拟。
+- ⚖️ **资产再平衡模拟器**：日历/阈值/买入持有策略对比，多资产类别配置，手续费影响量化，20年长期模拟。
+
+🔬 **4 个高级分析模块**
+- 🔬 **场景对比分析器**：跨工具 What-If 分析，通胀率/收益率敏感度在复利、储蓄、退休中的联动影响。
+- 📜 **历史回测储蓄模拟**：用标普500/沪深300真实年度收益率回测定投计划，多起始年份对比。
+- 🏦 **税务优化提款策略**：退休阶段应税/延税/免税账户最优提款顺序，终身税负最小化分析。
+- 📅 **财务日历与时间线**：统一可视化所有财务事件，自动从工具数据生成事件，年度现金流预估。
+
+🏗️ **平台级基础设施增强**
+- 💾 **会话数据持久化**：仪表盘数据自动保存至磁盘，页面刷新不再丢失，支持一键备份/恢复。
+- 🌐 **多语言支持框架 (i18n)**：新增 core/i18n.py 国际化模块，内置中文/英文双语言包，支持扩展。
+- 🔔 **财务提醒系统**：可创建到期提醒、定期检查提醒，持久化存储，支持完成/删除管理。
+- 📊 **全国平均值对比基准**：内置中国家庭财务基准数据，储蓄率、收入、负债率等维度与全国均值对比。
+- 🤖 **REST API 端点层**：FastAPI 封装核心计算引擎，支持复利/储蓄/贷款/预算 HTTP API 调用。
+- 📄 **PDF 报告生成**：新增 weasyprint 集成层，支持原生 PDF 导出（需安装 weasyprint）。
+
+🏠 **仪表盘增强**
+- 🎯 **目标导向资金分配建议**：基于退休缺口、储蓄目标自动推荐月度资金分配方案。
+- 📝 **AI 财务健康叙述**：自动生成自然语言财务健康评估摘要，替代纯数字展示。
+- 📊 **全国基准对比**：储蓄率、负债率等指标与全国平均值可视化对比。
+- 💾 **数据持久化与备份**：一键保存/恢复仪表盘数据，支持 JSON 导入导出。
+""")
+
+with st.expander("🚀 功能优化（v1.9.7）"):
     st.markdown("""
 **v1.9.7 全面功能优化与工程加固**
 
@@ -71,52 +104,21 @@ with st.expander("🚀 功能全面升级（v1.9.5）"):
 - 🧾 **新增税务计算器**（第12个工具）：支持工资薪金个税、劳务报酬预扣税、投资收益税后分析三大模块。
 """)
 
-with st.expander("🚀 全场景财务诊断报告上线（v1.9.0）"):
-    st.markdown("""
-**v1.9.0 个人财务体检中心正式落成**
-- **全景数据洞察**：在主页控制台底端，全新新增了《全景诊断报告》的一键编译生成功能！系统底层打通了所有 11 个子计算工具的内存状态，实现了对用户财务足迹的无损汇聚。
-- **离线高阶交互式存取**：生成高度兼容现代化暗色自适应模式的精美企业级 HTML 战报。随时可用浏览器自带的 `Ctrl+P` 功能极速转储为矢量级商业 PDF 便于长久收藏与决策辅助分析。
-- **技术突破**：该高感知模块作为大语言模型 AI 智能顾问引入前的最后一个里程碑，全程实现了真正的 0 外部 API 依赖。
-""")
-
-with st.expander("✨ 品牌生态升级（v1.8 - v1.8.5）"):
-    st.markdown("""
-**v1.8.3 模块化侧边栏与导航体验升级**
-
-📌 **分类导航重构**
-- 彻底抛弃了原生按文件名排序的单一冗长列表，启用了带有原生类别分组的全新侧边栏导航引擎。
-- 首页名称从原有的`app`名变更为更正式的“仪表盘首页”。
-- 所有子功能现已归入【基础理财管理】、【资产与债务管理】、【投资分析引擎】及【高级人生规划】四大明确的功能域中，层级更加直观清晰，极大地提升了应用专业度和使用体验。
-""")
-
-with st.expander("✨ 闪耀升级（v1.8.2）"):
-    st.markdown("""
-**v1.8 - 1.8.2 Premium 视觉与体验重构**
-
-💎 **全新 Glassmorphism (玻璃拟态) 设计**
-- 全局引入现代字体（Inter），排版更加优雅、专业。
-- 指标卡片、折叠面板与模块均采用毛玻璃半透明材质，配以微妙的光影边框。
-
-🌟 **动态交互与微动画**
-- 为卡片与按钮增加了平滑的上浮（Hover）微动画与发光阴影特效，让界面更具沉浸感和生命力。
-- 全面优化了亮色/深色模式的对比度，提供商业级数据看板的视觉体验。
-
-🚀 **UI 无缝部署与交互修复**
-- 全新视觉方案已同步至 11 个核心工具包。
-- 修复侧边栏图文在深色模式下的对比度和不可见问题。
-- 彻底解决多页面跳转时深浅色主题状态不持久化的 Bug。
-- 修复因全局字体覆盖导致的系统自带图标（如键盘、方向箭头等）变为文本乱码的问题。
-""")
-
-with st.expander("📋 v1.7 及更早版本说明"):
+with st.expander("📋 v1.9.0 及更早版本说明"):
     st.markdown("""
 - **v1.9.0**: 一键财务诊断报告，打通所有 11 个工具状态，生成企业级 HTML 报告。
+- **v1.8 ~ v1.8.5**: 模块化侧边栏导航重构、Glassmorphism 视觉升级、深色模式修复。
 - **v1.7**: 新增蒙特卡洛模拟与马科维茨投资组合优化器模块，增强错误捕捉，支持 Excel 全面导出。
 - **v1.6**: 并发与架构优化（涵盖 API 异步请求与多进程回测机制）。
 - **v1.5**: 新增资产净值追踪，全局支持方案保存与状态联动。
 - **v1.4**: 核心解耦，全面强化并发数据缓存机制。
 - **v1.1 ~ v1.3**: 提供多货币支持，技术面板指标扩建，保险计算引擎迭代。
 """)
+
+# ── Session persistence: restore data on load ─────────────
+from core.persistence import restore_session_data, save_session_data, export_all_data, import_all_data, clear_session_data
+
+restored = restore_session_data()
 
 # ── 个人财务仪表盘 ────────────────────────────────────────
 st.markdown("---")
@@ -181,6 +183,145 @@ if has_data:
 
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")
 
+    # ── AI Financial Health Narrative (#10) ───────────────
+    st.markdown("---")
+    st.subheader("📝 AI 财务健康叙述")
+
+    narrative_parts = []
+    score = 50  # Base score
+
+    if dash_budget:
+        save_pct = dash_budget.get("pct_save", 0)
+        if save_pct >= 30:
+            narrative_parts.append(f"您的储蓄率为 **{save_pct}%**，表现优异（高于全国平均 31%）")
+            score += 10
+        elif save_pct >= 20:
+            narrative_parts.append(f"您的储蓄率为 **{save_pct}%**，处于健康水平")
+            score += 5
+        else:
+            narrative_parts.append(f"您的储蓄率为 **{save_pct}%**，建议提升至 20% 以上")
+            score -= 5
+
+    if dash_retirement:
+        gap = dash_retirement.get("gap", 0)
+        if gap <= 0:
+            narrative_parts.append("退休储备已充足，财务安全感良好")
+            score += 15
+        else:
+            narrative_parts.append(f"退休资金缺口约 {fmt(gap, decimals=0)}，需要加强积累")
+            score -= 10
+
+    if dash_loan:
+        narrative_parts.append(f"贷款总利息约 {fmt(dash_loan.get('total_interest', 0), decimals=0)}，请关注提前还款机会")
+
+    if dash_insurance:
+        irr = dash_insurance.get("irr_pct", 0)
+        if irr > 3:
+            narrative_parts.append(f"保险 IRR {irr:.2f}% 表现尚可")
+            score += 5
+        else:
+            narrative_parts.append(f"保险 IRR 仅 {irr:.2f}%，收益偏低")
+
+    if dash_networth:
+        nw = dash_networth.get("net_worth", 0)
+        if nw > 0:
+            narrative_parts.append(f"净资产 {fmt(nw, decimals=0)}，资产状况正面")
+            score += 10
+        else:
+            narrative_parts.append("净资产为负，建议优先降低负债")
+            score -= 15
+
+    score = max(0, min(100, score))
+
+    if narrative_parts:
+        grade = "🟢 优秀" if score >= 80 else ("🟡 良好" if score >= 60 else ("🟠 一般" if score >= 40 else "🔴 需改善"))
+        st.metric("💯 财务健康评分", f"{score}/100", delta=grade)
+        st.markdown("**综合评估**：" + "；".join(narrative_parts) + "。")
+
+        # Actionable advice
+        if score < 80:
+            st.info("📋 **建议**：" + ("增加储蓄比例、" if dash_budget and dash_budget.get("pct_save", 0) < 25 else "") + ("补齐退休缺口、" if dash_retirement and dash_retirement.get("gap", 0) > 0 else "") + ("降低高息债务、" if dash_loan else "") + "定期复盘投资收益假设。")
+
+    # ── Goal-Based Allocation (#6) ────────────────────────
+    st.markdown("---")
+    st.subheader("🎯 目标导向资金分配建议")
+
+    goals_exist = False
+    allocation_suggestions = []
+    total_monthly_available = 0.0
+
+    if dash_budget:
+        total_monthly_available = dash_budget.get("amt_save", 0)
+
+    if total_monthly_available > 0:
+        if dash_retirement and dash_retirement.get("gap", 0) > 0:
+            extra = dash_retirement.get("extra_monthly", 0)
+            ratio = min(0.5, extra / total_monthly_available) if total_monthly_available > 0 else 0.3
+            allocation_suggestions.append(("🏖️ 退休缺口补充", ratio, extra))
+            goals_exist = True
+
+        if dash_savings and dash_savings.get("months_needed", 0) > 0:
+            # Allocate 30% or remaining
+            remaining = 1.0 - sum(a[1] for a in allocation_suggestions)
+            ratio = min(0.3, remaining)
+            allocation_suggestions.append(("🎯 储蓄目标", ratio, total_monthly_available * ratio))
+            goals_exist = True
+
+        if dash_loan:
+            remaining = 1.0 - sum(a[1] for a in allocation_suggestions)
+            ratio = min(0.2, remaining)
+            allocation_suggestions.append(("🏦 加速还贷", ratio, total_monthly_available * ratio))
+            goals_exist = True
+
+        # Allocate remainder
+        used_ratio = sum(a[1] for a in allocation_suggestions)
+        if used_ratio < 1.0:
+            remaining_ratio = 1.0 - used_ratio
+            allocation_suggestions.append(("💰 投资增值", remaining_ratio, total_monthly_available * remaining_ratio))
+
+        if goals_exist:
+            st.caption(f"基于您的月储蓄 {fmt(total_monthly_available, decimals=0)} 的推荐分配方案：")
+            alloc_cols = st.columns(len(allocation_suggestions))
+            for idx, (name, ratio, amount) in enumerate(allocation_suggestions):
+                with alloc_cols[idx]:
+                    st.metric(name, fmt(amount, decimals=0))
+                    st.caption(f"占比 {ratio*100:.0f}%")
+        else:
+            st.caption("设置储蓄目标或退休参数后，将自动推荐资金分配方案。")
+    else:
+        st.caption("请先使用预算分配建议器设置收入，以获取资金分配建议。")
+
+    # ── National Benchmark Comparison (#15) ───────────────
+    st.markdown("---")
+    st.subheader("📊 全国基准对比")
+
+    from core.benchmarks import BENCHMARKS
+    has_benchmark_data = False
+
+    if dash_budget:
+        has_benchmark_data = True
+        save_rate = dash_budget.get("pct_save", 0)
+        benchmark_save = BENCHMARKS.avg_savings_rate_pct
+        delta = save_rate - benchmark_save
+        bcol1, bcol2, bcol3 = st.columns(3)
+        bcol1.metric("您的储蓄率", f"{save_rate}%", delta=f"{'高于' if delta >= 0 else '低于'}全国均值 {abs(delta):.1f}pp")
+        bcol2.metric("全国平均储蓄率", f"{benchmark_save}%")
+        bcol3.metric("全国人均存款", fmt(BENCHMARKS.avg_deposit_per_capita, decimals=0))
+
+    if dash_networth:
+        has_benchmark_data = True
+        nw = dash_networth.get("net_worth", 0)
+        total_assets = dash_networth.get("total_assets", 0)
+        total_liab = total_assets - nw
+        debt_ratio = (total_liab / total_assets * 100) if total_assets > 0 else 0
+        benchmark_debt = BENCHMARKS.avg_debt_ratio_pct
+        dcol1, dcol2 = st.columns(2)
+        dcol1.metric("您的负债率", f"{debt_ratio:.1f}%", delta=f"{'低于' if debt_ratio <= benchmark_debt else '高于'}基准 {abs(debt_ratio - benchmark_debt):.1f}pp", delta_color="inverse")
+        dcol2.metric("全国家庭负债率基准", f"{benchmark_debt}%")
+
+    if not has_benchmark_data:
+        st.caption("使用预算或净值工具后，将自动对比全国平均水平。")
+
     # Cross-tool insights
     st.markdown("---")
     st.subheader("🔗 跨工具综合分析")
@@ -210,7 +351,6 @@ if has_data:
         irr = dash_insurance.get("irr_pct", 0)
         compound_interest = dash_compound.get("total_interest", 0)
         final_balance = dash_compound.get("final_balance", 0)
-        # Estimate annualized compound return from final_balance
         compound_annualized = (compound_interest / final_balance * 100) if final_balance > 0 and compound_interest > 0 else 0.0
         if irr > 0 and compound_annualized > 0:
             if irr < compound_annualized:
@@ -226,8 +366,15 @@ if has_data:
     else:
         st.caption("使用更多工具后，这里将显示跨工具的综合分析洞察。")
 
+    # Auto-save session data
+    save_session_data()
+
 else:
-    st.info("👆 请先使用左侧工具进行计算，仪表盘将自动汇总各工具的关键指标。")
+    if restored > 0:
+        st.success(f"✅ 已从磁盘恢复 {restored} 项仪表盘数据。")
+        st.rerun()
+    else:
+        st.info("👆 请先使用左侧工具进行计算，仪表盘将自动汇总各工具的关键指标。")
 
 # ── 综合财务诊断报告生成引擎 ─────────────────────────────────────
 st.markdown("---")
@@ -248,14 +395,93 @@ if dash_tax: metrics_dict["tax"] = dash_tax
 
 html_content = generate_html_report(metrics_dict)
 
-st.download_button(
-    label="📥 编译并下载我的专属财务诊断报告 (HTML)",
-    data=html_content,
-    file_name="OmniFinance_Health_Report.html",
-    mime="text/html",
-    type="primary",
-    use_container_width=True
-)
+report_cols = st.columns(2)
+with report_cols[0]:
+    st.download_button(
+        label="📥 下载 HTML 财务诊断报告",
+        data=html_content,
+        file_name="OmniFinance_Health_Report.html",
+        mime="text/html",
+        type="primary",
+        use_container_width=True,
+    )
+
+with report_cols[1]:
+    from core.pdf_report import generate_pdf_report, is_pdf_available
+    if is_pdf_available():
+        pdf_bytes = generate_pdf_report(metrics_dict)
+        if pdf_bytes:
+            st.download_button(
+                label="📥 下载 PDF 财务诊断报告",
+                data=pdf_bytes,
+                file_name="OmniFinance_Health_Report.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+    else:
+        st.caption("💡 安装 weasyprint 可启用原生 PDF 导出")
+
+# ── Data Persistence & Export Hub (#11, #16) ──────────────
+st.markdown("---")
+st.subheader("💾 数据管理")
+
+pcol1, pcol2, pcol3 = st.columns(3)
+with pcol1:
+    if st.button("💾 保存仪表盘数据", use_container_width=True):
+        save_session_data()
+        st.success("✅ 数据已保存！")
+
+with pcol2:
+    export_data = export_all_data()
+    st.download_button(
+        label="📤 导出全部数据 (JSON)",
+        data=export_data,
+        file_name="OmniFinance_Backup.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+with pcol3:
+    uploaded = st.file_uploader("📥 导入数据备份", type=["json"], key="import_backup")
+    if uploaded is not None:
+        count = import_all_data(uploaded.read().decode("utf-8"))
+        if count > 0:
+            st.success(f"✅ 已导入 {count} 项数据！")
+        else:
+            st.warning("⚠️ 未找到有效数据。")
+
+# ── Reminders (#12) ──────────────────────────────────────
+st.markdown("---")
+st.subheader("🔔 财务提醒")
+
+from core.reminders import get_due_reminders, get_reminders, add_reminder, complete_reminder
+
+due = get_due_reminders()
+if due:
+    for r in due:
+        st.warning(f"⏰ **{r['title']}** — {r.get('description', '')} (到期: {r['due_date']})")
+
+all_reminders = get_reminders()
+if all_reminders:
+    for r in all_reminders:
+        rcol1, rcol2 = st.columns([4, 1])
+        rcol1.caption(f"📌 {r['title']} — {r.get('due_date', '')} | {r.get('category', '')}")
+        if rcol2.button("✅", key=f"rem_done_{r['id']}"):
+            complete_reminder(r["id"])
+            st.rerun()
+else:
+    st.caption("暂无提醒。可在下方添加新的财务提醒。")
+
+with st.expander("➕ 添加新提醒"):
+    rem_title = st.text_input("标题", key="rem_title")
+    rem_desc = st.text_input("描述", key="rem_desc")
+    rem_date = st.date_input("到期日", key="rem_date")
+    rem_cat = st.selectbox("类别", ["还贷", "保费", "储蓄", "投资", "税务", "其他"], key="rem_cat")
+    if st.button("添加提醒"):
+        if rem_title:
+            add_reminder(rem_title, rem_desc, str(rem_date), rem_cat)
+            st.success("✅ 提醒已添加！")
+            st.rerun()
 
 st.markdown("---")
 st.caption("***Eugene Finance 核心架构驱动 | Empower Your Knowledge, Enrich Your Life***")
