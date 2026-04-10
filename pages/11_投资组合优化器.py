@@ -102,8 +102,7 @@ if enable_constraints:
         step=1,
         help="例如：设为 5% 表示每个资产至少占总组合的 5%",
     ) / 100.0
-    if min_weight * len(raw_tickers if 'raw_tickers' not in dir() else [1]) > 1.0:
-        st.sidebar.warning("最小权重 × 资产数量超过 100%，请调低最小权重。")
+    # Note: actual constraint validation is done after tickers are parsed below
 
 # ── 解析标的 ──────────────────────────────────────────────
 raw_tickers = [
@@ -113,6 +112,11 @@ raw_tickers = [
     if t.strip()
 ]
 raw_tickers = list(dict.fromkeys(raw_tickers))  # deduplicate, preserve order
+
+# Validate weight constraints now that we know the number of tickers
+if enable_constraints and min_weight * len(raw_tickers) > 1.0:
+    st.warning(f"⚠️ 最小权重 {min_weight:.0%} × {len(raw_tickers)} 个资产 = {min_weight * len(raw_tickers):.0%}，超过 100%！请调低最小权重。")
+    st.stop()
 
 if len(raw_tickers) < 2:
     st.warning("⚠️ 请至少输入 **2 个**标的代码才能进行组合优化。")

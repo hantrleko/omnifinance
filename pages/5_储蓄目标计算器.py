@@ -71,7 +71,7 @@ monthly_deposit = st.sidebar.number_input(
     format="%.0f",
 )
 inflation_rate = st.sidebar.number_input(
-    "年通谀率（%）",
+    "年通胀率（%）",
     min_value=0.0,
     max_value=CFG.savings.inflation_rate_max,
     value=CFG.savings.inflation_rate_default,
@@ -311,10 +311,29 @@ st.caption(MSG.print_hint)
 # ── 多目标管理器 ──────────────────────────────────────────
 st.markdown("---")
 st.subheader("🗂️ 多目标储蓄规划")
-st.caption("同时规划多个储蓄目标（如购房、旅行、教育），并对比各目标所需时间。")
+st.caption("同时规划多个储蓄目标（如购房、旅行、教育），并对比各目标所需时间。数据自动保存到本地。")
+
+# Load multi-goals from persistent storage
+from core.storage import save_scheme, load_scheme, list_schemes, delete_scheme
+import json
+
+_MG_TOOL = "multi_goals"
+
+def _load_multi_goals() -> list[dict]:
+    """Load multi-goals from disk persistence."""
+    names = list_schemes(_MG_TOOL)
+    if "default" in names:
+        data = load_scheme(_MG_TOOL, "default")
+        if data and "goals" in data:
+            return data["goals"]
+    return []
+
+def _save_multi_goals(goals: list[dict]) -> None:
+    """Save multi-goals to disk persistence."""
+    save_scheme(_MG_TOOL, "default", {"goals": goals})
 
 if "multi_goals" not in st.session_state:
-    st.session_state["multi_goals"] = []
+    st.session_state["multi_goals"] = _load_multi_goals()
 
 with st.expander("➕ 添加新目标", expanded=len(st.session_state["multi_goals"]) == 0):
     mg_col1, mg_col2, mg_col3, mg_col4 = st.columns(4)
@@ -332,6 +351,7 @@ with st.expander("➕ 添加新目标", expanded=len(st.session_state["multi_goa
                 "当前已存": mg_current,
                 "优先级": mg_priority,
             })
+            _save_multi_goals(st.session_state["multi_goals"])
             st.success(f"已添加目标：{mg_name.strip()}")
             st.rerun()
         else:
@@ -377,6 +397,7 @@ if st.session_state["multi_goals"]:
 
     if st.button("🗑️ 清空所有目标", key="mg_clear"):
         st.session_state["multi_goals"] = []
+        _save_multi_goals([])
         st.rerun()
 
 # ── 页脚 ──────────────────────────────────────────────────

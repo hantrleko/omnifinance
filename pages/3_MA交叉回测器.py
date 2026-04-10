@@ -209,22 +209,6 @@ def _run_portfolio_one(
         return {"标的": ticker, "状态": "回测失败"}
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _cached_comparison(
-    ticker_key: str,
-    initial_capital: float,
-    fee_rate: float,
-    slippage_rate: float,
-    risk_free_rate: float,
-    data_hash: int,
-) -> list[dict]:
-    """缓存策略对比结果，避免每次 expander 展开时重复计算四个策略。
-
-    data_hash 是 DataFrame 的行数 + 最后收盘价的组合，用作缓存键。
-    """
-    return []   # Placeholder; actual call is done outside with data passed in
-
-
 # ══════════════════════════════════════════════════════════
 #  数据加载
 # ══════════════════════════════════════════════════════════
@@ -661,8 +645,8 @@ with st.expander("🔍 参数网格搜索"):
         else:
             combos = []
 
-        progress = st.progress(0)
-        for idx, combo in enumerate(combos):
+        def _grid_one(combo: tuple) -> dict | None:
+            """Run a single grid-search combo (pure function for joblib)."""
             try:
                 if strategy == "MA 交叉":
                     p = {"short_window": combo[0], "long_window": combo[1]}
@@ -672,18 +656,36 @@ with st.expander("🔍 参数网格搜索"):
                     p = {"fast": combo[0], "slow": combo[1], "signal_period": 9}
                 elif strategy == "布林带":
                     p = {"period": combo[0], "num_std": combo[1]}
+                else:
+                    return None
                 g_sig = apply_strategy(data, strategy, p)
                 g_res, g_trades = simulate_trades(g_sig, initial_capital, fee_rate, slippage_rate)
                 g_m = compute_metrics(g_res, g_trades, initial_capital, risk_free_rate)
-                row = {**{f"参数{i+1}": v for i, v in enumerate(combo)},
+                return {**{f"参数{i+1}": v for i, v in enumerate(combo)},
                        "夏普比率": round(g_m["夏普比率"], 3),
                        "年化回报(%)": round(g_m["年化回报(%)"], 2),
                        "最大回撤(%)": round(g_m["最大回撤(%)"], 2)}
-                grid_results.append(row)
             except (ValueError, KeyError, ZeroDivisionError) as exc:
-                # Skip invalid parameter combos silently but log for diagnostics
                 _logger.debug("[网格搜索] 参数组合 %s 跳过: %s", combo, exc)
-            progress.progress((idx + 1) / max(len(combos), 1))
+                return None
+
+        progress = st.progress(0)
+        if len(combos) > 5:
+            # Parallel execution for larger grids
+            n_jobs = min(len(combos), max(1, joblib.cpu_count()))
+            with st.spinner(f"并行搜索 {len(combos)} 组参数（{n_jobs} 进程）…"):
+                parallel_results = joblib.Parallel(n_jobs=n_jobs, backend="loky")(
+                    joblib.delayed(_grid_one)(combo) for combo in combos
+                )
+            grid_results = [r for r in parallel_results if r is not None]
+            progress.progress(1.0)
+        else:
+            # Sequential for small grids
+            for idx, combo in enumerate(combos):
+                result = _grid_one(combo)
+                if result is not None:
+                    grid_results.append(result)
+                progress.progress((idx + 1) / max(len(combos), 1))
 
         if grid_results:
             grid_df = pd.DataFrame(grid_results).sort_values("夏普比率", ascending=False)
