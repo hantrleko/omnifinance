@@ -16,7 +16,7 @@ from core.theme import inject_theme
 inject_theme()
 
 from core.chart_config import build_layout
-from core.currency import currency_selector, fmt, get_symbol
+from core.currency import fmt, get_symbol
 from core.storage import scheme_manager_ui
 
 st.set_page_config(page_title="税务计算器", page_icon="🧾", layout="wide")
@@ -31,7 +31,7 @@ st.markdown("""
 st.title("🧾 税务计算器")
 st.caption("计算中国个人所得税、劳务报酬所得税及投资收益税后回报，帮助进行税务规划。")
 
-currency_selector()
+# currency_selector() is already called globally in app.py — do not duplicate
 sym = get_symbol()
 
 # 方案管理
