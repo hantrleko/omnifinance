@@ -160,6 +160,73 @@ if records:
     )
 
 st.markdown("---")
+st.subheader("📐 计划线 vs 实际线对比")
+st.caption("设定净资产增长计划，实时对比实际执行情况，偏差一目了然。")
+
+with st.expander("⚙️ 设置净资产增长计划", expanded=len(records) >= 2):
+    plan_col1, plan_col2 = st.columns(2)
+    plan_start_nw = plan_col1.number_input(
+        "计划起点净资产（元）",
+        min_value=0.0, value=float(records[0].get("net_worth", 0)) if records else 0.0,
+        step=10000.0, format="%.0f", key="plan_start_nw",
+    )
+    plan_annual_growth = plan_col2.number_input(
+        "计划年增长率（%）",
+        min_value=-20.0, max_value=50.0, value=10.0, step=0.5, format="%.1f", key="plan_ag",
+    )
+
+    if records:
+        tdf_plan = pd.DataFrame(records)
+        tdf_plan["date"] = pd.to_datetime(tdf_plan["date"])
+        tdf_plan = tdf_plan.sort_values("date").reset_index(drop=True)
+        start_date_plan = tdf_plan["date"].iloc[0]
+
+        plan_values = []
+        for _, row in tdf_plan.iterrows():
+            years_elapsed = (row["date"] - start_date_plan).days / 365.25
+            planned = plan_start_nw * (1 + plan_annual_growth / 100) ** years_elapsed
+            plan_values.append(planned)
+
+        fig_plan = go.Figure()
+        sym_plan = get_symbol()
+        fig_plan.add_trace(go.Scatter(
+            x=tdf_plan["date"], y=tdf_plan["net_worth"],
+            mode="lines+markers", name="实际净资产",
+            line=dict(width=2.5, color="#00CC96"),
+            hovertemplate=f"%{{x|%Y-%m-%d}}<br>实际: {sym_plan}%{{y:,.0f}}<extra></extra>",
+        ))
+        fig_plan.add_trace(go.Scatter(
+            x=tdf_plan["date"], y=plan_values,
+            mode="lines", name=f"计划线（年增 {plan_annual_growth:.1f}%）",
+            line=dict(width=2, dash="dash", color="#FFD600"),
+            hovertemplate=f"%{{x|%Y-%m-%d}}<br>计划: {sym_plan}%{{y:,.0f}}<extra></extra>",
+        ))
+
+        deviations = [actual - planned for actual, planned in zip(tdf_plan["net_worth"], plan_values)]
+        fig_plan.add_trace(go.Bar(
+            x=tdf_plan["date"], y=deviations,
+            name="与计划偏差",
+            marker_color=["#00CC96" if d >= 0 else "#EF553B" for d in deviations],
+            opacity=0.5,
+            yaxis="y2",
+            hovertemplate=f"%{{x|%Y-%m-%d}}<br>偏差: {sym_plan}%{{y:,.0f}}<extra></extra>",
+        ))
+
+        fig_plan.update_layout(
+            **build_layout(xaxis_title="日期", yaxis_title="净资产（元）", yaxis_tickformat=","),
+            yaxis2=dict(title="偏差（元）", overlaying="y", side="right", showgrid=False),
+        )
+        st.plotly_chart(fig_plan, use_container_width=True)
+
+        last_deviation = deviations[-1] if deviations else 0
+        if last_deviation >= 0:
+            st.success(f"✅ 最近一次记录**超出计划** {fmt(last_deviation, decimals=0)}，执行情况良好！")
+        else:
+            st.warning(f"⚠️ 最近一次记录**落后计划** {fmt(abs(last_deviation), decimals=0)}，建议检查储蓄或支出情况。")
+    else:
+        st.info("保存至少一条净资产快照后，将自动生成计划 vs 实际对比图。")
+
+st.markdown("---")
 st.subheader("🔮 未来净资产预测")
 st.caption("基于自定义增长参数，预测未来净资产走势。")
 

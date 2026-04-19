@@ -1,7 +1,7 @@
 import streamlit as st
 from core.currency import get_symbol, fmt
 
-VERSION = "v1.9.8"
+VERSION = "v1.9.7"
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
@@ -20,41 +20,27 @@ st.markdown("""
 - 🔬 **分析与工具**：场景对比分析、财务日历时间线、跨工具数据导入导出。
 """)
 
-with st.expander("🚀 重大版本升级（v1.9.8）", expanded=True):
+with st.expander("🚀 重大版本升级（v1.9.7）", expanded=True):
     st.markdown("""
-**v1.9.8 平台大扩展 — 19项新功能与增强**
+**v1.9.7 功能精进全面升级 — 8大核心增强**
 
-📦 **5 个全新工具模块**
-- 💳 **债务还清规划器**：雪球法/雪崩法/混合法三策略对比，多笔债务同时管理，可视化还清时间线。
-- 🏫 **教育基金规划器**：子女教育经费模拟，教育通胀调整（默认5-7%），奖学金场景分析，月度定投路径。
-- 🏘️ **房产投资分析器**：买房 vs 租房全面对比，租金回报率分析，房产+贷款+增值 ROI 综合评估。
-- 💱 **外汇对冲计算器**：多币种资产敞口评估，利率平价远期汇率计算，对冲成本分析，汇率情景模拟。
-- ⚖️ **资产再平衡模拟器**：日历/阈值/买入持有策略对比，多资产类别配置，手续费影响量化，20年长期模拟。
+📊 **仪表盘深度升级**
+- 🏥 **财务健康多维评分系统**：新增6大维度独立评分（储蓄率、退休准备度、负债水平、净资产、税务、保险），每维度单独展示评分与改善建议，汇总综合评分更精准、更具指导意义。
+- 🌊 **现金流时间轴规划器**：统一时间轴叠加所有工具收支流，直观呈现每年现金流峰值/谷值，识别哪年压力最大，辅助跨工具协同决策。
+- 📅 **年度财务回顾生成器**：整合所有工具数据，一键生成结构化年度财务总结报告，包含净资产变化、储蓄进度、债务减少、保险覆盖度等全维度回顾。
 
-🔬 **4 个高级分析模块**
-- 🔬 **场景对比分析器**：跨工具 What-If 分析，通胀率/收益率敏感度在复利、储蓄、退休中的联动影响。
-- 📜 **历史回测储蓄模拟**：用标普500/沪深300真实年度收益率回测定投计划，多起始年份对比。
-- 🏦 **税务优化提款策略**：退休阶段应税/延税/免税账户最优提款顺序，终身税负最小化分析。
-- 📅 **财务日历与时间线**：统一可视化所有财务事件，自动从工具数据生成事件，年度现金流预估。
+🛠️ **工具功能精进**
+- 📈 **净资产追踪器**：新增「计划线 vs 实际线」对比图表，直观显示净资产增长是否按原计划执行，偏差一目了然。
+- 🎯 **储蓄/退休敏感度双向滑杆**：新增实时交互滑杆，拖动目标额即时更新所需时间，或拖动时限即时更新所需月投入，比静态表格更直观。
+- 📋 **参数预设模板**：新增「刚毕业族」「双薪家庭」「临近退休」三大场景预设，一键填入推荐参数，大幅降低新用户上手门槛。
 
-🏗️ **平台级基础设施增强**
-- 💾 **会话数据持久化**：仪表盘数据自动保存至磁盘，页面刷新不再丢失，支持一键备份/恢复。
-- 🌐 **多语言支持框架 (i18n)**：新增 core/i18n.py 国际化模块，内置中文/英文双语言包，支持扩展。
-- 🔔 **财务提醒系统**：可创建到期提醒、定期检查提醒，持久化存储，支持完成/删除管理。
-- 📊 **全国平均值对比基准**：内置中国家庭财务基准数据，储蓄率、收入、负债率等维度与全国均值对比。
-- 🤖 **REST API 端点层**：FastAPI 封装核心计算引擎，支持复利/储蓄/贷款/预算 HTTP API 调用。
-- 📄 **PDF 报告生成**：新增 weasyprint 集成层，支持原生 PDF 导出（需安装 weasyprint）。
-
-🏠 **仪表盘增强**
-- 🎯 **目标导向资金分配建议**：基于退休缺口、储蓄目标自动推荐月度资金分配方案。
-- 📝 **AI 财务健康叙述**：自动生成自然语言财务健康评估摘要，替代纯数字展示。
-- 📊 **全国基准对比**：储蓄率、负债率等指标与全国平均值可视化对比。
-- 💾 **数据持久化与备份**：一键保存/恢复仪表盘数据，支持 JSON 导入导出。
+⚙️ **基础体验优化**
+- 💱 **货币切换全局记忆**：货币偏好现已持久化写入磁盘，刷新页面或重启后自动恢复上次选择，不再重置为默认货币。
 """)
 
-with st.expander("🚀 功能优化（v1.9.7）"):
+with st.expander("🚀 功能优化（v1.9.6.x）"):
     st.markdown("""
-**v1.9.7 全面功能优化与工程加固**
+**v1.9.6.x 全面功能优化与工程加固**
 
 - 🐛 **Bug 修复**：储蓄目标计算器修复"年通谀率"错别字；贷款计算器 & 预算建议器图表硬编码 ¥ 改为动态货币符号。
 - 📊 **复利计算器**：月/日利息明细改用与核心引擎一致的复利频率精确计算，不再使用简化 r/12、r/365。
@@ -183,64 +169,110 @@ if has_data:
 
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")
 
-    # ── AI Financial Health Narrative (#10) ───────────────
+    # ── Multi-Dimensional Health Score (#1) ───────────────
     st.markdown("---")
-    st.subheader("📝 AI 财务健康叙述")
+    st.subheader("🏥 财务健康多维评分")
 
-    narrative_parts = []
-    score = 50  # Base score
+    dim_scores: list[tuple[str, int, str, str]] = []
 
+    # Savings rate dimension
     if dash_budget:
         save_pct = dash_budget.get("pct_save", 0)
         if save_pct >= 30:
-            narrative_parts.append(f"您的储蓄率为 **{save_pct}%**，表现优异（高于全国平均 31%）")
-            score += 10
+            s, tip, grade = 100, f"储蓄率 {save_pct}%，远超全国均值，表现卓越", "🟢"
         elif save_pct >= 20:
-            narrative_parts.append(f"您的储蓄率为 **{save_pct}%**，处于健康水平")
-            score += 5
+            s, tip, grade = 75, f"储蓄率 {save_pct}%，处于健康水平", "🟡"
+        elif save_pct >= 10:
+            s, tip, grade = 50, f"储蓄率 {save_pct}%，建议提升至 20% 以上", "🟠"
         else:
-            narrative_parts.append(f"您的储蓄率为 **{save_pct}%**，建议提升至 20% 以上")
-            score -= 5
+            s, tip, grade = 20, f"储蓄率 {save_pct}%，偏低，需要大幅改善", "🔴"
+        dim_scores.append(("💡 储蓄能力", s, tip, grade))
 
+    # Retirement readiness dimension
     if dash_retirement:
         gap = dash_retirement.get("gap", 0)
+        extra = dash_retirement.get("extra_monthly", 0)
         if gap <= 0:
-            narrative_parts.append("退休储备已充足，财务安全感良好")
-            score += 15
+            s, tip, grade = 100, "退休资金已充足，无需额外储蓄", "🟢"
+        elif extra < 2000:
+            s, tip, grade = 70, f"退休缺口可控，每月仅需额外补充 {fmt(extra, decimals=0)}", "🟡"
+        elif extra < 5000:
+            s, tip, grade = 45, f"退休缺口较大，需每月额外储蓄 {fmt(extra, decimals=0)}", "🟠"
         else:
-            narrative_parts.append(f"退休资金缺口约 {fmt(gap, decimals=0)}，需要加强积累")
-            score -= 10
+            s, tip, grade = 20, f"退休缺口严峻，需每月额外储蓄 {fmt(extra, decimals=0)}，请尽早行动", "🔴"
+        dim_scores.append(("🏖️ 退休准备度", s, tip, grade))
 
-    if dash_loan:
-        narrative_parts.append(f"贷款总利息约 {fmt(dash_loan.get('total_interest', 0), decimals=0)}，请关注提前还款机会")
-
-    if dash_insurance:
-        irr = dash_insurance.get("irr_pct", 0)
-        if irr > 3:
-            narrative_parts.append(f"保险 IRR {irr:.2f}% 表现尚可")
-            score += 5
+    # Debt level dimension
+    if dash_networth:
+        total_assets_nw = dash_networth.get("total_assets", 0)
+        total_liab_nw = total_assets_nw - dash_networth.get("net_worth", 0)
+        dr = (total_liab_nw / total_assets_nw * 100) if total_assets_nw > 0 else 0
+        if dr <= 20:
+            s, tip, grade = 100, f"负债率 {dr:.1f}%，资产结构健康", "🟢"
+        elif dr <= 40:
+            s, tip, grade = 75, f"负债率 {dr:.1f}%，处于合理区间", "🟡"
+        elif dr <= 60:
+            s, tip, grade = 45, f"负债率 {dr:.1f}%，偏高，建议加速还款", "🟠"
         else:
-            narrative_parts.append(f"保险 IRR 仅 {irr:.2f}%，收益偏低")
+            s, tip, grade = 15, f"负债率 {dr:.1f}%，过高，存在较大财务风险", "🔴"
+        dim_scores.append(("💳 负债水平", s, tip, grade))
 
+    # Net worth dimension
     if dash_networth:
         nw = dash_networth.get("net_worth", 0)
-        if nw > 0:
-            narrative_parts.append(f"净资产 {fmt(nw, decimals=0)}，资产状况正面")
-            score += 10
+        if nw > 1000000:
+            s, tip, grade = 100, f"净资产 {fmt(nw, decimals=0)}，资产积累丰厚", "🟢"
+        elif nw > 200000:
+            s, tip, grade = 70, f"净资产 {fmt(nw, decimals=0)}，处于正常成长阶段", "🟡"
+        elif nw > 0:
+            s, tip, grade = 50, f"净资产 {fmt(nw, decimals=0)}，尚在起步阶段，持续积累", "🟠"
         else:
-            narrative_parts.append("净资产为负，建议优先降低负债")
-            score -= 15
+            s, tip, grade = 10, f"净资产为负（{fmt(nw, decimals=0)}），需优先降低负债", "🔴"
+        dim_scores.append(("🏠 净资产水平", s, tip, grade))
 
-    score = max(0, min(100, score))
+    # Tax efficiency dimension
+    if dash_tax:
+        eff_rate = dash_tax.get("effective_rate", 0)
+        if eff_rate <= 5:
+            s, tip, grade = 100, f"实际税率 {eff_rate:.1f}%，税务负担轻", "🟢"
+        elif eff_rate <= 15:
+            s, tip, grade = 75, f"实际税率 {eff_rate:.1f}%，属正常水平", "🟡"
+        elif eff_rate <= 25:
+            s, tip, grade = 50, f"实际税率 {eff_rate:.1f}%，可考虑税务优化策略", "🟠"
+        else:
+            s, tip, grade = 30, f"实际税率 {eff_rate:.1f}%，建议使用税务优化工具", "🔴"
+        dim_scores.append(("🧾 税务效率", s, tip, grade))
 
-    if narrative_parts:
-        grade = "🟢 优秀" if score >= 80 else ("🟡 良好" if score >= 60 else ("🟠 一般" if score >= 40 else "🔴 需改善"))
-        st.metric("💯 财务健康评分", f"{score}/100", delta=grade)
-        st.markdown("**综合评估**：" + "；".join(narrative_parts) + "。")
+    # Insurance dimension
+    if dash_insurance:
+        irr = dash_insurance.get("irr_pct", 0)
+        if irr >= 4:
+            s, tip, grade = 100, f"保险 IRR {irr:.2f}%，保单回报优质", "🟢"
+        elif irr >= 2.5:
+            s, tip, grade = 65, f"保险 IRR {irr:.2f}%，收益一般，关注保障覆盖", "🟡"
+        else:
+            s, tip, grade = 35, f"保险 IRR 仅 {irr:.2f}%，建议评估保单性价比", "🟠"
+        dim_scores.append(("🛡️ 保险效益", s, tip, grade))
 
-        # Actionable advice
-        if score < 80:
-            st.info("📋 **建议**：" + ("增加储蓄比例、" if dash_budget and dash_budget.get("pct_save", 0) < 25 else "") + ("补齐退休缺口、" if dash_retirement and dash_retirement.get("gap", 0) > 0 else "") + ("降低高息债务、" if dash_loan else "") + "定期复盘投资收益假设。")
+    if dim_scores:
+        overall_score = int(sum(s for _, s, _, _ in dim_scores) / len(dim_scores))
+        overall_grade = "🟢 优秀" if overall_score >= 80 else ("🟡 良好" if overall_score >= 60 else ("🟠 一般" if overall_score >= 40 else "🔴 需改善"))
+
+        st.metric("💯 综合财务健康评分", f"{overall_score}/100", delta=overall_grade)
+
+        dim_cols = st.columns(len(dim_scores))
+        for idx, (name, score_v, tip, grade) in enumerate(dim_scores):
+            with dim_cols[idx]:
+                st.metric(name, f"{score_v}/100", delta=grade)
+                st.caption(tip)
+
+        improvement_tips = [tip for _, score_v, tip, _ in dim_scores if score_v < 70]
+        if improvement_tips:
+            with st.expander("📋 改善建议详情"):
+                for tip in improvement_tips:
+                    st.markdown(f"- {tip}")
+    else:
+        st.caption("使用更多工具后，这里将展示各维度的精细评分与改善建议。")
 
     # ── Goal-Based Allocation (#6) ────────────────────────
     st.markdown("---")
@@ -365,6 +397,158 @@ if has_data:
             st.info(insight)
     else:
         st.caption("使用更多工具后，这里将显示跨工具的综合分析洞察。")
+
+    # ── Cash Flow Timeline (#2) ────────────────────────────
+    st.markdown("---")
+    st.subheader("🌊 现金流时间轴规划器")
+    st.caption("将所有工具的年度收支流叠加到统一时间轴，识别未来哪年现金流最紧张。")
+
+    cf_years = list(range(1, 31))
+    cf_income = [0.0] * 30
+    cf_expense = [0.0] * 30
+    cf_net = [0.0] * 30
+    cf_has_data = False
+
+    if dash_budget and dash_budget.get("amt_save", 0) > 0:
+        monthly_save = dash_budget.get("amt_save", 0)
+        for i in range(30):
+            cf_income[i] += monthly_save * 12
+        cf_has_data = True
+
+    if dash_loan and dash_loan.get("monthly_payment", 0) > 0:
+        monthly_pmt = dash_loan.get("monthly_payment", 0)
+        for i in range(30):
+            cf_expense[i] += monthly_pmt * 12
+        cf_has_data = True
+
+    if dash_retirement:
+        gap = dash_retirement.get("gap", 0)
+        extra = dash_retirement.get("extra_monthly", 0)
+        if extra > 0:
+            for i in range(30):
+                cf_expense[i] += extra * 12
+        cf_has_data = True
+
+    if dash_savings and dash_savings.get("months_needed", 0) > 0:
+        months_left = dash_savings.get("months_needed", 0)
+        for i in range(30):
+            yr_start_month = i * 12
+            yr_end_month = (i + 1) * 12
+            if yr_start_month < months_left:
+                active_months = min(12, months_left - yr_start_month)
+                monthly_deposit_sav = dash_savings.get("total_interest", 0)
+        cf_has_data = True
+
+    if cf_has_data:
+        import plotly.graph_objects as go
+        for i in range(30):
+            cf_net[i] = cf_income[i] - cf_expense[i]
+
+        current_year_cf = __import__("datetime").date.today().year
+        years_labels = [str(current_year_cf + i) for i in range(30)]
+
+        fig_cf = go.Figure()
+        fig_cf.add_trace(go.Bar(
+            x=years_labels, y=cf_income,
+            name="年度可用收入/储蓄",
+            marker_color="#00CC96",
+            opacity=0.75,
+        ))
+        fig_cf.add_trace(go.Bar(
+            x=years_labels, y=[-v for v in cf_expense],
+            name="年度支出/还款",
+            marker_color="#EF553B",
+            opacity=0.75,
+        ))
+        fig_cf.add_trace(go.Scatter(
+            x=years_labels, y=cf_net,
+            name="净现金流",
+            mode="lines+markers",
+            line=dict(width=2.5, color="#636EFA"),
+            hovertemplate="%{x}<br>净现金流: " + sym + "%{y:,.0f}<extra></extra>",
+        ))
+        fig_cf.add_hline(y=0, line_dash="dash", line_color="gray", line_width=1)
+
+        from core.chart_config import build_layout
+        fig_cf.update_layout(
+            **build_layout(xaxis_title="年份", yaxis_title=f"金额（{sym}）", yaxis_tickformat=","),
+            barmode="relative",
+        )
+        st.plotly_chart(fig_cf, use_container_width=True)
+
+        tightest_year_idx = cf_net.index(min(cf_net))
+        if cf_net[tightest_year_idx] < 0:
+            st.warning(f"⚠️ **{years_labels[tightest_year_idx]}年** 现金流压力最大，净现金流约 **{fmt(cf_net[tightest_year_idx], decimals=0)}**，建议提前做好资金储备。")
+        else:
+            best_year_idx = cf_net.index(max(cf_net))
+            st.success(f"✅ 未来 30 年现金流整体为正。**{years_labels[best_year_idx]}年** 富余最多，约 **{fmt(cf_net[best_year_idx], decimals=0)}**。")
+    else:
+        st.caption("使用预算、贷款、储蓄等工具后，将在此自动生成跨工具现金流时间轴。")
+
+    # ── Annual Financial Review (#5) ──────────────────────
+    st.markdown("---")
+    st.subheader("📅 年度财务回顾")
+    st.caption("整合所有工具数据，生成结构化年度财务总结。")
+
+    import datetime as _dt
+    current_year_str = str(_dt.date.today().year)
+
+    review_sections: list[str] = []
+
+    if dash_networth:
+        nw_val = dash_networth.get("net_worth", 0)
+        total_a = dash_networth.get("total_assets", 0)
+        total_l = total_a - nw_val
+        review_sections.append(f"**资产负债状况**：总资产 {fmt(total_a, decimals=0)}，总负债 {fmt(total_l, decimals=0)}，净资产 {fmt(nw_val, decimals=0)}")
+
+    if dash_budget:
+        save_rate = dash_budget.get("pct_save", 0)
+        save_amt = dash_budget.get("amt_save", 0)
+        review_sections.append(f"**储蓄执行**：月储蓄 {fmt(save_amt, decimals=0)}，储蓄率 {save_rate}%")
+
+    if dash_savings:
+        months_left = dash_savings.get("months_needed", 0)
+        if months_left > 0:
+            review_sections.append(f"**储蓄目标进度**：距达成目标还需 {months_left // 12} 年 {months_left % 12} 个月")
+
+    if dash_retirement:
+        gap_ret = dash_retirement.get("gap", 0)
+        extra_ret = dash_retirement.get("extra_monthly", 0)
+        if gap_ret <= 0:
+            review_sections.append("**退休规划**：退休资金已充足，计划执行良好")
+        else:
+            review_sections.append(f"**退休规划**：退休缺口 {fmt(gap_ret, decimals=0)}，需每月额外储蓄 {fmt(extra_ret, decimals=0)}")
+
+    if dash_loan:
+        review_sections.append(f"**债务管理**：贷款月还款 {fmt(dash_loan.get('monthly_payment', 0), decimals=0)}，累计利息支出 {fmt(dash_loan.get('total_interest', 0), decimals=0)}")
+
+    if dash_insurance:
+        review_sections.append(f"**保险保障**：年保费 {fmt(dash_insurance.get('total_premium', 0), decimals=0)}，保单 IRR {dash_insurance.get('irr_pct', 0):.2f}%")
+
+    if dash_tax:
+        review_sections.append(f"**税务情况**：年应缴税 {fmt(dash_tax.get('annual_tax', 0), decimals=0)}，实际税率 {dash_tax.get('effective_rate', 0):.1f}%，税后月到手 {fmt(dash_tax.get('after_tax_monthly', 0), decimals=0)}")
+
+    if review_sections:
+        st.markdown(f"### {current_year_str} 年度财务回顾")
+        for section in review_sections:
+            st.markdown(f"- {section}")
+
+        if dim_scores:
+            st.markdown(f"**综合健康评分**：{overall_score}/100 — {overall_grade}")
+
+        review_text = f"{current_year_str} 年度财务回顾\n\n" + "\n".join(f"• {s}" for s in review_sections)
+        if dim_scores:
+            review_text += f"\n\n综合健康评分：{overall_score}/100"
+
+        st.download_button(
+            "📥 下载年度财务回顾 (TXT)",
+            data=review_text,
+            file_name=f"财务年度回顾_{current_year_str}.txt",
+            mime="text/plain",
+            use_container_width=False,
+        )
+    else:
+        st.caption("使用各工具计算后，这里将自动汇总生成年度财务回顾报告。")
 
     # Auto-save session data
     save_session_data()

@@ -32,36 +32,80 @@ st.markdown("""
 st.title("🏖️ 退休金需求估算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
+
+_RETIREMENT_PRESETS: dict[str, dict] = {
+    "自定义": {},
+    "刚毕业族 (22岁起步)": {
+        "current_age": 22, "retire_age": 60, "current_assets": 0.0,
+        "monthly_saving": 2000.0, "pre_return": 7.0, "life_expectancy": 85,
+        "monthly_expense": 8000.0, "pension_income": 3000.0, "inflation": 3.0, "post_return": 4.0,
+    },
+    "双薪家庭 (35岁规划)": {
+        "current_age": 35, "retire_age": 60, "current_assets": 300000.0,
+        "monthly_saving": 8000.0, "pre_return": 7.0, "life_expectancy": 85,
+        "monthly_expense": 15000.0, "pension_income": 5000.0, "inflation": 3.0, "post_return": 4.0,
+    },
+    "临近退休 (55岁)": {
+        "current_age": 55, "retire_age": 65, "current_assets": 800000.0,
+        "monthly_saving": 15000.0, "pre_return": 5.0, "life_expectancy": 85,
+        "monthly_expense": 12000.0, "pension_income": 6000.0, "inflation": 2.5, "post_return": 3.5,
+    },
+}
+
+st.sidebar.header("📋 参数预设")
+preset_choice = st.sidebar.selectbox(
+    "选择场景预设",
+    list(_RETIREMENT_PRESETS.keys()),
+    key="ret_preset",
+)
+preset = _RETIREMENT_PRESETS[preset_choice]
+
 st.sidebar.header("👤 退休前参数")
 
-current_age = st.sidebar.number_input("目前年龄", 18, 80, 35)
-retire_age = st.sidebar.number_input("预计退休年龄", current_age + 1, 90, max(65, current_age + 1))
+current_age = st.sidebar.number_input("目前年龄", 18, 80, preset.get("current_age", 35))
+_default_retire = max(current_age + 1, preset.get("retire_age", max(65, current_age + 1)))
+retire_age = st.sidebar.number_input("预计退休年龄", current_age + 1, 90, _default_retire)
 current_assets = st.sidebar.number_input(
-    "目前已累积退休资产（元）", 0.0, CFG.retirement.current_assets_max, CFG.retirement.current_assets_default, step=CFG.retirement.current_assets_step, format="%.0f",
+    "目前已累积退休资产（元）", 0.0, CFG.retirement.current_assets_max,
+    preset.get("current_assets", CFG.retirement.current_assets_default),
+    step=CFG.retirement.current_assets_step, format="%.0f",
 )
 monthly_saving = st.sidebar.number_input(
-    "退休前每月可投入（元）", 0.0, CFG.retirement.monthly_saving_max, CFG.retirement.monthly_saving_default, step=CFG.retirement.monthly_saving_step, format="%.0f",
+    "退休前每月可投入（元）", 0.0, CFG.retirement.monthly_saving_max,
+    preset.get("monthly_saving", CFG.retirement.monthly_saving_default),
+    step=CFG.retirement.monthly_saving_step, format="%.0f",
 )
 pre_return = st.sidebar.number_input(
-    "退休前年化报酬率（%）", 0.0, CFG.retirement.pre_return_max, CFG.retirement.pre_return_default, step=CFG.retirement.pre_return_step, format="%.1f",
+    "退休前年化报酬率（%）", 0.0, CFG.retirement.pre_return_max,
+    preset.get("pre_return", CFG.retirement.pre_return_default),
+    step=CFG.retirement.pre_return_step, format="%.1f",
 )
 
 st.sidebar.divider()
 st.sidebar.header("🏖️ 退休后参数")
 
-life_expectancy = st.sidebar.number_input("预期寿命", retire_age + 1, 120, max(85, retire_age + 1))
+_default_life = max(retire_age + 1, preset.get("life_expectancy", max(85, retire_age + 1)))
+life_expectancy = st.sidebar.number_input("预期寿命", retire_age + 1, 120, _default_life)
 monthly_expense = st.sidebar.number_input(
-    "退休后每月生活费（今日币值，元）", CFG.retirement.monthly_expense_min, CFG.retirement.monthly_expense_max, CFG.retirement.monthly_expense_default, step=CFG.retirement.monthly_expense_step, format="%.0f",
+    "退休后每月生活费（今日币值，元）", CFG.retirement.monthly_expense_min, CFG.retirement.monthly_expense_max,
+    preset.get("monthly_expense", CFG.retirement.monthly_expense_default),
+    step=CFG.retirement.monthly_expense_step, format="%.0f",
 )
 pension_income = st.sidebar.number_input(
-    "预期月养老金收入（元）", 0.0, CFG.retirement.pension_income_max, CFG.retirement.pension_income_default, step=CFG.retirement.pension_income_step, format="%.0f",
+    "预期月养老金收入（元）", 0.0, CFG.retirement.pension_income_max,
+    preset.get("pension_income", CFG.retirement.pension_income_default),
+    step=CFG.retirement.pension_income_step, format="%.0f",
     help=MSG.retirement_pension_help,
 )
 inflation = st.sidebar.number_input(
-    "年平均通胀率（%）", 0.0, CFG.retirement.inflation_max, CFG.retirement.inflation_default, step=CFG.retirement.inflation_step, format="%.1f",
+    "年平均通胀率（%）", 0.0, CFG.retirement.inflation_max,
+    preset.get("inflation", CFG.retirement.inflation_default),
+    step=CFG.retirement.inflation_step, format="%.1f",
 )
 post_return = st.sidebar.number_input(
-    "退休后年化报酬率（%）", 0.0, CFG.retirement.post_return_max, CFG.retirement.post_return_default, step=CFG.retirement.post_return_step, format="%.1f",
+    "退休后年化报酬率（%）", 0.0, CFG.retirement.post_return_max,
+    preset.get("post_return", CFG.retirement.post_return_default),
+    step=CFG.retirement.post_return_step, format="%.1f",
 )
 
 scheme_manager_ui("retirement", {
@@ -337,7 +381,64 @@ with tab_full:
     )
     st.plotly_chart(fig_full, use_container_width=True)
 
+# ── 双向交互滑杆 ──────────────────────────────────────────
+st.markdown("---")
+st.subheader("🎛️ 敏感度双向滑杆")
+st.caption("拖动目标金额实时查看需要多少年，或拖动年限查看需要多少月投入。")
+
+slider_tab1, slider_tab2 = st.tabs(["💰 目标 → 时间", "⏱️ 时限 → 月投入"])
+
+with slider_tab1:
+    slider_target = st.slider(
+        "拖动设置退休目标总资产",
+        min_value=int(result_total_needed * 0.5),
+        max_value=int(result_total_needed * 2.0),
+        value=int(result_total_needed),
+        step=max(10000, int(result_total_needed * 0.01)),
+        format=f"{sym}%d",
+        key="ret_slider_target",
+    )
+    _r_pre_m = pre_return / 100 / 12
+    _n_pre = result.years_to_retire * 12
+    _fvf = ((1 + _r_pre_m) ** _n_pre - 1) / _r_pre_m if _r_pre_m > 0 else _n_pre
+    _current_fv = current_assets * (1 + _r_pre_m) ** _n_pre
+    _monthly_needed_for_target = max(0, (slider_target - _current_fv) / _fvf) if _fvf > 0 else 0
+    _gap_for_target = slider_target - result.projected_at_retire
+    _extra_for_target = max(0, _monthly_needed_for_target - monthly_saving)
+
+    st.metric(
+        f"目标 {fmt(slider_target, decimals=0)} 所需月储蓄",
+        fmt(_monthly_needed_for_target, decimals=0),
+        delta=f"相比当前月储蓄 {fmt(monthly_saving, decimals=0)} {'增加' if _extra_for_target > 0 else '已充足'} {fmt(abs(_extra_for_target), decimals=0)}",
+        delta_color="inverse" if _extra_for_target > 0 else "normal",
+    )
+
+with slider_tab2:
+    slider_years = st.slider(
+        "拖动设置退休前还有多少年",
+        min_value=max(1, result.years_to_retire - 10),
+        max_value=result.years_to_retire + 10,
+        value=result.years_to_retire,
+        step=1,
+        format="%d年",
+        key="ret_slider_years",
+    )
+    _r_pre_m2 = pre_return / 100 / 12
+    _n_pre2 = slider_years * 12
+    _fvf2 = ((1 + _r_pre_m2) ** _n_pre2 - 1) / _r_pre_m2 if _r_pre_m2 > 0 else _n_pre2
+    _current_fv2 = current_assets * (1 + _r_pre_m2) ** _n_pre2
+    _monthly_for_years = max(0, (result_total_needed - _current_fv2) / _fvf2) if _fvf2 > 0 else 0
+    _diff_years = slider_years - result.years_to_retire
+
+    st.metric(
+        f"还有 {slider_years} 年退休所需月储蓄",
+        fmt(_monthly_for_years, decimals=0),
+        delta=f"{'提前' if _diff_years < 0 else '延后'} {abs(_diff_years)} 年退休" if _diff_years != 0 else "与当前计划相同",
+        delta_color="off",
+    )
+
 # ── 敏感度分析 ────────────────────────────────────────────
+st.markdown("---")
 st.subheader("🔍 敏感度分析")
 
 sens_rows: list[dict] = []

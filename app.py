@@ -41,7 +41,7 @@ with st.sidebar:
     st.page_link("https://financial-analysis-agent-eugenefinance02.streamlit.app/", label="Fin-Analysis", icon="🤖")
     st.page_link("https://github.com/hantrleko?tab=repositories", label="GitHub 开源生态", icon="🐙")
 
-# ── 模块分类与导航路由 (v1.9.8) ─────────────────────────
+# ── 模块分类与导航路由 (v1.9.7) ─────────────────────────
 p_home = st.Page("home.py", title="仪表盘首页", icon="🏠", default=True)
 
 # 基础理财管理

@@ -35,13 +35,38 @@ st.markdown("""
 st.title("🎯 储蓄目标达成计算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
+
+_SAVINGS_PRESETS: dict[str, dict] = {
+    "自定义": {},
+    "刚毕业族 — 买房首付": {
+        "current_savings": 10000.0, "goal_amount": 500000.0,
+        "annual_rate": 4.0, "monthly_deposit": 3000.0, "inflation_rate": 3.0,
+    },
+    "双薪家庭 — 子女教育": {
+        "current_savings": 50000.0, "goal_amount": 300000.0,
+        "annual_rate": 5.0, "monthly_deposit": 5000.0, "inflation_rate": 3.0,
+    },
+    "临近退休 — 应急备用金": {
+        "current_savings": 100000.0, "goal_amount": 200000.0,
+        "annual_rate": 3.0, "monthly_deposit": 8000.0, "inflation_rate": 2.5,
+    },
+}
+
+st.sidebar.header("📋 参数预设")
+sav_preset_choice = st.sidebar.selectbox(
+    "选择场景预设",
+    list(_SAVINGS_PRESETS.keys()),
+    key="sav_preset",
+)
+sav_preset = _SAVINGS_PRESETS[sav_preset_choice]
+
 st.sidebar.header("📋 参数设置")
 
 current_savings = st.sidebar.number_input(
     "目前储蓄金额（元）",
     min_value=0.0,
     max_value=CFG.savings.current_max,
-    value=CFG.savings.current_default,
+    value=sav_preset.get("current_savings", CFG.savings.current_default),
     step=CFG.savings.current_step,
     format="%.0f",
 )
@@ -49,7 +74,7 @@ goal_amount = st.sidebar.number_input(
     "目标金额（元）",
     min_value=CFG.savings.goal_min,
     max_value=CFG.savings.goal_max,
-    value=CFG.savings.goal_default,
+    value=sav_preset.get("goal_amount", CFG.savings.goal_default),
     step=CFG.savings.goal_step,
     format="%.0f",
 )
@@ -57,7 +82,7 @@ annual_rate = st.sidebar.number_input(
     "预期年化报酬率（%）",
     min_value=0.0,
     max_value=CFG.savings.annual_rate_max,
-    value=CFG.savings.annual_rate_default,
+    value=sav_preset.get("annual_rate", CFG.savings.annual_rate_default),
     step=CFG.savings.annual_rate_step,
     format="%.1f",
 )
@@ -65,7 +90,7 @@ monthly_deposit = st.sidebar.number_input(
     "每月固定投入（元）",
     min_value=0.0,
     max_value=CFG.savings.monthly_deposit_max,
-    value=CFG.savings.monthly_deposit_default,
+    value=sav_preset.get("monthly_deposit", CFG.savings.monthly_deposit_default),
     step=CFG.savings.monthly_deposit_step,
     format="%.0f",
 )
@@ -73,7 +98,7 @@ inflation_rate = st.sidebar.number_input(
     "年通胀率（%）",
     min_value=0.0,
     max_value=CFG.savings.inflation_rate_max,
-    value=CFG.savings.inflation_rate_default,
+    value=sav_preset.get("inflation_rate", CFG.savings.inflation_rate_default),
     step=CFG.savings.inflation_rate_step,
     format="%.1f",
     help=MSG.savings_inflation_help,
@@ -252,6 +277,69 @@ for col in money_cols:
 display_yr["年份"] = display_yr["年份"].apply(lambda v: f"第 {v} 年")
 
 st.dataframe(display_yr, use_container_width=True, hide_index=True)
+
+# ── 双向交互滑杆 ──────────────────────────────────────────
+st.markdown("---")
+st.subheader("🎛️ 敏感度双向滑杆")
+st.caption("实时交互：拖动目标金额查看所需时间，或拖动时限查看所需月投入。")
+
+sav_slider_tab1, sav_slider_tab2 = st.tabs(["🎯 目标 → 时间", "⏱️ 时限 → 月投入"])
+
+with sav_slider_tab1:
+    sav_slider_goal = st.slider(
+        "拖动设置目标金额",
+        min_value=int(max(current_savings + 1000, goal_amount * 0.5)),
+        max_value=int(goal_amount * 2.0),
+        value=int(goal_amount),
+        step=max(1000, int(goal_amount * 0.01)),
+        format=f"{get_symbol()}%d",
+        key="sav_slider_goal",
+    )
+    if effective_deposit > 0:
+        _sav_r = calculate_savings_goal(current_savings, sav_slider_goal, annual_rate, effective_deposit)
+        if _sav_r.reached and _sav_r.months_needed > 0:
+            _sav_y = _sav_r.months_needed // 12
+            _sav_m = _sav_r.months_needed % 12
+            st.metric(
+                f"目标 {fmt(sav_slider_goal, decimals=0)} 所需时间",
+                f"{_sav_y}年{_sav_m}个月",
+                delta=f"复利贡献 {fmt(_sav_r.total_interest, decimals=0)}",
+                delta_color="off",
+            )
+        elif _sav_r.months_needed == 0:
+            st.success("已达成！")
+        else:
+            st.error("按当前月投入无法达成")
+    else:
+        st.info("请先设置每月投入金额")
+
+with sav_slider_tab2:
+    max_months_slider = max(result.months_needed + 120, 240) if result.reached else 480
+    sav_slider_months = st.slider(
+        "拖动设置希望多少个月内达成",
+        min_value=6,
+        max_value=max_months_slider,
+        value=result.months_needed if result.reached else 120,
+        step=6,
+        format="%d个月",
+        key="sav_slider_months",
+    )
+    _mr = annual_rate / 100 / 12
+    if _mr > 0:
+        _fvf_sav = ((1 + _mr) ** sav_slider_months - 1) / _mr
+        _current_fv_sav = current_savings * (1 + _mr) ** sav_slider_months
+        _monthly_needed_sav = max(0, (goal_amount - _current_fv_sav) / _fvf_sav) if _fvf_sav > 0 else 0
+    else:
+        _monthly_needed_sav = max(0, (goal_amount - current_savings) / sav_slider_months)
+
+    _sav_slider_y = sav_slider_months // 12
+    _sav_slider_m = sav_slider_months % 12
+    st.metric(
+        f"{_sav_slider_y}年{_sav_slider_m}个月内达成所需月投入",
+        fmt(_monthly_needed_sav, decimals=0),
+        delta=f"{'比当前多 ' + fmt(_monthly_needed_sav - effective_deposit, decimals=0) if _monthly_needed_sav > effective_deposit else '比当前少 ' + fmt(effective_deposit - _monthly_needed_sav, decimals=0)}",
+        delta_color="inverse" if _monthly_needed_sav > effective_deposit else "normal",
+    )
 
 # ── 快速调整对比 ──────────────────────────────────────────
 st.subheader("⚡ 不同月投入达成时间对比")
