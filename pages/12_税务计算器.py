@@ -15,6 +15,7 @@ import streamlit as st
 from core.theme import inject_theme
 inject_theme()
 
+from core.benchmarks import benchmark_inline
 from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
 from core.storage import scheme_manager_ui
@@ -83,6 +84,9 @@ with tab1:
 
     BASIC_DEDUCTION = 5000.0
 
+    if deduction_housing > 0 and deduction_rent > 0:
+        st.error("❌ **住房贷款利息**与**住房租金**专项扣除互斥，不可同时申报。请将其中一项清零。")
+
     annual_salary = monthly_salary * 12
     annual_si = social_insurance * 12
     annual_special = (deduction_children + deduction_housing + deduction_rent + deduction_elderly + deduction_education) * 12
@@ -104,6 +108,14 @@ with tab1:
     r3.metric("年度应缴个税", fmt(annual_tax, decimals=0), delta=f"月均 {fmt(monthly_tax, decimals=0)}", delta_color="off")
     r4.metric("实际税率", f"{effective_rate:.2f}%", delta=f"边际税率 {marginal_rate_info}", delta_color="off")
     r5.metric("税后月到手", fmt(after_tax_monthly, decimals=0), delta=f"年税后 {fmt(after_tax_annual, decimals=0)}", delta_color="off")
+
+    st.session_state["dashboard_tax"] = {
+        "annual_tax": annual_tax,
+        "effective_rate": effective_rate,
+        "after_tax_monthly": after_tax_monthly,
+        "monthly_income_pretax": monthly_salary,
+    }
+    benchmark_inline("monthly_income", after_tax_monthly, label="税后月收入")
 
     yearly_rows = []
     monthly_rows = []

@@ -7,6 +7,9 @@ to compare against user's own financial situation.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
+
+import streamlit as st
 
 
 @dataclass(frozen=True)
@@ -93,3 +96,56 @@ def compare_to_benchmark(metric_name: str, user_value: float) -> dict:
         "percentile": pct,
         "verdict": verdict,
     }
+
+
+def benchmark_inline(
+    metric_name: str,
+    user_value: float,
+    label: str = "",
+    help_text: str = "",
+) -> None:
+    """Render an inline benchmark comparison bar in Streamlit.
+
+    Args:
+        metric_name: One of the benchmark keys.
+        user_value: User's current value.
+        label: Optional display label override.
+        help_text: Optional tooltip text.
+    """
+    result = compare_to_benchmark(metric_name, user_value)
+    if "error" in result:
+        return
+
+    benchmark_val = result["benchmark"]
+    unit = result["unit"]
+    verdict = result["verdict"]
+    direction = {
+        "savings_rate": "higher_better",
+        "monthly_income": "higher_better",
+        "debt_ratio": "lower_better",
+        "mortgage_ratio": "lower_better",
+        "retirement_savings": "higher_better",
+        "insurance_premium": "neutral",
+    }.get(metric_name, "neutral")
+
+    if direction == "higher_better":
+        color = "#00CC96" if user_value >= benchmark_val else "#FFA726"
+        icon = "🟢" if user_value >= benchmark_val else "🟡"
+    elif direction == "lower_better":
+        color = "#00CC96" if user_value <= benchmark_val else "#EF553B"
+        icon = "🟢" if user_value <= benchmark_val else "🔴"
+    else:
+        diff_pct = abs(user_value - benchmark_val) / max(benchmark_val, 1) * 100
+        color = "#00CC96" if diff_pct < 20 else "#FFA726"
+        icon = "🟢" if diff_pct < 20 else "🟡"
+
+    display_label = label or metric_name
+    tooltip = f"全国均值：{benchmark_val:,.0f} {unit}" + (f"\n{help_text}" if help_text else "")
+
+    st.markdown(
+        f"""<div title="{tooltip}" style="margin:4px 0; padding:6px 10px; border-radius:6px; background:rgba(128,128,128,0.08); border-left:3px solid {color}; font-size:0.85em;">
+        {icon} <b>{display_label}</b>: {user_value:,.0f} {unit} &nbsp;|&nbsp; 全国均值 {benchmark_val:,.0f} {unit} &nbsp;
+        <span style="color:{color}; font-weight:600;">{verdict}</span>
+        </div>""",
+        unsafe_allow_html=True,
+    )

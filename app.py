@@ -33,7 +33,11 @@ with st.sidebar:
     # Language selector (i18n)
     from core.i18n import locale_selector
     locale_selector()
-    
+
+    # Personal profile widget
+    from core.profile import profile_sidebar_widget
+    profile_sidebar_widget()
+
     st.markdown("---")
     st.markdown("### Eugene Finance")
     st.caption("✨ *Empower Your Knowledge, Enrich Your Life.*")
@@ -41,7 +45,7 @@ with st.sidebar:
     st.page_link("https://financial-analysis-agent-eugenefinance02.streamlit.app/", label="Fin-Analysis", icon="🤖")
     st.page_link("https://github.com/hantrleko?tab=repositories", label="GitHub 开源生态", icon="🐙")
 
-# ── 模块分类与导航路由 (v1.9.7) ─────────────────────────
+# ── 模块分类与导航路由 (v1.9.8) ─────────────────────────
 p_home = st.Page("home.py", title="仪表盘首页", icon="🏠", default=True)
 
 # 基础理财管理
@@ -74,6 +78,7 @@ p_historical = st.Page("pages/19_历史回测储蓄模拟.py", title="历史回�
 p_tax = st.Page("pages/12_税务计算器.py", title="税务计算器", icon="🧾")
 p_scenario = st.Page("pages/18_场景对比分析器.py", title="场景对比分析器", icon="🔬")
 p_calendar = st.Page("pages/21_财务日历.py", title="财务日历", icon="📅")
+p_reminders = st.Page("pages/22_财务提醒管理.py", title="财务提醒管理", icon="🔔")
 
 pg = st.navigation({
     "平台概览": [p_home],
@@ -81,7 +86,7 @@ pg = st.navigation({
     "资产与债务管理": [p_networth, p_loan, p_insurance, p_debt, p_realestate],
     "投资分析引擎": [p_quote, p_portfolio, p_backtest, p_rebalance, p_fx],
     "高级人生规划": [p_retirement, p_monte, p_withdrawal, p_historical],
-    "分析与工具": [p_tax, p_scenario, p_calendar],
+    "分析与工具": [p_tax, p_scenario, p_calendar, p_reminders],
 })
 
 pg.run()

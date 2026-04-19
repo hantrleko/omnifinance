@@ -12,6 +12,7 @@ import streamlit as st
 from core.theme import inject_theme
 inject_theme()
 
+from core.benchmarks import benchmark_inline
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
@@ -242,6 +243,8 @@ if pension_income > 0:
         future=fmt(future_pension, decimals=0),
         pv=fmt(pension_pv, decimals=0),
     ))
+
+benchmark_inline("retirement_savings", current_assets, label="当前退休储备")
 
 st.subheader("🧭 一页结论")
 if result_gap <= 0:

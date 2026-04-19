@@ -9,6 +9,7 @@ import streamlit as st
 from core.theme import inject_theme
 inject_theme()
 
+from core.benchmarks import benchmark_inline
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
@@ -101,6 +102,9 @@ c1, c2, c3 = st.columns(3)
 c1.metric("🏠 必需支出", fmt(amt_needs, decimals=0), delta=f"{pct_needs}%", delta_color="off")
 c2.metric("🎉 想要支出", fmt(amt_wants, decimals=0), delta=f"{pct_wants}%", delta_color="off")
 c3.metric(f"💰 {save_label}", fmt(amt_save, decimals=0), delta=f"{pct_save}%", delta_color="off")
+
+benchmark_inline("monthly_income", income, label="月收入")
+benchmark_inline("savings_rate", float(pct_save), label="储蓄率")
 
 # ── 固定支出超标警示 ──────────────────────────────────────
 if fixed_expense > 0:
