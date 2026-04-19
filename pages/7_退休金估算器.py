@@ -33,7 +33,6 @@ st.title("🏖️ 退休金需求估算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("👤 退休前参数")
-pass
 
 current_age = st.sidebar.number_input("目前年龄", 18, 80, 35)
 retire_age = st.sidebar.number_input("预计退休年龄", current_age + 1, 90, max(65, current_age + 1))
@@ -103,7 +102,15 @@ if _validation_errors:
 #  执行计算
 # ══════════════════════════════════════════════════════════
 
-result = calculate_retirement(
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_retirement(
+    current_age: int, retire_age: int, life_expectancy: int,
+    current_assets: float, monthly_saving: float, monthly_expense: float,
+    inflation: float, pre_return: float, post_return: float,
+) -> "RetirementResult":
+    return calculate_retirement(current_age, retire_age, life_expectancy, current_assets, monthly_saving, monthly_expense, inflation, pre_return, post_return)
+
+result = _cached_retirement(
     current_age, retire_age, life_expectancy,
     current_assets, monthly_saving, monthly_expense,
     inflation, pre_return, post_return,

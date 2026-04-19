@@ -27,7 +27,6 @@ st.title("💰 复利计算器")
 
 # ── 侧边栏：输入参数 ──────────────────────────────────────
 st.sidebar.header("📋 参数设置")
-pass
 
 mode = st.sidebar.radio("投资模式", ["一次性投资", "定期定投"], horizontal=True)
 
@@ -61,12 +60,19 @@ inflation_rate = st.sidebar.number_input(
 current_params = {"principal": principal, "annual_rate": annual_rate, "years": years, "freq": freq_label, "mode": mode, "contribution": contribution, "inflation_rate": inflation_rate}
 loaded = scheme_manager_ui("compound", current_params)
 
-schedule = compute_schedule(principal, annual_rate, years, n, contribution, contrib_freq_n, inflation_rate)
-schedule = add_annualized_return(schedule)
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_schedules(
+    principal: float, annual_rate: float, years: int, n: int,
+    contribution: float, contrib_freq_n: int, inflation_rate: float,
+) -> tuple:
+    sched = add_annualized_return(compute_schedule(principal, annual_rate, years, n, contribution, contrib_freq_n, inflation_rate))
+    sched_hi = compute_schedule(principal, annual_rate + 1, years, n, contribution, contrib_freq_n, inflation_rate)
+    sched_lo = compute_schedule(principal, max(0.0, annual_rate - 1), years, n, contribution, contrib_freq_n, inflation_rate)
+    return sched, sched_hi, sched_lo
 
-# 误差分析：利率 ±1%
-schedule_hi = compute_schedule(principal, annual_rate + 1, years, n, contribution, contrib_freq_n, inflation_rate)
-schedule_lo = compute_schedule(principal, max(0, annual_rate - 1), years, n, contribution, contrib_freq_n, inflation_rate)
+schedule, schedule_hi, schedule_lo = _cached_schedules(
+    principal, annual_rate, years, n, contribution, contrib_freq_n, inflation_rate
+)
 
 # ── 结果概览 ──────────────────────────────────────────────
 final = schedule.iloc[-1]

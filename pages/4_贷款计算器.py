@@ -33,7 +33,6 @@ sym = get_symbol()
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 贷款参数")
-pass
 
 loan_amount = st.sidebar.number_input(
     "贷款金额（元）",
@@ -97,11 +96,19 @@ if enable_prepay:
 #  执行计算
 # ══════════════════════════════════════════════════════════
 
-schedule, summary = calculate_loan(
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_loan(
+    loan_amount: float, annual_rate: float, loan_years: int, periods_per_year: int,
+    repay_method: str, prepay_period: int | None, prepay_amount: float,
+) -> tuple:
+    sched, summ = calculate_loan(loan_amount, annual_rate, loan_years, periods_per_year, repay_method, prepay_period, prepay_amount)
+    base_sched, base_summ = calculate_loan(loan_amount, annual_rate, loan_years, periods_per_year, repay_method)
+    return sched, summ, base_sched, base_summ
+
+schedule, summary, base_schedule, base_summary = _cached_loan(
     loan_amount, annual_rate, loan_years, periods_per_year, repay_method,
     int(prepay_period) if prepay_period is not None else None, prepay_amount,
 )
-base_schedule, base_summary = calculate_loan(loan_amount, annual_rate, loan_years, periods_per_year, repay_method)
 
 st.session_state["dashboard_loan"] = {
     "total_interest": summary["总利息"],

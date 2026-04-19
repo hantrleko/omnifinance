@@ -36,7 +36,6 @@ st.title("🎯 储蓄目标达成计算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 参数设置")
-pass
 
 current_savings = st.sidebar.number_input(
     "目前储蓄金额（元）",
@@ -105,7 +104,11 @@ scheme_manager_ui("savings", {
 #  执行计算
 # ══════════════════════════════════════════════════════════
 
-result = calculate_savings_goal(current_savings, goal_amount, annual_rate, effective_deposit)
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_savings(current_savings: float, goal_amount: float, annual_rate: float, effective_deposit: float) -> "SavingsResult":
+    return calculate_savings_goal(current_savings, goal_amount, annual_rate, effective_deposit)
+
+result = _cached_savings(current_savings, goal_amount, annual_rate, effective_deposit)
 
 st.session_state["dashboard_savings"] = {
     "months_needed": result.months_needed,

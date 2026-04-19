@@ -29,7 +29,6 @@ st.title("💡 50/30/20 预算分配建议器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
 st.sidebar.header("📋 收入与支出")
-pass
 
 income = st.sidebar.number_input(
     "月收入（税后，元）",
@@ -75,7 +74,11 @@ scheme_manager_ui("budget", {
 })
 
 # ── 计算 ──────────────────────────────────────────────────
-plan = calculate_budget(income, fixed_expense, pct_needs, pct_wants)
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_budget(income: float, fixed_expense: float, pct_needs: int, pct_wants: int):
+    return calculate_budget(income, fixed_expense, pct_needs, pct_wants)
+
+plan = _cached_budget(income, fixed_expense, pct_needs, pct_wants)
 amt_needs = plan.amt_needs
 amt_wants = plan.amt_wants
 amt_save = plan.amt_save
