@@ -141,4 +141,18 @@ def currency_selector(sidebar: bool = True) -> str:
     if code != st.session_state.get("currency"):
         _save_currency_pref(code)
     st.session_state["currency"] = code
+
+    try:
+        from core.exchange_rates import get_last_updated_str, is_live
+        live = is_live()
+        updated = get_last_updated_str()
+        status = "实时" if live else "离线参考"
+        container.caption(f"汇率：{status}数据，更新于 {updated}")
+        if container.button("🔄 刷新汇率", key="_refresh_rates"):
+            from core.exchange_rates import _fetch_rates
+            st.cache_data.clear()
+            st.rerun()
+    except Exception:
+        pass
+
     return code

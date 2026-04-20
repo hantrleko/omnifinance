@@ -77,7 +77,12 @@ worst_strategy = max(results, key=lambda k: results[k].total_interest)
 worst = results[worst_strategy]
 savings = worst.total_interest - best.total_interest
 if savings > 0:
-    st.success(f"✅ **{strategy_names[best_strategy]}** 是最优策略！相比最差方案可节省利息 **{fmt(savings, decimals=0)}**，提前 **{worst.months_to_payoff - best.months_to_payoff}** 个月还清。")
+    st.markdown(
+        f"""<div style="background:linear-gradient(90deg,#16a34a,#15803d);color:#fff;padding:16px 24px;border-radius:10px;font-size:1.1rem;font-weight:600;margin-bottom:8px;">
+        ✅ {strategy_names[best_strategy]} 是最优策略！相比最差方案可节省利息 {fmt(savings, decimals=0)}，提前 {worst.months_to_payoff - best.months_to_payoff} 个月还清。
+        </div>""",
+        unsafe_allow_html=True,
+    )
 
 # ── Balance over time chart ───────────────────────────────
 st.markdown("---")
@@ -128,6 +133,60 @@ fig2.update_layout(**build_layout(
     yaxis_tickformat=",.0f",
 ))
 st.plotly_chart(fig2, use_container_width=True)
+
+# ── Gantt: payoff milestones ──────────────────────────────
+st.markdown("---")
+st.subheader("🗺️ 还清里程碑 Gantt 图")
+st.caption("各债务在最优策略下的还清时间段")
+
+gantt_result = results[best_strategy]
+gantt_colors = ["#2563eb", "#ef4444", "#16a34a", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6"]
+
+fig_gantt = go.Figure()
+summary_df = gantt_result.per_debt_summary.copy()
+for idx, row in summary_df.iterrows():
+    debt_name = row.get("债务名称", row.get("名称", f"债务{idx+1}"))
+    payoff_month = int(row.get("还清月份", row.get("月数", best.months_to_payoff)))
+    color = gantt_colors[idx % len(gantt_colors)]
+    fig_gantt.add_trace(go.Bar(
+        y=[debt_name],
+        x=[payoff_month],
+        base=[0],
+        orientation="h",
+        marker_color=color,
+        name=debt_name,
+        text=f"{payoff_month}个月",
+        textposition="inside",
+        hovertemplate=f"{debt_name}<br>预计 %{{x}} 个月还清<extra></extra>",
+    ))
+
+fig_gantt.update_layout(**build_layout(
+    title=f"{strategy_names[best_strategy]} — 各债务还清时间轴",
+    xaxis_title="月份",
+    yaxis_title="债务",
+    xaxis=dict(range=[0, best.months_to_payoff + 2]),
+), barmode="overlay", showlegend=False)
+st.plotly_chart(fig_gantt, use_container_width=True)
+
+# ── Snowball motivation tip ────────────────────────────────
+snowball_result = results["snowball"]
+snowball_summary = snowball_result.per_debt_summary
+if not snowball_summary.empty:
+    first_payoff_col = "还清月份" if "还清月份" in snowball_summary.columns else ("月数" if "月数" in snowball_summary.columns else None)
+    if first_payoff_col:
+        min_row = snowball_summary.loc[snowball_summary[first_payoff_col].idxmin()]
+        first_name = min_row.get("债务名称", min_row.get("名称", "首笔债务"))
+        first_month = int(min_row[first_payoff_col])
+        first_yr, first_mo = first_month // 12, first_month % 12
+        time_str = (f"{first_yr}年{first_mo}个月" if first_yr > 0 else f"{first_mo}个月")
+        motivation_messages = [
+            f"仅需 {time_str}，「{first_name}」将彻底还清。每次到账日都是一小步，{time_str}后将是一大跨越！",
+            f"坚持 {time_str} 后，「{first_name}」将成为历史！少一笔债务，多一份自由。",
+            f"距离消灭「{first_name}」只差 {time_str}！终点就在眼前，继续前进！",
+        ]
+        import hashlib
+        seed = int(hashlib.md5(first_name.encode()).hexdigest(), 16) % 3
+        st.info(f"💪 **心理动力提示**：{motivation_messages[seed]}")
 
 # ── Strategy explanation ──────────────────────────────────
 st.markdown("---")

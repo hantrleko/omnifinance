@@ -28,7 +28,20 @@ sym = get_symbol()
 st.sidebar.header("📋 参数设置")
 
 st.sidebar.subheader("汇率与利率")
-spot_rate = st.sidebar.number_input("即期汇率 (外币/本币)", min_value=0.001, value=7.25, step=0.01, format="%.4f", help="如 USD/CNY = 7.25")
+
+_default_spot = 7.25
+try:
+    from core.exchange_rates import get_rate as _get_rate, get_last_updated_str as _get_ts, is_live as _is_live
+    _live_rate = _get_rate("USD", "CNY")
+    if st.sidebar.button("获取实时 USD/CNY"):
+        _default_spot = _live_rate
+        st.sidebar.caption(f"已填入实时汇率 {_live_rate:.4f}（{'实时' if _is_live() else '离线参考'}，{_get_ts()}）")
+    else:
+        st.sidebar.caption(f"参考汇率 USD/CNY: {_live_rate:.4f}（{'实时' if _is_live() else '离线参考'}，{_get_ts()}）")
+except Exception:
+    pass
+
+spot_rate = st.sidebar.number_input("即期汇率 (外币/本币)", min_value=0.001, value=_default_spot, step=0.01, format="%.4f", help="如 USD/CNY = 7.25")
 domestic_rate = st.sidebar.slider("本币年化利率(%)", min_value=0.0, max_value=20.0, value=2.5, step=0.1, help="本国无风险利率")
 foreign_rate = st.sidebar.slider("外币年化利率(%)", min_value=0.0, max_value=20.0, value=5.0, step=0.1, help="外国无风险利率")
 hedge_period_months = st.sidebar.slider("对冲期限(月)", min_value=1, max_value=60, value=12, step=1)

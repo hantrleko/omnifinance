@@ -140,6 +140,25 @@ def generate_html_report(metrics_dict: dict) -> str:
         </div>
         """)
 
+    # Exchange rate snapshot card
+    try:
+        from core.exchange_rates import get_all_rates, is_live, get_last_updated_str
+        rates = get_all_rates()
+        live_label = "实时" if is_live() else "离线参考"
+        rate_rows = "".join(
+            f"<tr><td style='text-align:left'>{code}</td><td>{rate:.4f} CNY</td></tr>"
+            for code, rate in rates.items() if code != "CNY"
+        )
+        sections.append(f"""
+        <div class="card">
+            <h3>💱 汇率快照（{live_label}，{get_last_updated_str()}）</h3>
+            <table><thead><tr><th style='text-align:left'>货币</th><th>兑 CNY</th></tr></thead>
+            <tbody>{rate_rows}</tbody></table>
+        </div>
+        """)
+    except Exception:
+        pass
+
     if not sections:
         sections.append("<div class='card' style='text-align:center;'><p><strong>未检测到交互数据记录。</strong><br>提示：请您先进入左侧任意子页面完成计算测评，稍后生成的报告将会自动捕获所有关联结果与雷达图数据。</p></div>")
 
