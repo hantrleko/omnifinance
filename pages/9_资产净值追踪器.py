@@ -16,7 +16,6 @@ from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
 
 st.set_page_config(page_title="资产净值追踪器", page_icon="🏠", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("🏠 资产净值追踪器")
 
 st.sidebar.header("📋 设置")

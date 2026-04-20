@@ -16,7 +16,6 @@ from core.currency import fmt, get_symbol
 from core.planning import solve_irr
 
 st.set_page_config(page_title="科学金融计算器", page_icon="🧮", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("🧮 科学 + 金融计算器")
 st.caption("科学计算与常用金融公式的统一工具台")
 
@@ -63,6 +62,12 @@ with col_sci:
     )
     st.session_state["calc_expr"] = expr_display
 
+    _OPERATORS = {"÷", "×", "-", "+", "(", ")", "**2", "**0.5"}
+    _FUNCTIONS = {"sin(", "cos(", "tan(", "sqrt(", "log(", "log10(", "exp(", "factorial("}
+    _SPECIALS = {"AC", "⌫"}
+    _EQUALS = {"="}
+    _CONSTANTS = {"π", "e"}
+
     btn_rows = [
         ["7", "8", "9", "÷", "sin(", "cos("],
         ["4", "5", "6", "×", "tan(", "sqrt("],
@@ -72,28 +77,46 @@ with col_sci:
         ["AC", "="],
     ]
 
+    def _btn_css_class(lbl: str) -> str:
+        if lbl in _EQUALS:
+            return "calc-btn-equals"
+        if lbl in _SPECIALS:
+            return "calc-btn-special"
+        if lbl in _OPERATORS or lbl in _CONSTANTS:
+            return "calc-btn-operator"
+        if lbl in _FUNCTIONS:
+            return "calc-btn-function"
+        return ""
+
     for row in btn_rows:
         cols_btn = st.columns(len(row))
         for i, label in enumerate(row):
-            if cols_btn[i].button(label, key=f"btn_{label}_{i}", use_container_width=True):
-                if label == "AC":
-                    st.session_state["calc_expr"] = ""
-                elif label == "⌫":
-                    st.session_state["calc_expr"] = st.session_state["calc_expr"][:-1]
-                elif label == "=":
-                    r = _safe_eval(st.session_state["calc_expr"])
-                    history_entry = f"{st.session_state['calc_expr']} = {r}"
-                    st.session_state["calc_history"] = [history_entry] + st.session_state["calc_history"][:9]
-                    st.session_state["calc_expr"] = r if not r.startswith("错误") else st.session_state["calc_expr"]
-                elif label == "π":
-                    st.session_state["calc_expr"] += "pi"
-                elif label == "×":
-                    st.session_state["calc_expr"] += "*"
-                elif label == "÷":
-                    st.session_state["calc_expr"] += "/"
-                else:
-                    st.session_state["calc_expr"] += label
-                st.rerun()
+            css_cls = _btn_css_class(label)
+            with cols_btn[i]:
+                if css_cls:
+                    st.markdown(f'<div class="{css_cls}">', unsafe_allow_html=True)
+                clicked = st.button(label, key=f"btn_{label}_{i}", use_container_width=True)
+                if css_cls:
+                    st.markdown("</div>", unsafe_allow_html=True)
+                if clicked:
+                    if label == "AC":
+                        st.session_state["calc_expr"] = ""
+                    elif label == "⌫":
+                        st.session_state["calc_expr"] = st.session_state["calc_expr"][:-1]
+                    elif label == "=":
+                        r = _safe_eval(st.session_state["calc_expr"])
+                        history_entry = f"{st.session_state['calc_expr']} = {r}"
+                        st.session_state["calc_history"] = [history_entry] + st.session_state["calc_history"][:9]
+                        st.session_state["calc_expr"] = r if not r.startswith("错误") else st.session_state["calc_expr"]
+                    elif label == "π":
+                        st.session_state["calc_expr"] += "pi"
+                    elif label == "×":
+                        st.session_state["calc_expr"] += "*"
+                    elif label == "÷":
+                        st.session_state["calc_expr"] += "/"
+                    else:
+                        st.session_state["calc_expr"] += label
+                    st.rerun()
 
     if st.session_state["calc_history"]:
         with st.expander("🕘 最近 10 条历史记录"):

@@ -24,13 +24,6 @@ from core.storage import scheme_manager_ui
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="储蓄目标计算器", page_icon="🎯", layout="wide")
 
-st.markdown("""
-<style>
-  .block-container { padding-top: 1.2rem; }
-  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
-  .achieved { background: #1b5e20 !important; border-color: #4caf50 !important; }
-</style>
-""", unsafe_allow_html=True)
 
 st.title("🎯 储蓄目标达成计算器")
 

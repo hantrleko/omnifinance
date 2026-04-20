@@ -33,12 +33,6 @@ _logger = logging.getLogger(__name__)
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="投资组合优化器", page_icon="📐", layout="wide")
 
-st.markdown("""
-<style>
-  .block-container { padding-top: 1.2rem; }
-  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
-</style>
-""", unsafe_allow_html=True)
 
 st.title("📐 投资组合优化器")
 st.caption("基于马科维茨均值-方差模型，计算最大夏普比率组合与最小方差组合，并展示有效前沿。")

@@ -1,5 +1,24 @@
 import streamlit as st
 
+VERSION = "v1.9.9"
+
+_STANDARD_PAGE_CSS = """
+<style>
+  .block-container { padding-top: 1.2rem; }
+  .stMetric {
+    background-color: var(--secondary-background-color);
+    border: 1px solid rgba(128,128,128,0.15) !important;
+    border-radius: 10px !important;
+    padding: 14px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+</style>
+"""
+
+def inject_page_css() -> None:
+    st.markdown(_STANDARD_PAGE_CSS, unsafe_allow_html=True)
+
+
 def inject_theme():
     """
     Injects a premium UI theme into Streamlit.
@@ -114,10 +133,49 @@ def inject_theme():
             background-color: transparent !important;
         }}
         
-        /* Headers gradient */
+        /* Headers */
         h1, h2, h3 {{
             letter-spacing: -0.02em;
+        }}
+
+        /* Sidebar input labels: tighter */
+        [data-testid="stSidebar"] .stNumberInput label,
+        [data-testid="stSidebar"] .stSelectbox label,
+        [data-testid="stSidebar"] .stSlider label {{
+            font-size: 0.85rem;
+        }}
+
+        /* Download buttons */
+        div.stDownloadButton > button {{
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }}
+        div.stDownloadButton > button:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px {hover_shadow};
+        }}
+
+        /* Calculator button categories */
+        .calc-btn-operator > div > button {{
+            background-color: {"rgba(0,120,212,0.22)" if dark_mode else "rgba(0,100,200,0.10)"} !important;
+            border-color: rgba(0,120,212,0.40) !important;
+        }}
+        .calc-btn-function > div > button {{
+            background-color: {"rgba(0,168,120,0.20)" if dark_mode else "rgba(0,140,100,0.10)"} !important;
+            border-color: rgba(0,168,120,0.40) !important;
+            font-size: 0.80rem !important;
+        }}
+        .calc-btn-special > div > button {{
+            background-color: {"rgba(200,60,60,0.22)" if dark_mode else "rgba(180,30,30,0.10)"} !important;
+            border-color: rgba(200,60,60,0.40) !important;
+        }}
+        .calc-btn-equals > div > button {{
+            background-color: {"rgba(0,150,255,0.30)" if dark_mode else "rgba(0,120,220,0.18)"} !important;
+            border-color: rgba(0,150,255,0.55) !important;
+            font-weight: 700 !important;
         }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
+    inject_page_css()

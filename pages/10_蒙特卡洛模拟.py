@@ -22,12 +22,6 @@ from core.montecarlo import run_retirement_montecarlo
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="蒙特卡洛模拟", page_icon="🎲", layout="wide")
 
-st.markdown("""
-<style>
-  .block-container { padding-top: 1.2rem; }
-  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
-</style>
-""", unsafe_allow_html=True)
 
 st.title("🎲 动态蒙特卡洛退休规划模拟")
 st.caption("基于随机收益路径，量化退休资产的不确定性。置信区间宽度越宽，说明结果不确定性越高。")

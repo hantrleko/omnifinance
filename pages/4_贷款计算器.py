@@ -20,12 +20,6 @@ inject_theme()
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="贷款计算器", page_icon="🏦", layout="wide")
 
-st.markdown("""
-<style>
-  .block-container { padding-top: 1.2rem; }
-  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
-</style>
-""", unsafe_allow_html=True)
 
 st.title("🏦 贷款计算器")
 

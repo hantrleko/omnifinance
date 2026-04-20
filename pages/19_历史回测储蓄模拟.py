@@ -19,7 +19,6 @@ from core.config import MSG
 from core.currency import fmt, get_symbol
 
 st.set_page_config(page_title="历史回测储蓄模拟", page_icon="📜", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("📜 历史回测储蓄模拟")
 st.caption("用历史市场真实回报率验证定投计划，对比假设收益 vs 实际结果")
 

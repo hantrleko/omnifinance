@@ -13,7 +13,6 @@ from core.reminders import (
 )
 
 st.set_page_config(page_title="财务提醒管理", page_icon="🔔", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("🔔 财务提醒管理器")
 st.caption("集中管理所有财务提醒事项，再也不错过缴款、定投或复盘日期。")
 

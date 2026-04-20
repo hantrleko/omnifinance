@@ -22,12 +22,6 @@ from core.storage import scheme_manager_ui
 
 st.set_page_config(page_title="税务计算器", page_icon="🧾", layout="wide")
 
-st.markdown("""
-<style>
-  .block-container { padding-top: 1.2rem; }
-  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 14px; }
-</style>
-""", unsafe_allow_html=True)
 
 st.title("🧾 税务计算器")
 st.caption("计算中国个人所得税、劳务报酬所得税及投资收益税后回报，帮助进行税务规划。")

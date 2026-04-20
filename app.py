@@ -44,6 +44,8 @@ with st.sidebar:
     st.markdown("🔗 **旗下服务矩阵**")
     st.page_link("https://financial-analysis-agent-eugenefinance02.streamlit.app/", label="Fin-Analysis", icon="🤖")
     st.page_link("https://github.com/hantrleko?tab=repositories", label="GitHub 开源生态", icon="🐙")
+    from core.theme import VERSION as _VER
+    st.caption(f"OmniFinance {_VER}")
 
 # ── 模块分类与导航路由 (v1.9.9) ─────────────────────────
 p_home = st.Page("home.py", title="仪表盘首页", icon="🏠", default=True)

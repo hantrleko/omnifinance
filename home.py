@@ -22,6 +22,29 @@ st.markdown("""
 
 with st.expander("🚀 重大版本升级（v1.9.9）", expanded=True):
     st.markdown("""
+**v1.9.9-UI 全局 UI/UX 系统性升级（当前版本）**
+
+🎨 **主题系统重构**
+- `core/theme.py` 新增 `inject_page_css()` 全局统一注入：所有 25 个页面的 `.block-container` 顶部间距与 `.stMetric` 卡片样式现已一键全局管理，彻底消除各页面重复 CSS 代码。
+- 指标卡片新增 hover 微动效：悬停时轻微上浮 + 蓝色阴影，提升交互质感。
+- 下载按钮统一加入圆角 + 过渡动效，与普通按钮视觉语言保持一致。
+- 侧边栏输入标签字号收窄至 0.85rem，减少视觉拥挤感。
+
+🧮 **科学计算器按钮视觉分层**
+- 运算符（÷ × - +）：蓝色调背景，一眼识别数学运算区。
+- 数学函数（sin cos tan sqrt log exp）：绿色调背景 + 较小字号，区分高级运算区。
+- 清除/退格（AC ⌫）：红色调背景，危险操作区域高亮警示。
+- 等号（=）：强蓝色高亮，主操作按钮优先级最高。
+
+📌 **侧边栏版本标识**
+- 所有页面侧边栏底部新增 `OmniFinance v1.9.9` 版本标注，方便用户快速识别当前版本。
+
+🧹 **页面 CSS 标准化**
+- 删除分散在 23 个页面中的重复内联 CSS 代码块，统一由 `inject_theme()` 管理，代码可维护性大幅提升。
+- 实时报价面板保留 `.time-badge` 专属样式，其余冗余 CSS 全部清理。
+
+---
+
 **v1.9.9 实时汇率引擎 + 三大新工具 + 全面功能深化**
 
 💱 **实时汇率引擎（core/exchange_rates.py）**
@@ -321,9 +344,10 @@ if has_data:
 
         st.metric("💯 综合财务健康评分", f"{overall_score}/100", delta=overall_grade)
 
-        dim_cols = st.columns(len(dim_scores))
+        _n_dim_cols = min(3, len(dim_scores))
+        dim_cols = st.columns(_n_dim_cols)
         for idx, (name, score_v, tip, grade) in enumerate(dim_scores):
-            with dim_cols[idx]:
+            with dim_cols[idx % _n_dim_cols]:
                 st.metric(name, f"{score_v}/100", delta=grade)
                 st.caption(tip)
 

@@ -18,7 +18,6 @@ from core.config import MSG
 from core.currency import fmt, get_symbol
 
 st.set_page_config(page_title="税务优化提款策略", page_icon="🏦", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("🏦 税务优化提款策略")
 st.caption("优化退休阶段从不同类型账户（应税/延税/免税）的提款顺序，最小化终身税负")
 

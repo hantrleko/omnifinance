@@ -18,7 +18,6 @@ from core.config import MSG
 from core.currency import fmt, get_symbol
 
 st.set_page_config(page_title="外汇对冲计算器", page_icon="💱", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("💱 外汇对冲计算器")
 st.caption("评估多币种资产敞口，计算远期汇率与对冲成本（利率平价法）")
 

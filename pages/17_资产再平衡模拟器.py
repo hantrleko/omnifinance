@@ -19,7 +19,6 @@ from core.config import MSG
 from core.currency import fmt, get_symbol
 
 st.set_page_config(page_title="资产再平衡模拟器", page_icon="⚖️", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("⚖️ 资产再平衡模拟器")
 st.caption("对比定期再平衡、阈值再平衡与买入持有策略的长期收益差异")
 

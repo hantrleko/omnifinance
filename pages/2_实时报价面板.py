@@ -78,11 +78,9 @@ _ASHARE_LABELS: dict[str, str] = {
 
 st.markdown("""
 <style>
-  .block-container { padding-top: 1.5rem; }
-  .stMetric { background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color); border-radius: 8px; padding: 12px; }
-  div[data-testid="stMetricValue"] { font-size: 1.1rem; }
   .time-badge {
-      display: inline-block; background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color);
+      display: inline-block; background-color: var(--secondary-background-color);
+      border: 1px solid rgba(128,128,128,0.2);
       border-radius: 6px; padding: 4px 12px; font-size: 13px; color: #aaa;
   }
 </style>

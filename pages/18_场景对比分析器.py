@@ -19,7 +19,6 @@ from core.currency import fmt, get_symbol
 from core.scenarios import run_inflation_scenarios, run_return_scenarios
 
 st.set_page_config(page_title="场景对比分析器", page_icon="🔬", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("🔬 场景对比分析器")
 st.caption("跨工具 What-If 分析 — 同一参数变动在复利、储蓄、退休、贷款中的联动影响")
 

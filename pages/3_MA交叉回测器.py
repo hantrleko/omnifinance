@@ -39,15 +39,6 @@ _logger = logging.getLogger(__name__)
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="策略回测器", page_icon="📈", layout="wide")
 
-st.markdown("""
-<style>
-  .block-container { padding-top: 1.2rem; }
-  .time-badge {
-      display: inline-block; background-color: var(--secondary-background-color); border: 1px solid var(--secondary-background-color);
-      border-radius: 6px; padding: 4px 12px; font-size: 13px; color: #aaa;
-  }
-</style>
-""", unsafe_allow_html=True)
 
 st.title("📈 策略回测器")
 

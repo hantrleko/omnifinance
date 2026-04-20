@@ -21,7 +21,6 @@ from core.currency import fmt, get_symbol
 from core.report_generator import build_single_report
 
 st.set_page_config(page_title="财务日记", page_icon="📔", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("📔 财务日记")
 st.caption("记录每月净资产快照与心情标注，追踪财务旅程")
 
@@ -144,7 +143,8 @@ st.dataframe(pd.DataFrame(display_rows), use_container_width=True, hide_index=Tr
 # ── Delete entry ───────────────────────────────────────────
 with st.expander("🗑️ 删除记录"):
     del_date = st.selectbox("选择要删除的日期", [e["date"] for e in entries])
-    if st.button("确认删除", type="secondary"):
+    _confirm_del = st.checkbox(f"我确认永久删除 **{del_date}** 的记录，此操作不可撤销", key="del_confirm")
+    if st.button("确认删除", type="secondary", disabled=not _confirm_del):
         entries = [e for e in entries if e["date"] != del_date]
         _save_entries(entries)
         st.success(f"已删除 {del_date} 的记录。")

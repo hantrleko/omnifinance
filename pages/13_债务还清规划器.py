@@ -17,7 +17,6 @@ from core.currency import fmt, get_symbol
 from core.debt import DebtItem, compare_strategies, simulate_payoff
 
 st.set_page_config(page_title="债务还清规划器", page_icon="💳", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("💳 债务还清规划器")
 st.caption("对比雪球法（最小余额优先）、雪崩法（最高利率优先）和混合法，找到最优还款策略")
 

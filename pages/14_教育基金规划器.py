@@ -16,7 +16,6 @@ from core.currency import fmt, get_symbol
 from core.education import calculate_education_fund
 
 st.set_page_config(page_title="教育基金规划器", page_icon="🏫", layout="wide")
-st.markdown("""<style>.block-container{padding-top:1.2rem}.stMetric{background-color:var(--secondary-background-color);border:1px solid var(--secondary-background-color);border-radius:8px;padding:14px}</style>""", unsafe_allow_html=True)
 st.title("🏫 教育基金规划器")
 st.caption("规划子女教育经费，模拟定投增长路径，评估奖学金影响")
 
