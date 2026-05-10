@@ -11,7 +11,9 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.chart_config import build_layout
@@ -95,11 +97,7 @@ def simulate_strategy(strategy: str) -> tuple[list[float], int, float]:
 
         # Check rebalancing
         should_rebal = False
-        if strategy == "monthly":
-            should_rebal = True
-        elif strategy == "quarterly" and (m + 1) % 3 == 0:
-            should_rebal = True
-        elif strategy == "annually" and (m + 1) % 12 == 0:
+        if strategy == "monthly" or strategy == "quarterly" and (m + 1) % 3 == 0 or strategy == "annually" and (m + 1) % 12 == 0:
             should_rebal = True
         elif strategy == "threshold":
             current_weights = allocations / total if total > 0 else np.zeros(n)

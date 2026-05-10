@@ -1,10 +1,8 @@
 """Tests for core/retirement.py — dual-phase retirement calculation."""
 
-import math
 import pytest
 
-from core.retirement import calculate_retirement, RetirementResult
-
+from core.retirement import RetirementResult, calculate_retirement
 
 # ── Fixtures ──────────────────────────────────────────────
 

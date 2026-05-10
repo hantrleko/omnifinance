@@ -22,7 +22,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 #  Per-page default parameter groups
 # ══════════════════════════════════════════════════════════════════════════════

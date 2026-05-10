@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
-import numpy as np
 import pandas as pd
-
 
 # ── Dataclass / TypedDict definitions ───────────────────────
 
@@ -83,7 +81,7 @@ def solve_irr(cash_flows: list[float], tol: float = 1e-10, max_iter: int = 1000)
         Returns the last computed estimate if all methods fail.
     """
     rate = 0.005
-    for iteration in range(max_iter):
+    for _iteration in range(max_iter):
         npv = sum(cf / (1 + rate) ** t for t, cf in enumerate(cash_flows))
         dnpv = sum(-t * cf / (1 + rate) ** (t + 1) for t, cf in enumerate(cash_flows))
         if abs(dnpv) < 1e-14:
@@ -119,7 +117,7 @@ def calculate_loan(
     years: int,
     periods_per_year: int,
     method: str,
-    extra_payment_period: Optional[int] = None,
+    extra_payment_period: int | None = None,
     extra_payment_amount: float = 0.0,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Calculate a loan amortisation schedule and summary metrics.

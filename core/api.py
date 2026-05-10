@@ -1,26 +1,47 @@
 """FastAPI endpoint layer for OmniFinance core calculations.
 
 Provides REST API access to core financial calculation engines.
-Run separately: `uvicorn core.api:app --host 0.0.0.0 --port 8000`
+Run separately::
+
+    uvicorn core.api:app --host 0.0.0.0 --port 8000
 
 This module wraps core business logic functions as HTTP endpoints,
 enabling mobile app integration and third-party access.
+
+Design notes
+------------
+- FastAPI is an *optional* dependency. When it is unavailable, importing
+  this module still succeeds, ``app`` is ``None``, and ``create_app()``
+  raises a clear :class:`ImportError`. This avoids silent breakage of the
+  Streamlit app whose ``requirements.txt`` does not pin FastAPI.
+- All unhandled exceptions are logged and surface to the client as a
+  generic 500 error to avoid leaking internal details.
 """
 
 from __future__ import annotations
 
+import logging
+from typing import Any
+
+from core.version import __version__
+
+logger = logging.getLogger(__name__)
+
 try:
     from fastapi import FastAPI, HTTPException
     from pydantic import BaseModel, field_validator
+
     HAS_FASTAPI = True
-except ImportError:
+except ImportError:  # pragma: no cover - exercised only without FastAPI installed
     HAS_FASTAPI = False
 
-if HAS_FASTAPI:
-    app = FastAPI(
+
+def _build_app() -> FastAPI:
+    """Construct and return a configured FastAPI application instance."""
+    application = FastAPI(
         title="OmniFinance API",
         description="Financial calculation endpoints for OmniFinance",
-        version="1.9.8",
+        version=__version__,
     )
 
     class CompoundRequest(BaseModel):
@@ -142,85 +163,137 @@ if HAS_FASTAPI:
                 raise ValueError("Percentage must be between 0 and 100")
             return v
 
-    def _success(data: dict) -> dict:
+    def _success(data: dict[str, Any]) -> dict[str, Any]:
         return {"success": True, "data": data}
 
-    @app.get("/")
-    def root() -> dict:
-        return {"app": "OmniFinance API", "version": "1.9.8", "status": "running"}
+    def _safe_call(action: str, fn):  # type: ignore[no-untyped-def]
+        """Run *fn* and convert exceptions to safe HTTP responses.
 
-    @app.get("/health")
-    def health() -> dict:
+        ``ValueError`` is treated as 400 (client input error). Anything else
+        is logged with traceback and surfaced as a generic 500 to avoid
+        leaking internal implementation details.
+        """
+        try:
+            return fn()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001 — top-level boundary by design
+            logger.exception("Unhandled error in endpoint %s", action)
+            raise HTTPException(  # noqa: B904
+                status_code=500,
+                detail="Internal server error. Please retry or contact support.",
+            ) from exc
+
+    @application.get("/")
+    def root() -> dict[str, Any]:
+        return {"app": "OmniFinance API", "version": __version__, "status": "running"}
+
+    @application.get("/health")
+    def health() -> dict[str, Any]:
         return {"status": "healthy"}
 
-    @app.post("/api/compound")
-    def api_compound(req: CompoundRequest) -> dict:
-        try:
+    @application.post("/api/compound")
+    def api_compound(req: CompoundRequest) -> dict[str, Any]:
+        def _do() -> dict[str, Any]:
             from core.compound import compute_schedule
+
             df = compute_schedule(
-                principal=req.principal, annual_rate_pct=req.annual_rate_pct,
-                years=req.years, compound_freq=req.compound_freq,
-                contribution=req.contribution, contrib_freq=req.contrib_freq,
+                principal=req.principal,
+                annual_rate_pct=req.annual_rate_pct,
+                years=req.years,
+                compound_freq=req.compound_freq,
+                contribution=req.contribution,
+                contrib_freq=req.contrib_freq,
                 inflation_pct=req.inflation_pct,
             )
-            return _success({
-                "schedule": df.head(100).to_dict(orient="records"),
-                "final_balance": float(df.iloc[-1]["年末余额"]),
-                "total_rows": len(df),
-            })
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=str(exc))
-
-    @app.post("/api/savings")
-    def api_savings(req: SavingsRequest) -> dict:
-        try:
-            from core.savings import calculate_savings_goal
-            result = calculate_savings_goal(
-                current=req.current, goal=req.goal,
-                annual_rate_pct=req.annual_rate_pct, monthly_deposit=req.monthly_deposit,
+            return _success(
+                {
+                    "schedule": df.head(100).to_dict(orient="records"),
+                    "final_balance": float(df.iloc[-1]["年末余额"]),
+                    "total_rows": len(df),
+                }
             )
-            return _success({
-                "reached": result.reached,
-                "months_needed": result.months_needed,
-                "total_deposited": result.total_deposited,
-                "total_interest": result.total_interest,
-            })
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=str(exc))
 
-    @app.post("/api/loan")
-    def api_loan(req: LoanRequest) -> dict:
-        try:
+        return _safe_call("compound", _do)
+
+    @application.post("/api/savings")
+    def api_savings(req: SavingsRequest) -> dict[str, Any]:
+        def _do() -> dict[str, Any]:
+            from core.savings import calculate_savings_goal
+
+            result = calculate_savings_goal(
+                current=req.current,
+                goal=req.goal,
+                annual_rate_pct=req.annual_rate_pct,
+                monthly_deposit=req.monthly_deposit,
+            )
+            return _success(
+                {
+                    "reached": result.reached,
+                    "months_needed": result.months_needed,
+                    "total_deposited": result.total_deposited,
+                    "total_interest": result.total_interest,
+                }
+            )
+
+        return _safe_call("savings", _do)
+
+    @application.post("/api/loan")
+    def api_loan(req: LoanRequest) -> dict[str, Any]:
+        def _do() -> dict[str, Any]:
             from core.planning import calculate_loan
+
             df, summary = calculate_loan(
-                principal=req.principal, annual_rate_pct=req.annual_rate_pct,
-                years=req.years, periods_per_year=req.periods_per_year, method=req.method,
+                principal=req.principal,
+                annual_rate_pct=req.annual_rate_pct,
+                years=req.years,
+                periods_per_year=req.periods_per_year,
+                method=req.method,
             )
             return _success({"summary": summary, "periods": len(df)})
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=str(exc))
 
-    @app.post("/api/budget")
-    def api_budget(req: BudgetRequest) -> dict:
-        try:
+        return _safe_call("loan", _do)
+
+    @application.post("/api/budget")
+    def api_budget(req: BudgetRequest) -> dict[str, Any]:
+        def _do() -> dict[str, Any]:
             from core.planning import calculate_budget
+
             result = calculate_budget(
-                income=req.income, fixed_expense=req.fixed_expense,
-                pct_needs=req.pct_needs, pct_wants=req.pct_wants,
+                income=req.income,
+                fixed_expense=req.fixed_expense,
+                pct_needs=req.pct_needs,
+                pct_wants=req.pct_wants,
             )
-            return _success({
-                "amt_needs": result.amt_needs,
-                "amt_wants": result.amt_wants,
-                "amt_save": result.amt_save,
-                "pct_save": result.pct_save,
-            })
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=str(exc))
+            return _success(
+                {
+                    "amt_needs": result.amt_needs,
+                    "amt_wants": result.amt_wants,
+                    "amt_save": result.amt_save,
+                    "pct_save": result.pct_save,
+                }
+            )
 
-else:
-    app = None
+        return _safe_call("budget", _do)
 
-    def create_app():
+    return application
+
+
+def create_app() -> FastAPI:
+    """Application factory.
+
+    Raises:
+        ImportError: If FastAPI / Pydantic are not installed.
+    """
+    if not HAS_FASTAPI:
         raise ImportError(
-            "FastAPI is not installed. Install with: pip install fastapi uvicorn"
+            "FastAPI is not installed. Install with: pip install -r requirements-api.txt"
         )
+    return _build_app()
+
+
+# Module-level ASGI app: ``uvicorn core.api:app``. ``None`` when FastAPI is
+# unavailable, so that importing this module never crashes the Streamlit app.
+app: FastAPI | None = _build_app() if HAS_FASTAPI else None

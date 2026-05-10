@@ -11,7 +11,9 @@ from datetime import date
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.chart_config import build_layout
@@ -398,8 +400,9 @@ st.subheader("🗂️ 多目标储蓄规划")
 st.caption("同时规划多个储蓄目标（如购房、旅行、教育），并对比各目标所需时间。数据自动保存到本地。")
 
 # Load multi-goals from persistent storage
-from core.storage import save_scheme, load_scheme, list_schemes, delete_scheme
 import json
+
+from core.storage import delete_scheme, list_schemes, load_scheme, save_scheme
 
 _MG_TOOL = "multi_goals"
 
@@ -443,7 +446,7 @@ with st.expander("➕ 添加新目标", expanded=len(st.session_state["multi_goa
 
 if st.session_state["multi_goals"]:
     mg_results = []
-    for idx, goal_item in enumerate(st.session_state["multi_goals"]):
+    for _idx, goal_item in enumerate(st.session_state["multi_goals"]):
         mg_r = calculate_savings_goal(
             goal_item["当前已存"],
             goal_item["目标金额"],
@@ -468,7 +471,7 @@ if st.session_state["multi_goals"]:
     st.dataframe(mg_df, use_container_width=True, hide_index=True)
 
     st.markdown("**目标进度可视化**")
-    for idx, (goal_item, mg_res) in enumerate(zip(st.session_state["multi_goals"], mg_results)):
+    for _idx, (goal_item, mg_res) in enumerate(zip(st.session_state["multi_goals"], mg_results, strict=False)):
         pct = min(1.0, goal_item["当前已存"] / goal_item["目标金额"])
         priority_icon = {"高": "🔴", "中": "🟡", "低": "🟢"}.get(goal_item["优先级"], "")
         st.progress(

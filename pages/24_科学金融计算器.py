@@ -9,7 +9,9 @@ import math
 from typing import Any
 
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.currency import fmt, get_symbol

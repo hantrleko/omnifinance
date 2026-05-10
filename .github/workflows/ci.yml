@@ -7,17 +7,66 @@ on:
 
 jobs:
   test:
+    name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pytest
-      - name: Lint syntax
-        run: python -m py_compile app.py pages/*.py core/*.py tests/*.py
-      - name: Run tests
-        run: pytest -q
+          pip install -r requirements-dev.txt
+
+      - name: Syntax check
+        run: python -m compileall -q app.py home.py pages core tests
+
+      - name: Run tests with coverage
+        run: |
+          pytest -q \
+            --cov=core \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=45
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  lint:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ruff (lint)
+        run: ruff check .
+
+      - name: Mypy (core only — informational)
+        # core/ is the only module with stable type annotations today;
+        # pages/ rely heavily on Streamlit dynamic state and are excluded.
+        # Marked informational (||true) until type coverage is hardened.
+        run: mypy core --ignore-missing-imports || true

@@ -17,7 +17,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 import yfinance as yf
 
@@ -25,7 +27,7 @@ from core.chart_config import build_layout, render_empty_state
 from core.config import CFG
 from core.currency import currency_selector
 from core.export import dataframes_to_excel
-from core.portfolio import optimize_portfolio, EfficientFrontierResult
+from core.portfolio import EfficientFrontierResult, optimize_portfolio
 
 # ── 模块级 logger ─────────────────────────────────────────
 _logger = logging.getLogger(__name__)

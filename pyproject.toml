@@ -1,0 +1,113 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnifinance"
+description = "OmniFinance — a Streamlit-based personal finance toolkit."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Eugene Finance" }]
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = { attr = "core.version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["core*"]
+exclude = ["tests*", "pages*", "assets*", "docs*"]
+
+# ── Ruff ───────────────────────────────────────────────────
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+extend-exclude = [
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "assets",
+    "docs",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # long lines — long Streamlit f-strings are common
+    "B008",  # function-call defaults — common in FastAPI/Streamlit signatures
+    "SIM108", # ternary not always more readable
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Streamlit pages intentionally have side effects at import time, frequently
+# use long expressive strings, and are not yet refactored against the full
+# style policy. Core / tests / app entry retain stricter rules.
+"pages/*.py" = [
+    "E402",  # imports below module-level statements (Streamlit pattern)
+    "E701",  # multiple statements on one line — historical code
+    "E702",  # multiple statements on one line (semicolon) — historical code
+    "E741",  # ambiguous variable names — historical code
+    "F401",  # unused imports — Streamlit re-exports / dynamic usage
+    "F722",  # forward-annotation parsing — Streamlit dynamic typing
+    "B007",  # unused loop variable — common in pandas iteration
+    "B904",  # raise-from in except — non-critical
+    "I001",  # import sorting — gradual cleanup
+]
+"home.py" = ["E402"]
+"app.py" = ["E402"]
+"tests/*.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+# ── Pytest ─────────────────────────────────────────────────
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning:yfinance.*",
+    "ignore::DeprecationWarning:pandas.*",
+]
+
+# ── Coverage ───────────────────────────────────────────────
+[tool.coverage.run]
+source = ["core"]
+omit = [
+    "core/api.py",          # exercised via integration only
+    "core/pdf_report.py",   # optional dependency
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+
+# ── Mypy ───────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+files = ["core"]
+
+[[tool.mypy.overrides]]
+module = ["streamlit.*", "yfinance.*", "akshare.*", "plotly.*"]
+ignore_missing_imports = true

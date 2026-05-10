@@ -6,7 +6,9 @@
 
 import plotly.graph_objects as go
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.benchmarks import benchmark_inline

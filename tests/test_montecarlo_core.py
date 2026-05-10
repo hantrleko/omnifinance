@@ -1,10 +1,8 @@
 """Tests for core/montecarlo.py — Monte Carlo retirement simulation."""
 
 import math
-import pytest
 
-from core.montecarlo import run_retirement_montecarlo, MonteCarloResult
-
+from core.montecarlo import MonteCarloResult, run_retirement_montecarlo
 
 # ── Fixtures ──────────────────────────────────────────────
 

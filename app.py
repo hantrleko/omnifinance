@@ -1,6 +1,7 @@
 import streamlit as st
-from core.theme import inject_theme
+
 from core.currency import currency_selector
+from core.theme import inject_theme
 
 # ── 页面基础配置 ───────────────────────────────────────
 st.set_page_config(
@@ -22,6 +23,7 @@ inject_theme()
 
 # ── 侧边栏全局设置与品牌信息 ────────────────────────────
 import os
+
 if os.path.exists("assets/logo.png"):
     st.logo("assets/logo.png", link="https://github.com/hantrleko")
 

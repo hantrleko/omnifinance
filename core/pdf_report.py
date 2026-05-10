@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.report_generator import generate_html_report, build_single_report
+from core.report_generator import build_single_report, generate_html_report
 
 
 def generate_pdf_report(metrics_dict: dict[str, Any]) -> bytes | None:

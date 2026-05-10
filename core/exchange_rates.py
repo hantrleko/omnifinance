@@ -6,9 +6,12 @@ network requests fail.
 from __future__ import annotations
 
 import datetime
-from typing import Optional
+from typing import TYPE_CHECKING
 
 import streamlit as st
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 _FALLBACK_RATES_TO_CNY: dict[str, float] = {
     "USD": 7.25,
@@ -27,7 +30,7 @@ _PAIRS = {
     "HKD": "HKDCNY=X",
 }
 
-_last_updated: Optional[datetime.datetime] = None
+_last_updated: datetime.datetime | None = None
 
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -95,7 +98,7 @@ def get_last_updated_str() -> str:
     return datetime.datetime.now().strftime("%H:%M:%S")
 
 
-def get_historical_rates(from_code: str, to_code: str, days: int = 30) -> "import pandas; pandas.DataFrame":  # type: ignore[return]
+def get_historical_rates(from_code: str, to_code: str, days: int = 30) -> pd.DataFrame:
     """Fetch historical daily close rates between two currencies.
 
     Args:

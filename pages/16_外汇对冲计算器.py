@@ -10,7 +10,9 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.chart_config import build_layout
@@ -30,7 +32,9 @@ st.sidebar.subheader("汇率与利率")
 
 _default_spot = 7.25
 try:
-    from core.exchange_rates import get_rate as _get_rate, get_last_updated_str as _get_ts, is_live as _is_live
+    from core.exchange_rates import get_last_updated_str as _get_ts
+    from core.exchange_rates import get_rate as _get_rate
+    from core.exchange_rates import is_live as _is_live
     _live_rate = _get_rate("USD", "CNY")
     if st.sidebar.button("获取实时 USD/CNY"):
         _default_spot = _live_rate

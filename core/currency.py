@@ -1,13 +1,13 @@
 """Currency formatting and selection utilities."""
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from pathlib import Path
 from typing import Any, TypedDict
 
 import streamlit as st
-
 
 # ── TypedDict definition ──────────────────────────────────
 
@@ -53,10 +53,8 @@ def _save_currency_pref(code: str) -> None:
         _PREFS_PATH.parent.mkdir(parents=True, exist_ok=True)
         existing: dict = {}
         if _PREFS_PATH.exists():
-            try:
+            with contextlib.suppress(json.JSONDecodeError, OSError):
                 existing = json.loads(_PREFS_PATH.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
-                pass
         existing["currency"] = code
         _PREFS_PATH.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
     except OSError:
@@ -149,7 +147,6 @@ def currency_selector(sidebar: bool = True) -> str:
         status = "实时" if live else "离线参考"
         container.caption(f"汇率：{status}数据，更新于 {updated}")
         if container.button("🔄 刷新汇率", key="_refresh_rates"):
-            from core.exchange_rates import _fetch_rates
             st.cache_data.clear()
             st.rerun()
     except Exception:

@@ -10,7 +10,6 @@ from typing import Any
 
 import streamlit as st
 
-
 # ── Base layout used by all pages ────────────────────────
 LAYOUT_BASE: dict[str, Any] = dict(
     legend=dict(

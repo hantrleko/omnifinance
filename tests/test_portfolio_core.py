@@ -4,8 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from core.portfolio import optimize_portfolio, EfficientFrontierResult, PortfolioStats
-
+from core.portfolio import EfficientFrontierResult, optimize_portfolio
 
 # ── Helpers ───────────────────────────────────────────────
 

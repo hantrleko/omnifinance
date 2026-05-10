@@ -7,7 +7,6 @@ multiple financial tools simultaneously and compare outcomes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import pandas as pd
 

@@ -11,10 +11,11 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Generator, Optional, TypedDict
+from typing import Any, TypedDict
 
 import streamlit as st
 
@@ -134,13 +135,14 @@ def _load_all(tool_name: str) -> SchemeStore:
                 path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         return data  # type: ignore[return-value]
     except json.JSONDecodeError:
-        try:
+        # Streamlit may not be active in tests; suppress any UI failure.
+        import contextlib
+
+        with contextlib.suppress(Exception):
             st.warning(
                 f"⚠️ 方案文件 `{path.name}` 已损坏（JSON 格式错误），已跳过加载。"
                 "若问题持续，可删除该文件后重新保存方案。"
             )
-        except Exception:  # noqa: BLE001 — Streamlit may not be active in tests
-            pass
         return {}
     except OSError:
         return {}
@@ -172,7 +174,7 @@ def save_scheme(tool_name: str, scheme_name: str, params: dict[str, Any]) -> Non
     _save_all(tool_name, data)
 
 
-def load_scheme(tool_name: str, scheme_name: str) -> Optional[dict[str, Any]]:
+def load_scheme(tool_name: str, scheme_name: str) -> dict[str, Any] | None:
     """Load a named parameter scheme.
 
     Args:
@@ -214,8 +216,8 @@ def delete_scheme(tool_name: str, scheme_name: str) -> None:
 def scheme_manager_ui(
     tool_name: str,
     current_params: dict[str, Any],
-    apply_callback: Optional[Callable[[dict[str, Any]], None]] = None,
-) -> Optional[dict[str, Any]]:
+    apply_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any] | None:
     """Render a save/load/delete UI in the sidebar.
 
     Args:
@@ -244,7 +246,7 @@ def scheme_manager_ui(
                 st.warning("请输入方案名称")
 
     # Load / Delete
-    loaded: Optional[dict[str, Any]] = None
+    loaded: dict[str, Any] | None = None
     if schemes:
         with st.sidebar.expander("加载 / 删除方案"):
             selected: str = st.selectbox("选择方案", schemes, key=f"_scheme_load_{tool_name}")

@@ -3,13 +3,18 @@
 from datetime import date, timedelta
 
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.currency import fmt
 from core.reminders import (
-    add_reminder, complete_reminder, delete_reminder,
-    get_reminders, get_due_reminders,
+    add_reminder,
+    complete_reminder,
+    delete_reminder,
+    get_due_reminders,
+    get_reminders,
 )
 
 st.set_page_config(page_title="财务提醒管理", page_icon="🔔", layout="wide")
