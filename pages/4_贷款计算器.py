@@ -6,15 +6,16 @@
 import io
 
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.planning import calculate_loan
 from core.storage import scheme_manager_ui
-import plotly.graph_objects as go
-import streamlit as st
 from core.theme import inject_theme
+
 inject_theme()
 
 # ── 页面配置 ──────────────────────────────────────────────

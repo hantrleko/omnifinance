@@ -1,9 +1,9 @@
 """Tests for core/debt.py — Debt payoff strategies."""
 
-import pytest
 import pandas as pd
+import pytest
 
-from core.debt import DebtItem, simulate_payoff, compare_strategies
+from core.debt import DebtItem, compare_strategies, simulate_payoff
 
 
 def _single_debt() -> list[DebtItem]:

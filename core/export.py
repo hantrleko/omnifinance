@@ -17,7 +17,7 @@ Usage example::
 from __future__ import annotations
 
 import io
-from typing import Sequence
+from collections.abc import Sequence
 
 import pandas as pd
 

@@ -2,13 +2,10 @@
 
 import atexit
 import json
-import os
 import shutil
 import tempfile
 from pathlib import Path
 from unittest import mock
-
-import pytest
 
 # Patch the storage directory before importing the module so tests never
 # touch the real ~/.omnifinance directory.
@@ -124,7 +121,7 @@ def test_corrupt_json_returns_empty_dict():
     path.write_text("{invalid json!!!", encoding="utf-8")
 
     # Suppress the st.warning call (Streamlit not active in tests)
-    with mock.patch("core.storage.st") as mock_st:
+    with mock.patch("core.storage.st"):
         result = storage_mod._load_all("test_corrupt")
     assert result == {}
 

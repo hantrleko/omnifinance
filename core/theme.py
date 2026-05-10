@@ -1,7 +1,5 @@
 import streamlit as st
 
-VERSION = "v1.9.9"
-
 _STANDARD_PAGE_CSS = """
 <style>
   .block-container { padding-top: 1.2rem; }
@@ -23,11 +21,11 @@ def inject_theme():
     """
     Injects a premium UI theme into Streamlit.
     Reads 'dark_mode' from st.session_state (default True).
-    Features: Glassmorphism, modern typography (Inter), rounded corners, soft shadows, 
+    Features: Glassmorphism, modern typography (Inter), rounded corners, soft shadows,
     and micro-animations on interactive elements.
     """
     dark_mode = st.session_state.get("global_dark_mode", True)
-    
+
     if dark_mode:
         bg_color = "#0e1117"
         text_color = "#fafafa"
@@ -47,26 +45,26 @@ def inject_theme():
     <style>
         /* Import premium font */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
+
         /* Apply font to everything but prevent overriding Material Icons */
         html, body, [class*="st-"] {{
             font-family: 'Inter', sans-serif;
         }}
-        
+
         /* Explicitly restore Streamlit's icon fonts */
-        .material-symbols-rounded, 
-        [data-testid="stIconMaterial"], 
+        .material-symbols-rounded,
+        [data-testid="stIconMaterial"],
         .stIcon {{
             font-family: 'Material Symbols Rounded' !important;
         }}
-        
+
         /* Main background & text */
         [data-testid="stAppViewContainer"] {{
             background-color: {bg_color};
             color: {text_color};
             transition: background-color 0.3s ease;
         }}
-        
+
         /* Sidebar Glassmorphism & Text Colors */
         [data-testid="stSidebar"] {{
             background-color: {card_bg};
@@ -74,8 +72,8 @@ def inject_theme():
             -webkit-backdrop-filter: blur(12px);
             border-right: 1px solid {border_color};
         }}
-        [data-testid="stSidebar"] p, 
-        [data-testid="stSidebar"] span, 
+        [data-testid="stSidebar"] p,
+        [data-testid="stSidebar"] span,
         [data-testid="stSidebar"] label,
         [data-testid="stSidebar"] h1,
         [data-testid="stSidebar"] h2,
@@ -88,7 +86,7 @@ def inject_theme():
             fill: {text_color} !important;
             stroke: {text_color} !important;
         }}
-        
+
         /* Glassmorphism for Metrics, Dataframes, and Expanders */
         [data-testid="stMetric"], .stDataFrame, [data-testid="stExpander"] {{
             background-color: {card_bg} !important;
@@ -99,14 +97,14 @@ def inject_theme():
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
             transition: all 0.3s ease-in-out;
         }}
-        
+
         /* Metrics Hover Animation */
         [data-testid="stMetric"]:hover {{
             transform: translateY(-4px);
             box-shadow: 0 10px 20px {hover_shadow};
             border-color: {border_hover} !important;
         }}
-        
+
         /* Button styling */
         div.stButton > button {{
             border-radius: 10px !important;
@@ -114,25 +112,25 @@ def inject_theme():
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
             border: 1px solid {border_color} !important;
         }}
-        
+
         div.stButton > button:hover {{
             transform: translateY(-2px);
             box-shadow: 0 6px 16px {hover_shadow};
             border-color: {border_hover} !important;
             color: {text_color} !important;
         }}
-        
+
         /* Tabs styling */
         [data-testid="stTabs"] button {{
             font-weight: 500;
             padding-bottom: 0.5rem;
         }}
-        
+
         /* Cleaner Header */
         header {{
             background-color: transparent !important;
         }}
-        
+
         /* Headers */
         h1, h2, h3 {{
             letter-spacing: -0.02em;

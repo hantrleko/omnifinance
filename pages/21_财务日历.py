@@ -11,7 +11,9 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.chart_config import build_layout
@@ -91,7 +93,7 @@ cat_colors = {
 }
 
 fig = go.Figure()
-for idx, ev in enumerate(sorted_events):
+for _idx, ev in enumerate(sorted_events):
     date_val = ev["date"] if isinstance(ev["date"], datetime) else datetime.combine(ev["date"], datetime.min.time())
     color = cat_colors.get(ev["category"], "#6b7280")
     fig.add_trace(go.Scatter(
@@ -147,9 +149,8 @@ for ev in all_events:
         elif ev["recurring"] == "每季":
             if ev_date.year <= y:
                 year_cashflows[y] += ev["amount"] * 4
-        elif ev["recurring"] == "每年":
-            if ev_date.year <= y:
-                year_cashflows[y] += ev["amount"]
+        elif ev["recurring"] == "每年" and ev_date.year <= y:
+            year_cashflows[y] += ev["amount"]
 
 fig2 = go.Figure()
 years_list = list(year_cashflows.keys())

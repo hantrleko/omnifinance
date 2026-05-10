@@ -9,8 +9,11 @@
 """
 
 import io
+
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 import pandas as pd
 import plotly.graph_objects as go
@@ -88,7 +91,7 @@ if inflation_rate > 0 and "实际购买力" in schedule.columns:
     col3.metric("累计收益", fmt(total_interest))
     real_pp = schedule.iloc[-1]["实际购买力"]
     col4.metric(
-        f"实际购买力（扣通胀）",
+        "实际购买力（扣通胀）",
         fmt(real_pp),
         delta=fmt(real_pp - final['年末余额']),
         delta_color="inverse",

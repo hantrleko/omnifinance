@@ -6,6 +6,7 @@ from st.session_state, so data survives page refreshes.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from datetime import datetime
@@ -85,10 +86,8 @@ def export_all_data() -> str:
     if schemes_path.exists():
         for f in schemes_path.glob("*.json"):
             if f.name != "session_data.json":
-                try:
+                with contextlib.suppress(json.JSONDecodeError, OSError):
                     all_data[f.stem] = json.loads(f.read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError):
-                    pass
 
     return json.dumps(all_data, ensure_ascii=False, indent=2, default=str)
 

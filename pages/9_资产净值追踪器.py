@@ -8,7 +8,9 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.chart_config import build_layout
@@ -83,7 +85,7 @@ st.caption(f"已保存 {len(records)} 条记录")
 if total_assets > 0:
     st.subheader("📊 资产配置")
     items = [("现金", cash, "#636EFA"), ("股票基金", stocks, "#00CC96"), ("房产", real_estate, "#EF553B"), ("其他", other_assets, "#AB63FA")]
-    al, av, ac = zip(*[(l, v, c) for l, v, c in items if v > 0]) if any(v > 0 for _, v, _ in items) else ([], [], [])
+    al, av, ac = zip(*[(l, v, c) for l, v, c in items if v > 0], strict=False) if any(v > 0 for _, v, _ in items) else ([], [], [])
     if al:
         fig_pie = go.Figure(data=[go.Pie(labels=list(al), values=list(av), hole=0.5, marker=dict(colors=list(ac), line=dict(color="white", width=3)), textinfo="label+percent")])
         fig_pie.update_layout(showlegend=False, margin=dict(t=20,b=20,l=20,r=20), height=380)
@@ -201,7 +203,7 @@ with st.expander("⚙️ 设置净资产增长计划", expanded=len(records) >= 
             hovertemplate=f"%{{x|%Y-%m-%d}}<br>计划: {sym_plan}%{{y:,.0f}}<extra></extra>",
         ))
 
-        deviations = [actual - planned for actual, planned in zip(tdf_plan["net_worth"], plan_values)]
+        deviations = [actual - planned for actual, planned in zip(tdf_plan["net_worth"], plan_values, strict=False)]
         fig_plan.add_trace(go.Bar(
             x=tdf_plan["date"], y=deviations,
             name="与计划偏差",

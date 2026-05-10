@@ -12,19 +12,21 @@ v1.7:
 """
 
 import asyncio
-from datetime import datetime
 import json
 import logging
 import os
-from pathlib import Path
 import urllib.error
+from datetime import datetime
+from pathlib import Path
 
 import httpx
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 import yfinance as yf
 from plotly.subplots import make_subplots
@@ -32,7 +34,7 @@ from streamlit_autorefresh import st_autorefresh
 
 from core.chart_config import render_empty_state
 from core.config import CFG, MSG
-from core.storage import save_scheme, load_scheme, list_schemes
+from core.storage import list_schemes, load_scheme, save_scheme
 
 _logger = logging.getLogger(__name__)
 
@@ -151,10 +153,9 @@ pa_ticker = st.sidebar.selectbox("选择标的", options=selected if selected el
 pa_col1, pa_col2 = st.sidebar.columns(2)
 pa_high = pa_col1.number_input("价格上限", min_value=0.0, value=0.0, step=1.0, format="%.2f", key="pa_high", help="当价格超过此值时发出警告（0 = 不设限）")
 pa_low = pa_col2.number_input("价格下限", min_value=0.0, value=0.0, step=1.0, format="%.2f", key="pa_low", help="当价格低于此值时发出警告（0 = 不设限）")
-if st.sidebar.button("✅ 设置预警", key="pa_set"):
-    if pa_ticker:
-        st.session_state["price_alerts"][pa_ticker] = {"high": pa_high, "low": pa_low}
-        st.sidebar.success(f"已为 {pa_ticker} 设置预警")
+if st.sidebar.button("✅ 设置预警", key="pa_set") and pa_ticker:
+    st.session_state["price_alerts"][pa_ticker] = {"high": pa_high, "low": pa_low}
+    st.sidebar.success(f"已为 {pa_ticker} 设置预警")
 if st.sidebar.button("🗑️ 清除所有预警", key="pa_clear"):
     st.session_state["price_alerts"] = {}
     st.sidebar.success("已清除所有预警")
@@ -171,7 +172,7 @@ st_autorefresh(interval=refresh_interval * 1000, key="auto_refresh")
 
 def _is_ashare(ticker_str: str) -> bool:
     """Detect A-share codes: 6-digit number with valid exchange prefix.
-    
+
     Shanghai: 600xxx, 601xxx, 603xxx, 605xxx, 688xxx (STAR), 900xxx (B)
     Shenzhen: 000xxx, 001xxx, 002xxx, 003xxx, 300xxx (ChiNext), 301xxx, 200xxx (B)
     """
@@ -208,14 +209,6 @@ def fetch_ashare_quotes(codes: tuple[str, ...]) -> pd.DataFrame:
             rows.append(base)
         return pd.DataFrame(rows)
 
-    col_map = {
-        "代码": "代码",
-        "最新价": "当前价格",
-        "涨跌幅": "涨跌幅(%)",
-        "最高": "今日最高",
-        "最低": "今日最低",
-        "成交量": "成交量",
-    }
     rows = []
     for code in codes:
         base = _make_base(code)
@@ -675,7 +668,7 @@ if kline_ticker:
         if has_volume:
             colors = [
                 "#00c853" if c >= o else "#ff1744"
-                for c, o in zip(hist["Close"], hist["Open"])
+                for c, o in zip(hist["Close"], hist["Open"], strict=False)
             ]
             fig.add_trace(
                 go.Bar(x=hist.index, y=hist["Volume"], name="成交量",

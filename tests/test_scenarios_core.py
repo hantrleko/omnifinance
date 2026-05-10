@@ -1,6 +1,5 @@
 """Tests for core/scenarios.py — Cross-tool scenario analysis."""
 
-import pytest
 import pandas as pd
 
 from core.scenarios import ScenarioResult, run_inflation_scenarios, run_return_scenarios

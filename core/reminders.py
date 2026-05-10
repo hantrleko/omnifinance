@@ -11,8 +11,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import streamlit as st
-
 _REMINDERS_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "reminders.json"
 
 

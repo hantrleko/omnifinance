@@ -1,7 +1,7 @@
 import streamlit as st
-from core.currency import get_symbol, fmt
 
-VERSION = "v1.9.9"
+from core.currency import fmt, get_symbol
+from core.version import VERSION
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
@@ -186,7 +186,7 @@ with st.expander("📋 v1.9.0 及更早版本说明"):
 """)
 
 # ── Session persistence: restore data on load ─────────────
-from core.persistence import restore_session_data, save_session_data, export_all_data, import_all_data, clear_session_data
+from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
 
 restored = restore_session_data()
 
@@ -653,14 +653,22 @@ st.write("一键全维扫描您的交互记录，提取所有核心指标并瞬�
 from core.report_generator import generate_html_report
 
 metrics_dict = {}
-if dash_compound: metrics_dict["compound"] = dash_compound
-if dash_loan: metrics_dict["loan"] = dash_loan
-if dash_savings: metrics_dict["savings"] = dash_savings
-if dash_budget: metrics_dict["budget"] = dash_budget
-if dash_retirement: metrics_dict["retirement"] = dash_retirement
-if dash_insurance: metrics_dict["insurance"] = dash_insurance
-if dash_networth: metrics_dict["networth"] = dash_networth
-if dash_tax: metrics_dict["tax"] = dash_tax
+if dash_compound:
+    metrics_dict["compound"] = dash_compound
+if dash_loan:
+    metrics_dict["loan"] = dash_loan
+if dash_savings:
+    metrics_dict["savings"] = dash_savings
+if dash_budget:
+    metrics_dict["budget"] = dash_budget
+if dash_retirement:
+    metrics_dict["retirement"] = dash_retirement
+if dash_insurance:
+    metrics_dict["insurance"] = dash_insurance
+if dash_networth:
+    metrics_dict["networth"] = dash_networth
+if dash_tax:
+    metrics_dict["tax"] = dash_tax
 
 html_content = generate_html_report(metrics_dict)
 
@@ -723,7 +731,7 @@ with pcol3:
 st.markdown("---")
 st.subheader("🔔 财务提醒")
 
-from core.reminders import get_due_reminders, get_reminders, add_reminder, complete_reminder
+from core.reminders import add_reminder, complete_reminder, get_due_reminders, get_reminders
 
 due = get_due_reminders()
 if due:
@@ -746,11 +754,10 @@ with st.expander("➕ 添加新提醒"):
     rem_desc = st.text_input("描述", key="rem_desc")
     rem_date = st.date_input("到期日", key="rem_date")
     rem_cat = st.selectbox("类别", ["还贷", "保费", "储蓄", "投资", "税务", "其他"], key="rem_cat")
-    if st.button("添加提醒"):
-        if rem_title:
-            add_reminder(rem_title, rem_desc, str(rem_date), rem_cat)
-            st.success("✅ 提醒已添加！")
-            st.rerun()
+    if st.button("添加提醒") and rem_title:
+        add_reminder(rem_title, rem_desc, str(rem_date), rem_cat)
+        st.success("✅ 提醒已添加！")
+        st.rerun()
 
 st.markdown("---")
 st.caption("***Eugene Finance 核心架构驱动 | Empower Your Knowledge, Enrich Your Life***")

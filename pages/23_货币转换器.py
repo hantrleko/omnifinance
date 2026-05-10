@@ -7,7 +7,9 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.chart_config import build_layout
@@ -62,7 +64,7 @@ col_left, col_mid, col_right = st.columns([2, 1, 2])
 with col_left:
     st.metric(f"{_label(default_from)}", f"{CURRENCIES[default_from]['symbol']}{amount_input:,.2f}")
 with col_mid:
-    st.markdown(f"<div style='text-align:center;font-size:2rem;padding-top:1.5rem;'>→</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center;font-size:2rem;padding-top:1.5rem;'>→</div>", unsafe_allow_html=True)
 with col_right:
     st.metric(f"{_label(default_to)}", f"{CURRENCIES[default_to]['symbol']}{result:,.4f}")
 

@@ -2,8 +2,7 @@
 
 import pytest
 
-from core.savings import calculate_savings_goal, SavingsResult
-
+from core.savings import SavingsResult, calculate_savings_goal
 
 # ── Basic sanity ──────────────────────────────────────────
 

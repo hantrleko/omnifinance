@@ -2,9 +2,18 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
 
 # Environments
 .env
+.env.*
 .venv
 env/
 venv/
@@ -14,3 +23,32 @@ venv.bak/
 
 # Streamlit
 .streamlit/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Runtime user data (OmniFinance local persistence)
+.omnifinance/
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints/

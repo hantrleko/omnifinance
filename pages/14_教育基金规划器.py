@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import plotly.graph_objects as go
 import streamlit as st
+
 from core.theme import inject_theme
+
 inject_theme()
 
 from core.chart_config import build_layout
@@ -124,6 +126,7 @@ for dep in deposits_to_compare:
         "状态": "✅ 充足" if r.gap <= 0 else "⚠️ 不足",
     })
 import pandas as pd
+
 st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
 
 st.markdown("---")

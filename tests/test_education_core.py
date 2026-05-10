@@ -1,7 +1,6 @@
 """Tests for core/education.py — Education fund planning."""
 
 import pytest
-import pandas as pd
 
 from core.education import EducationFundResult, calculate_education_fund
 

@@ -3,10 +3,8 @@
 import io
 
 import pandas as pd
-import pytest
 
 from core.export import dataframes_to_excel
-
 
 # ── Basic sanity ──────────────────────────────────────────
 

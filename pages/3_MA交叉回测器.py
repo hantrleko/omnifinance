@@ -13,21 +13,23 @@ v1.5:
 - 提取 _run_portfolio_one 纯函数，便于并行序列化和单元测试
 """
 
-from datetime import date, timedelta
 import logging
 import urllib.error
+from datetime import date, timedelta
 
 import joblib
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import requests
 import streamlit as st
+from plotly.subplots import make_subplots
+
 from core.theme import inject_theme
+
 inject_theme()
 import yfinance as yf
 
-from core.backtest import STRATEGY_NAMES, apply_strategy, simulate_trades, compute_metrics
+from core.backtest import STRATEGY_NAMES, apply_strategy, compute_metrics, simulate_trades
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
@@ -449,7 +451,7 @@ if enable_benchmark and benchmark_ticker.strip():
 
             bm_c1, bm_c2, bm_c3 = st.columns(3)
             bm_c1.metric(
-                f"策略总收益",
+                "策略总收益",
                 f"{metrics['总回报率(%)']:+.2f}%",
             )
             bm_bm_total = (bm_equity.iloc[-1] / initial_capital - 1) * 100
@@ -468,26 +470,26 @@ if enable_benchmark and benchmark_ticker.strip():
                 x=result_df.index, y=strategy_norm,
                 mode="lines", name="策略净值",
                 line=dict(width=2.5, color="#00CC96"),
-                hovertemplate=f"%{{x|%Y-%m-%d}}<br>策略: %{{y:.4f}}<extra></extra>",
+                hovertemplate="%{x|%Y-%m-%d}<br>策略: %{y:.4f}<extra></extra>",
             ))
             fig_bm.add_trace(go.Scatter(
                 x=bm_aligned.index, y=bm_norm,
                 mode="lines", name=f"{benchmark_ticker.strip().upper()} 基准",
                 line=dict(width=2, color="#EF553B", dash="dash"),
-                hovertemplate=f"%{{x|%Y-%m-%d}}<br>基准: %{{y:.4f}}<extra></extra>",
+                hovertemplate="%{x|%Y-%m-%d}<br>基准: %{y:.4f}<extra></extra>",
             ))
             fig_bm.add_trace(go.Scatter(
                 x=result_df.index, y=result_df["Benchmark"] / initial_capital,
                 mode="lines", name="买入持有（原标的）",
                 line=dict(width=1.5, color="#636EFA", dash="dot"),
-                hovertemplate=f"%{{x|%Y-%m-%d}}<br>持有: %{{y:.4f}}<extra></extra>",
+                hovertemplate="%{x|%Y-%m-%d}<br>持有: %{y:.4f}<extra></extra>",
             ))
             fig_bm.update_layout(
                 **build_layout(xaxis_title="日期", yaxis_title="归一化净值（起始=1）"),
             )
             st.plotly_chart(fig_bm, use_container_width=True)
         else:
-            st.warning(f"基准数据与策略日期区间不匹配，无法对比。")
+            st.warning("基准数据与策略日期区间不匹配，无法对比。")
     else:
         st.warning(f"无法获取 {benchmark_ticker.strip().upper()} 的历史数据，请检查代码是否正确。")
 

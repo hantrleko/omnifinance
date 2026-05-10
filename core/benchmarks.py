@@ -7,7 +7,6 @@ to compare against user's own financial situation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
 import streamlit as st
 
