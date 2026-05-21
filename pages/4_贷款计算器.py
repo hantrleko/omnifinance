@@ -60,7 +60,7 @@ freq_label = st.sidebar.radio("还款频率", list(freq_map.keys()), horizontal=
 periods_per_year = freq_map[freq_label]
 
 total_periods = loan_years * periods_per_year
-st.sidebar.markdown(f"**总期数：{total_periods} 期** （{loan_years} 年 × {periods_per_year} 期/年 = {loan_years * 12} 个月）")
+st.sidebar.markdown(f"**总期数：{total_periods} 期** （{loan_years} 年 × {periods_per_year} 期/年 = {loan_years * 12} 个月）")  # months shown for user reference
 
 st.sidebar.divider()
 st.sidebar.caption("等额本息：每期还款额固定")

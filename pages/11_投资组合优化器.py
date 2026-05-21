@@ -336,7 +336,7 @@ else:
     # Individual asset scatter
     for ticker in result.tickers:
         ticker_ret = float(result.annual_returns[ticker])
-        ticker_vol = float(result.cov_matrix.loc[ticker, ticker] ** 0.5)
+        ticker_vol = float(max(0.0, result.cov_matrix.loc[ticker, ticker]) ** 0.5)
         fig_ef.add_trace(go.Scatter(
             x=[ticker_vol],
             y=[ticker_ret],
@@ -384,7 +384,7 @@ with st.expander("📋 各标的年化统计"):
     stats_rows = []
     for ticker in result.tickers:
         ret = float(result.annual_returns[ticker])
-        vol = float(result.cov_matrix.loc[ticker, ticker] ** 0.5)
+        vol = float(max(0.0, result.cov_matrix.loc[ticker, ticker]) ** 0.5)
         sh = (ret - risk_free_rate / 100) / vol if vol > 0 else 0.0
         stats_rows.append({
             "标的": ticker,
@@ -471,7 +471,8 @@ if st.button("🔄 运行 Black-Litterman 优化", key="bl_run"):
         n = len(tickers_list)
 
         eq_weights = np.ones(n) / n
-        lam = (mu @ eq_weights - risk_free_rate / 100) / (eq_weights @ cov @ eq_weights)
+        _port_var = float(eq_weights @ cov @ eq_weights)
+        lam = (float(mu @ eq_weights) - risk_free_rate / 100) / _port_var if _port_var > 1e-10 else 1.0
         pi_eq = lam * cov @ eq_weights
 
         if bl_views:

@@ -219,19 +219,20 @@ with tab_exp:
         fig_exp.update_layout(**build_layout(showlegend=True, height=400))
         st.plotly_chart(fig_exp, use_container_width=True)
 
-        # 预算 vs 实际
+        # 预算 vs 实际：遍历所有已设置预算的类别，支出为0的也显示
+        _budgets = st.session_state.get("monthly_budgets", {})
+        _active_budgets = {cat: amt for cat, amt in _budgets.items() if amt > 0}
+        _cat_actual = dict(zip(cat_exp["category"], cat_exp["amount"]))
         budget_rows = []
-        for cat in cat_exp["category"]:
-            actual = float(cat_exp[cat_exp["category"] == cat]["amount"].values[0])
-            budget = float(st.session_state["monthly_budgets"].get(cat, 0))
-            if budget > 0:
-                budget_rows.append({
-                    "类别": cat,
-                    "实际支出": actual,
-                    "预算": budget,
-                    "超支": max(0, actual - budget),
-                    "状态": "⚠️ 超支" if actual > budget else "✅ 达标",
-                })
+        for cat, budget in _active_budgets.items():
+            actual = float(_cat_actual.get(cat, 0.0))
+            budget_rows.append({
+                "类别": cat,
+                "实际支出": actual,
+                "预算": float(budget),
+                "超支": max(0.0, actual - float(budget)),
+                "状态": "⚠️ 超支" if actual > float(budget) else "✅ 达标",
+            })
         if budget_rows:
             st.markdown("**预算 vs 实际对比**")
             bdf = pd.DataFrame(budget_rows)

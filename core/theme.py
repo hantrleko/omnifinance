@@ -16,10 +16,10 @@ def load_dark_mode_pref() -> bool:
     try:
         if _PREFS_PATH.exists():
             data = json.loads(_PREFS_PATH.read_text(encoding="utf-8"))
-            return bool(data.get("dark_mode", True))
+            return bool(data.get("dark_mode", False))
     except (json.JSONDecodeError, OSError):
         pass
-    return True
+    return False
 
 
 def save_dark_mode_pref(dark_mode: bool) -> None:

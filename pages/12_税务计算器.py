@@ -150,20 +150,37 @@ with tab1:
     with st.expander("📋 逐月税务明细"):
         st.dataframe(pd.DataFrame(monthly_rows), use_container_width=True, hide_index=True)
 
-    fig_tax = go.Figure()
-    bracket_labels = ["0-3.6万\n3%", "3.6-14.4万\n10%", "14.4-30万\n20%", "30-42万\n25%", "42-66万\n30%", "66-96万\n35%", ">96万\n45%"]
-    bracket_uppers = [36000, 144000, 300000, 420000, 660000, 960000, float("inf")]
-    colors = ["#00CC96"] * 7
-    active_bracket = next((i for i, (limit, _, _) in enumerate(TAX_BRACKETS) if annual_taxable <= limit), 6)
-    colors[active_bracket] = "#EF553B"
-    display_uppers = [36000, 108000, 156000, 120000, 240000, 300000, max(0, annual_taxable - 960000)]
-    fig_tax.add_trace(go.Bar(
-        x=bracket_labels[:active_bracket + 1],
-        y=[min(u, max(0, annual_taxable - sum(display_uppers[:i]))) for i, u in enumerate(display_uppers[:active_bracket + 1])],
-        marker_color=colors[:active_bracket + 1],
-        name="各档应纳税额",
+    # 税率档次图：展示各档实际应税金额
+    # 各档累计上限（年应纳税所得额）
+    _bracket_limits = [0, 36000, 144000, 300000, 420000, 660000, 960000]
+    _bracket_labels = ["0-3.6万\n3%", "3.6-14.4万\n10%", "14.4-30万\n20%", "30-42万\n25%", "42-66万\n30%", "66-96万\n35%", ">96万\n45%"]
+
+    def _taxable_in_bracket(taxable: float, lower: float, upper: float) -> float:
+        """Amount of taxable income falling in the bracket [lower, upper)."""
+        return max(0.0, min(taxable, upper) - lower)
+
+    _bracket_amounts = []
+    _bracket_x = []
+    _bracket_colors = []
+    for bi in range(7):
+        lower = _bracket_limits[bi]
+        upper = _bracket_limits[bi + 1] if bi < 6 else float("inf")
+        amt = _taxable_in_bracket(annual_taxable, lower, upper)
+        if amt > 0 or bi == 0:
+            _bracket_amounts.append(amt)
+            _bracket_x.append(_bracket_labels[bi])
+            is_active = (bi == next((i for i, (lim, _, _) in enumerate(TAX_BRACKETS) if annual_taxable <= lim), 6))
+            _bracket_colors.append("#EF553B" if is_active else "#00CC96")
+
+    fig_tax = go.Figure(go.Bar(
+        x=_bracket_x,
+        y=_bracket_amounts,
+        marker_color=_bracket_colors,
+        text=[f"¥{v:,.0f}" for v in _bracket_amounts],
+        textposition="outside",
+        hovertemplate="%{x}<br>应税金额: ¥%{y:,.0f}<extra></extra>",
     ))
-    fig_tax.update_layout(**build_layout(xaxis_title="税率档次", yaxis_title="该档应税额（元）", yaxis_tickformat=",", showlegend=False, height=300, margin=dict(t=20)))
+    fig_tax.update_layout(**build_layout(xaxis_title="税率档次", yaxis_title="该档应税金额（元）", yaxis_tickformat=",", showlegend=False, height=320, margin=dict(t=20)))
     st.plotly_chart(fig_tax, use_container_width=True)
     st.caption(f"红色高亮表示当前所在税率档次：**{marginal_rate_info}**")
 
