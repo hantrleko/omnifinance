@@ -8,7 +8,7 @@ from __future__ import annotations
 
 __all__ = ["__version__", "VERSION"]
 
-__version__: str = "1.9.9"
+__version__: str = "2.0.0"
 
 # Convenience alias used in user-facing UI strings (e.g. ``f"OmniFinance {VERSION}"``).
 VERSION: str = f"v{__version__}"

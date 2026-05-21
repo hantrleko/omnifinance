@@ -143,7 +143,7 @@ if enable_prepay and prepay_amount > 0:
 # ── 图表：剩余本金 + 本金/利息堆叠柱状图 ─────────────────
 st.subheader("📈 还款趋势")
 
-tab_line, tab_bar = st.tabs(["剩余本金曲线", "本金 vs 利息"])
+tab_line, tab_bar, tab_cmp_method = st.tabs(["剩余本金曲线", "本金 vs 利息", "等额本息 vs 等额本金"])
 
 with tab_line:
     fig_bal = go.Figure()
@@ -175,6 +175,55 @@ with tab_bar:
         **build_layout(barmode="stack", xaxis_title="期数", yaxis_title="金额（元）", yaxis_tickformat=","),
     )
     st.plotly_chart(fig_bar, use_container_width=True)
+
+with tab_cmp_method:
+    st.caption("在相同贷款条件下对比等额本息与等额本金两种还款方式的差异。")
+    _ei_sched, _ei_summ = calculate_loan(loan_amount, annual_rate, loan_years, periods_per_year, "等额本息")
+    _ep_sched, _ep_summ = calculate_loan(loan_amount, annual_rate, loan_years, periods_per_year, "等额本金")
+
+    _cmp_c1, _cmp_c2 = st.columns(2)
+    with _cmp_c1:
+        st.markdown("**等额本息**")
+        st.metric("每期还款", fmt(_ei_summ["首期还款"]))
+        st.metric("总利息", fmt(_ei_summ["总利息"]))
+    with _cmp_c2:
+        st.markdown("**等额本金**")
+        st.metric("首期还款", fmt(_ep_summ["首期还款"]), delta=f"末期 {fmt(_ep_summ['末期还款'])}", delta_color="off")
+        st.metric("总利息", fmt(_ep_summ["总利息"]), delta=fmt(_ep_summ["总利息"] - _ei_summ["总利息"]), delta_color="inverse")
+
+    fig_cmp_m = go.Figure()
+    fig_cmp_m.add_trace(go.Scatter(
+        x=_ei_sched["期数"], y=_ei_sched["剩余本金"],
+        mode="lines", name="等额本息",
+        line=dict(width=2.5, color="#636EFA"),
+        hovertemplate=f"第 %{{x}} 期<br>等额本息剩余: {sym}%{{y:,.0f}}<extra></extra>",
+    ))
+    fig_cmp_m.add_trace(go.Scatter(
+        x=_ep_sched["期数"], y=_ep_sched["剩余本金"],
+        mode="lines", name="等额本金",
+        line=dict(width=2.5, color="#00CC96"),
+        hovertemplate=f"第 %{{x}} 期<br>等额本金剩余: {sym}%{{y:,.0f}}<extra></extra>",
+    ))
+    fig_cmp_m.update_layout(**build_layout(xaxis_title="期数", yaxis_title="剩余本金（元）", yaxis_tickformat=",", title="剩余本金对比"))
+    st.plotly_chart(fig_cmp_m, use_container_width=True)
+
+    _ei_cum_interest = _ei_sched["利息"].cumsum()
+    _ep_cum_interest = _ep_sched["利息"].cumsum()
+    fig_cum_int = go.Figure()
+    fig_cum_int.add_trace(go.Scatter(
+        x=_ei_sched["期数"], y=_ei_cum_interest,
+        mode="lines", name="等额本息累计利息",
+        line=dict(width=2, color="#EF553B"),
+        hovertemplate=f"第 %{{x}} 期<br>累计利息: {sym}%{{y:,.0f}}<extra></extra>",
+    ))
+    fig_cum_int.add_trace(go.Scatter(
+        x=_ep_sched["期数"], y=_ep_cum_interest,
+        mode="lines", name="等额本金累计利息",
+        line=dict(width=2, color="#FF7F0E"),
+        hovertemplate=f"第 %{{x}} 期<br>累计利息: {sym}%{{y:,.0f}}<extra></extra>",
+    ))
+    fig_cum_int.update_layout(**build_layout(xaxis_title="期数", yaxis_title="累计利息（元）", yaxis_tickformat=",", title="累计利息对比"))
+    st.plotly_chart(fig_cum_int, use_container_width=True)
 
 # ── 还款明细表格 ──────────────────────────────────────────
 st.subheader("📋 逐期还款明细")

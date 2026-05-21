@@ -1,4 +1,45 @@
+from __future__ import annotations
+
+import contextlib
+import json
+import os
+from pathlib import Path
+
 import streamlit as st
+
+_PREFS_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "preferences.json"
+
+VERSION = "v2.0.0"
+
+
+def load_dark_mode_pref() -> bool:
+    try:
+        if _PREFS_PATH.exists():
+            data = json.loads(_PREFS_PATH.read_text(encoding="utf-8"))
+            return bool(data.get("dark_mode", True))
+    except (json.JSONDecodeError, OSError):
+        pass
+    return True
+
+
+def save_dark_mode_pref(dark_mode: bool) -> None:
+    try:
+        _PREFS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        existing: dict = {}
+        if _PREFS_PATH.exists():
+            with contextlib.suppress(json.JSONDecodeError, OSError):
+                existing = json.loads(_PREFS_PATH.read_text(encoding="utf-8"))
+        existing["dark_mode"] = dark_mode
+        _PREFS_PATH.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def show_error_banner(message: str, kind: str = "warning") -> None:
+    """Show a unified banner for data source failures."""
+    fn = {"warning": st.warning, "error": st.error, "info": st.info}.get(kind, st.warning)
+    fn(f"⚠️ 数据源暂时不可用：{message}。已使用缓存数据，结果仅供参考。")
+
 
 _STANDARD_PAGE_CSS = """
 <style>

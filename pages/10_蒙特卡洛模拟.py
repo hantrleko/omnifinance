@@ -93,9 +93,9 @@ st.sidebar.header("⚙️ 模拟参数")
 
 n_simulations = st.sidebar.select_slider(
     "模拟次数",
-    options=[500, 1000, 2000, 5000],
+    options=[500, 1000, 2000, 5000, 10000],
     value=2000,
-    help="模拟次数越多结果越稳定，但计算耗时增加。",
+    help="模拟次数越多结果越稳定，但计算耗时增加。10000 次精度最高。",
 )
 
 st.sidebar.divider()
@@ -154,6 +154,8 @@ def _cached_montecarlo(
     )
 
 
+_mc_progress = st.progress(0, text=f"准备运行 {n_simulations:,} 次蒙特卡洛模拟…")
+_mc_progress.progress(10, text=f"正在运行 {n_simulations:,} 次模拟（{return_dist}）…")
 with st.spinner(f"正在运行 {n_simulations:,} 次蒙特卡洛模拟（{return_dist}）…"):
     mc = _cached_montecarlo(
         current_age,
@@ -171,6 +173,8 @@ with st.spinner(f"正在运行 {n_simulations:,} 次蒙特卡洛模拟（{return
         dist_key,
         float(t_df),
     )
+_mc_progress.progress(100, text=f"模拟完成：{n_simulations:,} 次")
+_mc_progress.empty()
 
 sym = get_symbol()
 

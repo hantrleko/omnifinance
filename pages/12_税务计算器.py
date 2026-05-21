@@ -58,6 +58,8 @@ with tab1:
         deduction_rent = st.number_input("住房租金专项（元/月）", min_value=0.0, value=0.0, step=200.0, format="%.0f", key="tax_rent", help="直辖市/省会 1500 元，其余城市 1100 元")
         deduction_elderly = st.number_input("赡养老人专项（元/月）", min_value=0.0, value=0.0, step=500.0, format="%.0f", key="tax_elderly", help="独生子女 2000 元/月，非独生 1000 元/月")
         deduction_education = st.number_input("继续教育专项（元/月）", min_value=0.0, value=0.0, step=100.0, format="%.0f", key="tax_edu", help="学历教育 400 元/月，职业技能 3600 元/年")
+        deduction_medical = st.number_input("大病医疗专项（元/年）", min_value=0.0, max_value=80000.0, value=0.0, step=1000.0, format="%.0f", key="tax_medical", help="年度医疗费用超过15000元部分，上限80000元/年")
+        deduction_pension = st.number_input("个人养老金（元/年）", min_value=0.0, max_value=12000.0, value=0.0, step=1000.0, format="%.0f", key="tax_pension", help="个人养老金账户缴费，上限12000元/年")
 
     # 中国个税超额累进税率表（年应纳税所得额）
     TAX_BRACKETS = [
@@ -85,7 +87,7 @@ with tab1:
 
     annual_salary = monthly_salary * 12
     annual_si = social_insurance * 12
-    annual_special = (deduction_children + deduction_housing + deduction_rent + deduction_elderly + deduction_education) * 12
+    annual_special = (deduction_children + deduction_housing + deduction_rent + deduction_elderly + deduction_education) * 12 + deduction_medical + deduction_pension
     annual_total_income = annual_salary + bonus_annual + other_income
     annual_taxable = max(0.0, annual_total_income - BASIC_DEDUCTION * 12 - annual_si - annual_special)
 
@@ -113,6 +115,20 @@ with tab1:
     }
     benchmark_inline("monthly_income", after_tax_monthly, label="税后月收入")
 
+    with st.expander("📋 专项扣除汇总"):
+        _ded_rows = [
+            {"扣除项目": "五险一金", "月均金额（元）": f"{social_insurance:,.0f}", "年合计（元）": f"{annual_si:,.0f}"},
+            {"扣除项目": "子女教育", "月均金额（元）": f"{deduction_children:,.0f}", "年合计（元）": f"{deduction_children*12:,.0f}"},
+            {"扣除项目": "住房贷款利息", "月均金额（元）": f"{deduction_housing:,.0f}", "年合计（元）": f"{deduction_housing*12:,.0f}"},
+            {"扣除项目": "住房租金", "月均金额（元）": f"{deduction_rent:,.0f}", "年合计（元）": f"{deduction_rent*12:,.0f}"},
+            {"扣除项目": "赡养老人", "月均金额（元）": f"{deduction_elderly:,.0f}", "年合计（元）": f"{deduction_elderly*12:,.0f}"},
+            {"扣除项目": "继续教育", "月均金额（元）": f"{deduction_education:,.0f}", "年合计（元）": f"{deduction_education*12:,.0f}"},
+            {"扣除项目": "大病医疗（年）", "月均金额（元）": f"{deduction_medical/12:,.0f}", "年合计（元）": f"{deduction_medical:,.0f}"},
+            {"扣除项目": "个人养老金（年）", "月均金额（元）": f"{deduction_pension/12:,.0f}", "年合计（元）": f"{deduction_pension:,.0f}"},
+        ]
+        st.dataframe(pd.DataFrame(_ded_rows), use_container_width=True, hide_index=True)
+        st.caption(f"合计专项扣除：**{sym}{annual_special:,.0f}** 元/年（含基本减除费用 {sym}{BASIC_DEDUCTION*12:,.0f} 元/年另行计算）")
+
     yearly_rows = []
     monthly_rows = []
     cumulative_taxable = 0.0
@@ -120,7 +136,7 @@ with tab1:
     for month in range(1, 13):
         month_income = monthly_salary + (bonus_annual if month == 12 else 0.0)
         month_income += other_income / 12
-        cumulative_taxable += max(0.0, month_income - BASIC_DEDUCTION - social_insurance - (deduction_children + deduction_housing + deduction_rent + deduction_elderly + deduction_education))
+        cumulative_taxable += max(0.0, month_income - BASIC_DEDUCTION - social_insurance - (deduction_children + deduction_housing + deduction_rent + deduction_elderly + deduction_education) - (deduction_medical + deduction_pension) / 12)
         month_tax_cumulative = calc_income_tax(cumulative_taxable)
         month_tax = month_tax_cumulative - cumulative_tax
         cumulative_tax = month_tax_cumulative

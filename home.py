@@ -20,7 +20,34 @@ st.markdown("""
 - 🔬 **分析与工具**：场景对比分析、财务日历时间线、跨工具数据导入导出。
 """)
 
-with st.expander("🚀 重大版本升级（v1.9.9）", expanded=True):
+with st.expander("🚀 重大版本升级（v2.0.0）", expanded=True):
+    st.markdown("""
+**v2.0.0 全平台深度升级 — 设计、功能、新模块三大方向**
+
+🎨 **设计升级**
+- 深色模式偏好持久化：开关状态存入本地 `~/.omnifinance/preferences.json`，重启后自动恢复。
+- 侧边栏新增全局搜索框，输入功能名称快速定位目标工具。
+- 货币体系新增 AUD（澳元）、CAD（加元）、SGD（新加坡元）、KRW（韩元）共 4 种货币。
+
+💡 **功能增强**
+- **贷款计算器**：新增「等额本息 vs 等额本金」可视化对比标签页，含双余额曲线与累计利息比较。
+- **税务计算器**：新增「大病医疗专项扣除」（上限 8 万元）与「个人养老金扣除」（上限 1.2 万元），专项扣除汇总表升级。
+- **外汇对冲计算器**：扩展为 10 大主流货币对（USD/CNY、EUR/USD、GBP/USD、JPY/CNY 等），下拉选择后自动填入默认汇率与利率。
+- **实时报价面板**：AKShare 未安装时显示统一错误横幅；新增自定义分组预设，可保存、加载、删除自定义股票分组。
+- **退休金估算器**：侧边栏新增「社保养老金估算器」，输入缴费年限/月缴费基数/当地社平工资，估算基础养老金 + 个人账户养老金。
+- **投资组合优化器**：新增 Black-Litterman 贝叶斯融合优化模块，支持最多 5 条主观观点输入，τ 调节先验不确定性，输出后验最优权重。
+- **蒙特卡洛模拟**：新增模拟进度条，最大模拟次数扩展至 10,000 次。
+
+🆕 **新模块（高级工具 v2.0）**
+- **股票筛选器**（页面 26）：批量获取基本面数据，按 PE/PB/股息率/市值快速过滤，散点图与柱状图可视化，Excel 导出。
+- **收支记账本**（页面 27）：收入与支出录入、月度趋势图、类别饼图、预算 vs 实际对比，数据持久化到本地 JSON。
+
+⚙️ **工程改进**
+- 版本号统一升级至 v2.0.0，`core/version.py` 为单一来源。
+- `app.py` 全面接入深色模式磁盘持久化，首次加载即读取历史偏好。
+""")
+
+with st.expander("🚀 重大版本升级（v1.9.9）", expanded=False):
     st.markdown("""
 **v1.9.9-UI 全局 UI/UX 系统性升级（当前版本）**
 
@@ -702,7 +729,7 @@ with report_cols[1]:
 st.markdown("---")
 st.subheader("💾 数据管理")
 
-pcol1, pcol2, pcol3 = st.columns(3)
+pcol1, pcol2, pcol3, pcol4 = st.columns(4)
 with pcol1:
     if st.button("💾 保存仪表盘数据", use_container_width=True):
         save_session_data()
@@ -719,6 +746,33 @@ with pcol2:
     )
 
 with pcol3:
+    st.download_button(
+        label="📄 下载 HTML 仪表盘报告",
+        data=html_content,
+        file_name="OmniFinance_Dashboard.html",
+        mime="text/html",
+        use_container_width=True,
+    )
+
+with pcol4:
+    from core.pdf_report import generate_pdf_report as _gen_pdf, is_pdf_available as _pdf_ok
+    if _pdf_ok():
+        _pdf_bytes = _gen_pdf(metrics_dict)
+        if _pdf_bytes:
+            st.download_button(
+                label="📑 下载 PDF 仪表盘报告",
+                data=_pdf_bytes,
+                file_name="OmniFinance_Dashboard.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        else:
+            st.button("📑 PDF 生成失败", disabled=True, use_container_width=True)
+    else:
+        st.button("📑 PDF（需安装 weasyprint）", disabled=True, use_container_width=True)
+
+_import_col = st.columns(1)[0]
+with _import_col:
     uploaded = st.file_uploader("📥 导入数据备份", type=["json"], key="import_backup")
     if uploaded is not None:
         count = import_all_data(uploaded.read().decode("utf-8"))

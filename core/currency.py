@@ -27,6 +27,10 @@ CURRENCIES: dict[str, CurrencyInfo] = {
     "GBP": CurrencyInfo(symbol="£", name="英镑"),
     "JPY": CurrencyInfo(symbol="¥", name="日元"),
     "HKD": CurrencyInfo(symbol="HK$", name="港币"),
+    "AUD": CurrencyInfo(symbol="A$", name="澳元"),
+    "CAD": CurrencyInfo(symbol="C$", name="加元"),
+    "SGD": CurrencyInfo(symbol="S$", name="新加坡元"),
+    "KRW": CurrencyInfo(symbol="₩", name="韩元"),
 }
 
 DEFAULT_CURRENCY: str = "CNY"

@@ -35,6 +35,14 @@ from streamlit_autorefresh import st_autorefresh
 from core.chart_config import render_empty_state
 from core.config import CFG, MSG
 from core.storage import list_schemes, load_scheme, save_scheme
+from core.theme import show_error_banner
+
+_AKSHARE_AVAILABLE = False
+try:
+    import akshare as _ak_test  # noqa: F401
+    _AKSHARE_AVAILABLE = True
+except ImportError:
+    pass
 
 _logger = logging.getLogger(__name__)
 
@@ -119,6 +127,54 @@ refresh_interval = st.sidebar.slider(
 )
 
 st.sidebar.divider()
+st.sidebar.subheader("📂 自定义分组预设")
+
+_PRESETS_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "watchlist_presets.json"
+
+def _load_presets() -> dict[str, list[str]]:
+    if not _PRESETS_PATH.exists():
+        return {}
+    try:
+        return json.loads(_PRESETS_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+def _save_presets(presets: dict[str, list[str]]) -> None:
+    try:
+        _PRESETS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _PRESETS_PATH.write_text(json.dumps(presets, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+if "custom_presets" not in st.session_state:
+    st.session_state["custom_presets"] = _load_presets()
+
+_cpresets = st.session_state["custom_presets"]
+
+_new_preset_name = st.sidebar.text_input("新分组名称", placeholder="如 科技龙头", key="_new_preset_name")
+if st.sidebar.button("💾 保存当前选股为分组", key="_save_preset_btn"):
+    if _new_preset_name.strip() and selected:
+        _cpresets[_new_preset_name.strip()] = list(selected)
+        _save_presets(_cpresets)
+        st.sidebar.success(f"已保存分组「{_new_preset_name.strip()}」")
+        st.rerun()
+    else:
+        st.sidebar.warning("请输入分组名称并选择至少一个标的")
+
+if _cpresets:
+    _preset_keys = list(_cpresets.keys())
+    _preset_sel = st.sidebar.selectbox("加载自定义分组", _preset_keys, key="_load_preset_sel")
+    _pcol1, _pcol2 = st.sidebar.columns(2)
+    if _pcol1.button("📂 加载", key="_load_preset_btn"):
+        st.session_state["wl_loaded"] = _cpresets[_preset_sel]
+        st.rerun()
+    if _pcol2.button("🗑️ 删除", key="_del_preset_btn"):
+        del _cpresets[_preset_sel]
+        _save_presets(_cpresets)
+        st.sidebar.success(f"已删除分组「{_preset_sel}」")
+        st.rerun()
+
+st.sidebar.divider()
 st.sidebar.subheader("💾 关注列表管理")
 
 wl_name = st.sidebar.text_input("列表名称", placeholder="如 我的A股组合", key="wl_name")
@@ -195,6 +251,13 @@ def _ashare_full_code(code: str) -> str:
 @st.cache_data(ttl=CFG.quote.quote_cache_ttl)
 def fetch_ashare_quotes(codes: tuple[str, ...]) -> pd.DataFrame:
     """通过 AKShare 获取 A 股实时报价。"""
+    if not _AKSHARE_AVAILABLE:
+        rows = []
+        for code in codes:
+            base = _make_base(code)
+            base["_error"] = _ERR_NOTFOUND
+            rows.append(base)
+        return pd.DataFrame(rows)
     try:
         import akshare as ak
         df_sh = ak.stock_sh_a_spot_em()
@@ -455,6 +518,9 @@ st.markdown(
     f"<span class='time-badge'>🕐 最后刷新：{now_str}</span>",
     unsafe_allow_html=True,
 )
+
+if not _AKSHARE_AVAILABLE:
+    show_error_banner("AKShare 未安装，A 股实时行情不可用", kind="warning")
 
 if not selected:
     st.warning(MSG.quote_no_selection)

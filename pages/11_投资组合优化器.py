@@ -438,6 +438,120 @@ with st.expander("ℹ️ 方法论说明"):
 3. 本工具仅供学习和参考，不构成投资建议。
 """)
 
+# ── Black-Litterman 模型 ───────────────────────────────────
+st.markdown("---")
+st.subheader("🎯 Black-Litterman 贝叶斯组合优化")
+st.caption("在均衡市场隐含收益基础上，融合主观观点，通过贝叶斯后验推断优化组合权重。")
+
+with st.expander("⚙️ Black-Litterman 参数与观点输入", expanded=True):
+    bl_tau = st.slider("τ（先验不确定性）", min_value=0.01, max_value=1.0, value=0.05, step=0.01,
+                       help="越大表示对先验均衡收益越不确定，观点影响越大")
+
+    n_tickers = len(result.tickers)
+    tickers_list = list(result.tickers)
+
+    st.markdown("**投资者主观观点（最多 5 条）**")
+    st.caption("每条观点格式：选择资产 + 预期超额年化收益率（正/负）。未添加观点时等价于纯均值-方差。")
+
+    bl_views: list[tuple[str, float]] = []
+    for vi in range(min(5, n_tickers)):
+        _vcol1, _vcol2, _vcol3 = st.columns([3, 2, 1])
+        _vticker = _vcol1.selectbox(f"观点 {vi+1} 资产", ["（不设置）"] + tickers_list, key=f"bl_ticker_{vi}")
+        _vreturn = _vcol2.number_input(f"预期年化超额收益（%）", min_value=-50.0, max_value=100.0, value=0.0, step=0.5, format="%.1f", key=f"bl_ret_{vi}")
+        if _vticker != "（不设置）":
+            bl_views.append((_vticker, _vreturn / 100))
+
+if st.button("🔄 运行 Black-Litterman 优化", key="bl_run"):
+    try:
+        import numpy as np
+        from scipy.optimize import minimize
+
+        mu = np.array([result.annual_returns[t] for t in tickers_list])
+        cov = result.cov_matrix.values.copy()
+        n = len(tickers_list)
+
+        eq_weights = np.ones(n) / n
+        lam = (mu @ eq_weights - risk_free_rate / 100) / (eq_weights @ cov @ eq_weights)
+        pi_eq = lam * cov @ eq_weights
+
+        if bl_views:
+            P = np.zeros((len(bl_views), n))
+            q = np.zeros(len(bl_views))
+            for vi, (vt, vr) in enumerate(bl_views):
+                tidx = tickers_list.index(vt)
+                P[vi, tidx] = 1.0
+                q[vi] = vr
+
+            omega = np.diag(np.diag(bl_tau * P @ cov @ P.T))
+            tau_cov_inv = np.linalg.inv(bl_tau * cov)
+            omega_inv = np.linalg.inv(omega)
+            M_inv = tau_cov_inv + P.T @ omega_inv @ P
+            bl_mu = np.linalg.solve(M_inv, tau_cov_inv @ pi_eq + P.T @ omega_inv @ q)
+        else:
+            bl_mu = pi_eq.copy()
+
+        def _neg_sharpe(w):
+            port_ret = bl_mu @ w
+            port_vol = np.sqrt(w @ cov @ w)
+            return -(port_ret - risk_free_rate / 100) / port_vol if port_vol > 1e-8 else 0.0
+
+        constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
+        bounds = [(0.0, 1.0)] * n
+        x0 = np.ones(n) / n
+        res_bl = minimize(_neg_sharpe, x0, method="SLSQP", bounds=bounds, constraints=constraints)
+
+        if res_bl.success:
+            bl_weights = dict(zip(tickers_list, res_bl.x))
+            bl_ret = float(bl_mu @ res_bl.x)
+            bl_vol = float(np.sqrt(res_bl.x @ cov @ res_bl.x))
+            bl_sr = (bl_ret - risk_free_rate / 100) / bl_vol if bl_vol > 0 else 0.0
+
+            st.markdown("#### Black-Litterman 最优权重")
+            _bl_c1, _bl_c2, _bl_c3 = st.columns(3)
+            _bl_c1.metric("预期年化收益", f"{bl_ret:.2%}")
+            _bl_c2.metric("年化波动率", f"{bl_vol:.2%}")
+            _bl_c3.metric("夏普比率", f"{bl_sr:.3f}")
+
+            fig_bl = go.Figure(go.Bar(
+                x=list(bl_weights.keys()),
+                y=[round(v * 100, 2) for v in bl_weights.values()],
+                marker_color="#00CC96",
+                text=[f"{v*100:.1f}%" for v in bl_weights.values()],
+                textposition="outside",
+            ))
+            fig_bl.update_layout(**build_layout(
+                xaxis_title="资产", yaxis_title="权重（%）",
+                yaxis_range=[0, max(bl_weights.values()) * 120],
+                showlegend=False, height=350,
+            ))
+            st.plotly_chart(fig_bl, use_container_width=True)
+
+            with st.expander("📋 BL 权重与均衡权重对比"):
+                _bl_rows = [{
+                    "资产": t,
+                    "均衡权重": f"{eq_weights[i]*100:.1f}%",
+                    "BL权重": f"{res_bl.x[i]*100:.1f}%",
+                    "均衡隐含收益": f"{pi_eq[i]*100:.2f}%",
+                    "BL预期收益": f"{bl_mu[i]*100:.2f}%",
+                } for i, t in enumerate(tickers_list)]
+                st.dataframe(pd.DataFrame(_bl_rows), use_container_width=True, hide_index=True)
+        else:
+            st.warning("Black-Litterman 优化求解失败，请检查参数设置。")
+    except Exception as _bl_exc:
+        st.error(f"Black-Litterman 计算错误：{_bl_exc}")
+
+with st.expander("ℹ️ Black-Litterman 说明"):
+    st.markdown(f"""
+**Black-Litterman 贝叶斯融合流程**
+
+1. **均衡隐含收益 (π)**：以等权重组合的超额收益和风险厌恶系数 λ 反推：π = λ·Σ·w_eq
+2. **投资者观点 (P, q)**：对所选资产设置预期超额收益，构建观点矩阵
+3. **贝叶斯后验 (μ_BL)**：融合先验均衡与观点后验：μ_BL = [(τΣ)⁻¹ + PᵀΩ⁻¹P]⁻¹[(τΣ)⁻¹π + PᵀΩ⁻¹q]
+4. **再优化**：用 μ_BL 替代原始收益，SLSQP 求解最大夏普组合
+
+τ 参数（当前 **{bl_tau}**）控制先验不确定性：τ 越大，观点权重越高。
+""")
+
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption("📐 投资组合优化器 | 仅供参考，不构成投资建议 | 运行：`streamlit run app.py`")

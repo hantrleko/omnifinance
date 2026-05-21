@@ -118,6 +118,37 @@ scheme_manager_ui("retirement", {
     "post_return": post_return,
 })
 
+# ── 社保养老金估算器 ──────────────────────────────────────
+st.sidebar.divider()
+with st.sidebar.expander("🧮 社保养老金估算"):
+    st.caption("根据缴费年限与基数估算退休后社保养老金（城镇职工基本养老保险）")
+    ss_years = st.number_input("累计缴费年限（年）", min_value=1, max_value=50, value=30, step=1, key="ss_years")
+    ss_base = st.number_input("月缴费基数（元）", min_value=1000.0, value=8000.0, step=500.0, format="%.0f", key="ss_base", help="一般为本人月均工资，上下限为社平工资的60%~300%")
+    ss_avg_wage = st.number_input("当地社平月工资（元）", min_value=1000.0, value=10000.0, step=500.0, format="%.0f", key="ss_avg_wage", help="退休时当地在岗职工月均工资")
+
+    # 基础养老金 = (社平工资 + 本人指数化月均缴费工资) / 2 × 缴费年限 × 1%
+    ss_indexed_wage = ss_base
+    ss_basic_pension = (ss_avg_wage + ss_indexed_wage) / 2 * ss_years * 0.01
+
+    # 个人账户养老金 = 个人账户余额 / 计发月数
+    # 个人账户每月缴纳 = 缴费基数 × 8%；记发月数按退休年龄参考，此处用139（60岁）
+    ss_personal_account = ss_base * 0.08 * 12 * ss_years
+    ss_payout_months = 139
+    ss_personal_pension = ss_personal_account / ss_payout_months
+
+    ss_total = ss_basic_pension + ss_personal_pension
+
+    _ss_c1, _ss_c2 = st.columns(2)
+    _ss_c1.metric("基础养老金", f"¥{ss_basic_pension:,.0f}/月")
+    _ss_c2.metric("个人账户养老金", f"¥{ss_personal_pension:,.0f}/月")
+    st.metric("估算月社保养老金合计", f"¥{ss_total:,.0f}/月", help="仅供参考，实际以社保局核定为准")
+    if st.button("📥 用此估算值填入养老金收入", key="ss_fill_btn"):
+        st.session_state["_ss_pension_fill"] = ss_total
+        st.rerun()
+
+if "pension_income" not in st.session_state and "_ss_pension_fill" in st.session_state:
+    pension_income = st.session_state.pop("_ss_pension_fill")
+
 # ══════════════════════════════════════════════════════════
 #  参数验证
 # ══════════════════════════════════════════════════════════
