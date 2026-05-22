@@ -212,6 +212,108 @@ if not tips:
 for tip in tips:
     st.markdown(tip)
 
+# ── 记账本联动：本月实际支出 vs 预算 ─────────────────────
+st.markdown("---")
+st.subheader("🔗 本月实际支出 vs 预算")
+st.caption("读取收支记账本的当月支出，与当前预算设置进行对比。请先在「收支记账本」页面录入支出记录。")
+
+import json
+import os
+from pathlib import Path
+
+_LEDGER_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "ledger.json"
+
+def _load_current_month_expenses() -> dict[str, float]:
+    if not _LEDGER_PATH.exists():
+        return {}
+    try:
+        data = json.loads(_LEDGER_PATH.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return {}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+    from datetime import date as _date
+    today = _date.today()
+    cat_totals: dict[str, float] = {}
+    for entry in data:
+        if entry.get("type") != "支出":
+            continue
+        try:
+            entry_date = _date.fromisoformat(entry["date"])
+        except (KeyError, ValueError):
+            continue
+        if entry_date.year == today.year and entry_date.month == today.month:
+            cat = entry.get("category", "其他支出")
+            cat_totals[cat] = cat_totals.get(cat, 0.0) + float(entry.get("amount", 0))
+    return cat_totals
+
+_actual_by_cat = _load_current_month_expenses()
+_total_actual = sum(_actual_by_cat.values())
+
+if _total_actual > 0:
+    _lc1, _lc2, _lc3 = st.columns(3)
+    _lc1.metric("本月实际支出", fmt(_total_actual, decimals=0))
+    _lc2.metric("预算总额（必需+想要）", fmt(amt_needs + amt_wants, decimals=0))
+    _budget_left = (amt_needs + amt_wants) - _total_actual
+    _lc3.metric(
+        "剩余预算",
+        fmt(abs(_budget_left), decimals=0),
+        delta="超出预算" if _budget_left < 0 else "预算内",
+        delta_color="inverse" if _budget_left < 0 else "normal",
+    )
+
+    # Bar chart: actual vs budget by category
+    _EXPENSE_CATS_ALL = ["餐饮", "购物", "交通", "居住", "医疗", "教育", "娱乐", "旅行", "保险", "还贷", "其他支出"]
+    _cats_with_actual = sorted(_actual_by_cat.keys())
+
+    # Per-category budget allocation: evenly distribute needs/wants by category count
+    _needs_cats = ["居住", "餐饮", "交通", "医疗", "教育", "保险", "还贷"]
+    _wants_cats = ["购物", "娱乐", "旅行", "其他支出"]
+    _n_needs_shown = sum(1 for c in _cats_with_actual if c in _needs_cats) or 1
+    _n_wants_shown = sum(1 for c in _cats_with_actual if c in _wants_cats) or 1
+
+    _bar_cats, _bar_actual, _bar_budget, _bar_colors = [], [], [], []
+    for cat in _cats_with_actual:
+        actual = _actual_by_cat[cat]
+        if cat in _needs_cats:
+            est_budget = amt_needs / _n_needs_shown
+        else:
+            est_budget = amt_wants / _n_wants_shown
+        _bar_cats.append(cat)
+        _bar_actual.append(actual)
+        _bar_budget.append(est_budget)
+        _bar_colors.append("#EF553B" if actual > est_budget else "#00CC96")
+
+    _fig_link = go.Figure()
+    _fig_link.add_trace(go.Bar(
+        name="实际支出",
+        x=_bar_cats, y=_bar_actual,
+        marker_color=_bar_colors,
+        text=[fmt(v, decimals=0) for v in _bar_actual],
+        textposition="outside",
+        hovertemplate="%{x}<br>实际: " + sym + "%{y:,.0f}<extra></extra>",
+    ))
+    _fig_link.add_trace(go.Bar(
+        name="参考预算",
+        x=_bar_cats, y=_bar_budget,
+        marker_color="rgba(100,100,200,0.3)",
+        hovertemplate="%{x}<br>参考: " + sym + "%{y:,.0f}<extra></extra>",
+    ))
+    _fig_link.update_layout(
+        barmode="overlay",
+        height=320,
+        margin=dict(t=30, b=20, l=20, r=20),
+        showlegend=True,
+        xaxis_title="类别",
+        yaxis_title=f"金额（{sym}）",
+        yaxis_tickformat=",",
+    )
+    st.plotly_chart(_fig_link, use_container_width=True)
+    st.caption("参考预算以必需/想要总预算平均分配到对应类别；如需精细化设置，请在记账本页面使用月度预算功能。")
+else:
+    st.info("本月暂无支出记录。请在「收支记账本」页面录入本月支出后，这里将自动显示实际 vs 预算对比。")
+
 # ── 导出报告 ──────────────────────────────────────────────
 st.subheader("📤 导出报告")
 def _build_bud_report() -> str:

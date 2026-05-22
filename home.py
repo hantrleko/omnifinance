@@ -5,211 +5,66 @@ from core.version import VERSION
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
-st.markdown("---")
 
+# ── 快速导航卡片 ──────────────────────────────────────────
 st.markdown("""
-### 欢迎使用全能理财家！
+<style>
+.nav-grid { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px 0; }
+.nav-card {
+    flex: 1 1 180px;
+    background: var(--secondary-background-color);
+    border: 1px solid rgba(128,128,128,0.15);
+    border-radius: 12px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    text-decoration: none;
+}
+.nav-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,120,255,0.12);
+    border-color: rgba(0,120,255,0.35);
+}
+.nav-card-icon { font-size: 28px; margin-bottom: 6px; }
+.nav-card-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.nav-card-desc { font-size: 12px; opacity: 0.65; line-height: 1.4; }
+</style>
+<div class="nav-grid">
+  <div class="nav-card"><div class="nav-card-icon">💰</div><div class="nav-card-title">基础理财管理</div><div class="nav-card-desc">复利 · 储蓄目标 · 预算 · 教育金</div></div>
+  <div class="nav-card"><div class="nav-card-icon">⚖️</div><div class="nav-card-title">资产与债务管理</div><div class="nav-card-desc">净值追踪 · 贷款 · 保险 · 债务规划</div></div>
+  <div class="nav-card"><div class="nav-card-icon">📈</div><div class="nav-card-title">投资分析引擎</div><div class="nav-card-desc">实时报价 · 组合优化 · 回测 · 外汇</div></div>
+  <div class="nav-card"><div class="nav-card-icon">🏖️</div><div class="nav-card-title">高级人生规划</div><div class="nav-card-desc">退休估算 · 蒙特卡洛 · 税务提款</div></div>
+  <div class="nav-card"><div class="nav-card-icon">🔬</div><div class="nav-card-title">分析与工具</div><div class="nav-card-desc">场景对比 · 财务日历 · 税务计算</div></div>
+  <div class="nav-card"><div class="nav-card-icon">🆕</div><div class="nav-card-title">高级工具 v2.0</div><div class="nav-card-desc">股票筛选器 · 收支记账本</div></div>
+</div>
+""", unsafe_allow_html=True)
 
-这是一个集成了多项实用金融工具的统一平台。我们已经将所有子功能**按类别进行了清晰的划分**，您可以从左侧边栏的专属分类中快速找到需要的工具。
+st.caption("👈 从左侧边栏选择工具，或使用搜索框快速定位")
 
-**核心功能模块导览：**
-- 💰 **基础理财管理**：计算投资复利收益、规划储蓄路径、50/30/20 预算分配建议、教育基金规划。
-- ⚖️ **资产与债务管理**：全局跟踪资产负债净值、计算贷款本息明细、评估储蓄型保单回报率、债务还清策略。
-- 📈 **投资分析引擎**：查看全球实时行情（含 A 股）、自动化策略回测对比、马科维茨投资组合优化、资产再平衡模拟、外汇对冲分析。
-- 🏖️ **高级人生规划**：精准估算退休缺口、蒙特卡洛概率模拟、税务优化提款、历史回测储蓄模拟。
-- 🔬 **分析与工具**：场景对比分析、财务日历时间线、跨工具数据导入导出。
-""")
-
-with st.expander("🚀 重大版本升级（v2.0.0）", expanded=True):
+with st.expander("📋 版本历史", expanded=False):
     st.markdown("""
-**v2.0.0 全平台深度升级 — 设计、功能、新模块三大方向**
+### v2.0.0 — 全平台深度升级
+🎨 深色模式持久化 · 全局搜索 · 新增 4 种货币（AUD/CAD/SGD/KRW）
+💡 贷款还款方式对比 · 税务大病/养老金扣除 · 10 大外汇对 · 社保养老金估算 · Black-Litterman 组合优化 · 蒙卡进度条（10,000 次）
+🆕 股票筛选器（美/A/港/自定义市场）· 收支记账本（预算联动）
 
-🎨 **设计升级**
-- 深色模式偏好持久化：开关状态存入本地 `~/.omnifinance/preferences.json`，重启后自动恢复。
-- 侧边栏新增全局搜索框，输入功能名称快速定位目标工具。
-- 货币体系新增 AUD（澳元）、CAD（加元）、SGD（新加坡元）、KRW（韩元）共 4 种货币。
+### v1.9.9 — UI 系统升级 + 三大新工具
+全局 CSS 统一注入 · 科学计算器 · 货币转换器 · 财务日记 · 实时汇率引擎 · 债务 Gantt 图 · 自定义股票分组预设
 
-💡 **功能增强**
-- **贷款计算器**：新增「等额本息 vs 等额本金」可视化对比标签页，含双余额曲线与累计利息比较。
-- **税务计算器**：新增「大病医疗专项扣除」（上限 8 万元）与「个人养老金扣除」（上限 1.2 万元），专项扣除汇总表升级。
-- **外汇对冲计算器**：扩展为 10 大主流货币对（USD/CNY、EUR/USD、GBP/USD、JPY/CNY 等），下拉选择后自动填入默认汇率与利率。
-- **实时报价面板**：AKShare 未安装时显示统一错误横幅；新增自定义分组预设，可保存、加载、删除自定义股票分组。
-- **退休金估算器**：侧边栏新增「社保养老金估算器」，输入缴费年限/月缴费基数/当地社平工资，估算基础养老金 + 个人账户养老金。
-- **投资组合优化器**：新增 Black-Litterman 贝叶斯融合优化模块，支持最多 5 条主观观点输入，τ 调节先验不确定性，输出后验最优权重。
-- **蒙特卡洛模拟**：新增模拟进度条，最大模拟次数扩展至 10,000 次。
+### v1.9.8 — 探索式深度改进
+个人财务档案系统 · 财务提醒管理器 · 全国均值基准对比 · 税务互斥逻辑修复 · 场景对比扩展至 4 维度
 
-🆕 **新模块（高级工具 v2.0）**
-- **股票筛选器**（页面 26）：批量获取基本面数据，按 PE/PB/股息率/市值快速过滤，散点图与柱状图可视化，Excel 导出。
-- **收支记账本**（页面 27）：收入与支出录入、月度趋势图、类别饼图、预算 vs 实际对比，数据持久化到本地 JSON。
+### v1.9.7 — 8 大核心增强
+财务健康多维评分 · 现金流时间轴 · 年度财务回顾 · 净资产计划 vs 实际 · 货币偏好持久化
 
-⚙️ **工程改进**
-- 版本号统一升级至 v2.0.0，`core/version.py` 为单一来源。
-- `app.py` 全面接入深色模式磁盘持久化，首次加载即读取历史偏好。
-""")
+### v1.9.6.x — 全面优化与工程加固
+图表货币符号修复 · 复利精确计算 · IRR 收敛保护 · joblib 并行回测 · A 股代码校验升级
 
-with st.expander("🚀 重大版本升级（v1.9.9）", expanded=False):
-    st.markdown("""
-**v1.9.9-UI 全局 UI/UX 系统性升级（当前版本）**
+### v1.9.5 — 十二项功能上线
+复利通胀曲线 · 多目标储蓄 · 退休提款策略对比 · 转贷模拟 · 权重约束 · 基准 Alpha · t 分布 · 保险退保分析
 
-🎨 **主题系统重构**
-- `core/theme.py` 新增 `inject_page_css()` 全局统一注入：所有 25 个页面的 `.block-container` 顶部间距与 `.stMetric` 卡片样式现已一键全局管理，彻底消除各页面重复 CSS 代码。
-- 指标卡片新增 hover 微动效：悬停时轻微上浮 + 蓝色阴影，提升交互质感。
-- 下载按钮统一加入圆角 + 过渡动效，与普通按钮视觉语言保持一致。
-- 侧边栏输入标签字号收窄至 0.85rem，减少视觉拥挤感。
-
-🧮 **科学计算器按钮视觉分层**
-- 运算符（÷ × - +）：蓝色调背景，一眼识别数学运算区。
-- 数学函数（sin cos tan sqrt log exp）：绿色调背景 + 较小字号，区分高级运算区。
-- 清除/退格（AC ⌫）：红色调背景，危险操作区域高亮警示。
-- 等号（=）：强蓝色高亮，主操作按钮优先级最高。
-
-📌 **侧边栏版本标识**
-- 所有页面侧边栏底部新增 `OmniFinance v1.9.9` 版本标注，方便用户快速识别当前版本。
-
-🧹 **页面 CSS 标准化**
-- 删除分散在 23 个页面中的重复内联 CSS 代码块，统一由 `inject_theme()` 管理，代码可维护性大幅提升。
-- 实时报价面板保留 `.time-badge` 专属样式，其余冗余 CSS 全部清理。
-
----
-
-**v1.9.9 实时汇率引擎 + 三大新工具 + 全面功能深化**
-
-💱 **实时汇率引擎（core/exchange_rates.py）**
-- 全新 yfinance 汇率引擎：USD / EUR / GBP / JPY / HKD 对 CNY 的实时汇率，15 分钟缓存。
-- 网络断线自动回退至离线参考汇率，侧边栏「刷新汇率」按钮一键强制刷新。
-- 货币选择器下方新增「汇率：实时/离线，更新于 xx:xx」提示。
-
-💱 **新页面：货币转换器（分析与工具）**
-- 实时双向换算、6×6 全量交叉汇率矩阵、近 30 天历史走势图。
-- 海外购物 / 留学学费 / 工资对比三大快捷场景 + 批量换算区。
-
-🧮 **新页面：科学金融计算器（分析与工具）**
-- 科学计算区：网格按键 + 表达式输入，支持三角函数、对数、阶乘、π、e，10 条历史记录。
-- 金融计算 4 Tab：复利 FV/PV 互求、年金/IRR、债券价格/久期/凸性、百分比工具（CAGR、通胀调整、折扣）。
-
-📔 **新页面：财务日记（高级人生规划）**
-- 每月记录净资产快照 + 心情标注 + 备注，JSON 本地持久化。
-- 年度时间轴净资产走势图，悬停显示心情与备注。
-- 「生成年度财务回顾」按钮：一键导出 HTML 年度财务年报。
-
-💳 **债务还清规划器深化**
-- 新增还清里程碑 Gantt 图：各债务还清时间段一目了然。
-- 最优策略节省金额展示升级为高对比度绿色横幅，核心结论第一眼可见。
-- 新增「心理动力提示」：根据雪球法最快还清的第一笔债务月数显示激励文案。
-
-📄 **综合报告升级**
-- HTML 财务诊断报告新增「汇率快照」卡片，展示生成报告时的主流货币实时汇率。
-
-💱 **外汇对冲计算器升级**
-- 侧边栏新增「获取实时 USD/CNY」按钮，一键填入最新即期汇率并显示数据时间。
-""")
-
-with st.expander("🚀 重大版本升级（v1.9.8）", expanded=False):
-    st.markdown("""
-**v1.9.8 探索式深度改进 — 6大方向全面升级**
-
-👤 **个人财务档案系统**
-- 全新 core/profile.py 模块：一次性填写姓名/年龄/城市/月收入/月支出/风险偏好/家庭状况，全局侧边栏持久化保存，后续所有工具均可引用。
-
-🔔 **财务提醒管理器（全新页面）**
-- 完整提醒 CRUD 系统上线：新增债务还款、储蓄定投、保险缴费、税务申报等 8 类提醒，支持周期标注、金额关联、逾期高亮警告。
-- 6个常用场景模板一键添加，已完成提醒归档管理。
-
-📊 **全国均值基准对比内联展示**
-- 预算建议器、退休估算器、税务计算器新增全国均值对比条，实时显示月收入/储蓄率/退休储备与全国平均的差距，绿色/黄色/红色直观反映优劣。
-
-🐛 **税务计算器 Bug 修复**
-- 修复「住房贷款利息」与「住房租金」可同时勾选的逻辑漏洞（二者在现行税法下互斥），现在会即时弹出错误提示并阻止错误计算。
-- 新增税后月收入与全国均值对比条，提供即时收入定位参考。
-
-🔬 **场景对比分析器大幅扩展**
-- 从 2 个维度扩展至 4 个维度：
-  - 新增「贷款利率敏感度」— 分析不同利率对月还款/总利息/利息本金比的影响
-  - 新增「退休年龄敏感度」— 找出最早可无缺口退休的年龄节点
-
-🔧 **app.py 路由更新**
-- 新增财务提醒管理页面（pages/22_财务提醒管理.py）到导航菜单，模块版本注释更新至 v1.9.8。
-""")
-
-with st.expander("🚀 功能精进（v1.9.7）"):
-    st.markdown("""
-**v1.9.7 功能精进全面升级 — 8大核心增强**
-
-📊 **仪表盘深度升级**
-- 🏥 **财务健康多维评分系统**：新增6大维度独立评分（储蓄率、退休准备度、负债水平、净资产、税务、保险），每维度单独展示评分与改善建议，汇总综合评分更精准、更具指导意义。
-- 🌊 **现金流时间轴规划器**：统一时间轴叠加所有工具收支流，直观呈现每年现金流峰值/谷值，识别哪年压力最大，辅助跨工具协同决策。
-- 📅 **年度财务回顾生成器**：整合所有工具数据，一键生成结构化年度财务总结报告，包含净资产变化、储蓄进度、债务减少、保险覆盖度等全维度回顾。
-
-🛠️ **工具功能精进**
-- 📈 **净资产追踪器**：新增「计划线 vs 实际线」对比图表，直观显示净资产增长是否按原计划执行，偏差一目了然。
-- 🎯 **储蓄/退休敏感度双向滑杆**：新增实时交互滑杆，拖动目标额即时更新所需时间，或拖动时限即时更新所需月投入，比静态表格更直观。
-- 📋 **参数预设模板**：新增「刚毕业族」「双薪家庭」「临近退休」三大场景预设，一键填入推荐参数，大幅降低新用户上手门槛。
-
-⚙️ **基础体验优化**
-- 💱 **货币切换全局记忆**：货币偏好现已持久化写入磁盘，刷新页面或重启后自动恢复上次选择，不再重置为默认货币。
-""")
-
-with st.expander("🚀 功能优化（v1.9.6.x）"):
-    st.markdown("""
-**v1.9.6.x 全面功能优化与工程加固**
-
-- 🐛 **Bug 修复**：储蓄目标计算器修复"年通谀率"错别字；贷款计算器 & 预算建议器图表硬编码 ¥ 改为动态货币符号。
-- 📊 **复利计算器**：月/日利息明细改用与核心引擎一致的复利频率精确计算，不再使用简化 r/12、r/365。
-- 🏠 **仪表盘**：跨工具分析新增复利年化收益率 vs 保险 IRR 对比，修复 compound_rate 未使用的死代码。
-- 🏖️ **退休金估算器**：4% 法则提款策略改为标准实现（首年 4% × 初始资产，后续按通胀调整），而非每年重新计算资产的 4%。
-- 🎲 **蒙特卡洛模拟**：Student-t 分布改用 np.random.default_rng 统一随机数生成，告别已弃用的 scipy RandomState。
-- 📐 **投资组合优化器**：修复权重约束校验逻辑（原先 raw_tickers 未定义导致约束失效），现在解析完标的后才验证。
-- 🧾 **税务计算器**：全面集成到平台（仪表盘联动、方案管理、HTML 报告导出），新增独立导航分类。
-- 📈 **策略回测器**：移除无用 _cached_comparison 占位函数；参数网格搜索改用 joblib 并行加速。
-- 📊 **实时报价面板**：A 股代码检测升级，支持沪深交易所前缀校验（科创板 688、创业板 300 等）。
-- 🎨 **图表主题**：chart_config 新增暗色/亮色模式自动适配，所有 Plotly 图表背景、字体、网格线随主题切换。
-- 💾 **储蓄多目标**：多目标规划列表改用 core/storage.py 持久化存储，页面刷新不再丢失。
-- 🛡️ **保险测算器**：退保场景新增"指数增长"模式，更贴近真实保单前慢后快的现金价值增长曲线。
-- ⚙️ **IRR 求解器**：新增收敛检测与 scipy.optimize.brentq 回退机制，防止 Newton-Raphson 发散。
-- 🔧 **报告生成器**：新增通用 build_single_report 模板函数，统一暗色适配 + 打印友好样式。
-""")
-
-with st.expander("🚀 功能更新（v1.9.6）"):
-    st.markdown("""
-**v1.9.6 实时报价面板新增 A 股支持**
-
-- 📊 **实时报价面板**：接入 AKShare 数据源，新增沪深两市 A 股实时行情支持。
-  - 侧边栏快捷选择新增「A股」分组，预置贵州茅台、五粮液、中国平安、美的集团、宁德时代。
-  - A 股实时报价（当前价格、涨跌幅、今日最高/最低、成交量）由 AKShare 提供。
-  - K 线图同步支持 A 股历史数据（前复权），与美股/港股保持一致的图表体验。
-  - 自定义代码输入支持直接填入 6 位 A 股代码（如 601988）。
-  - 美股、港股、加密货币继续走 Yahoo Finance 通道，双数据源并行互不影响。
-""")
-
-with st.expander("🚀 功能全面升级（v1.9.5）"):
-    st.markdown("""
-**v1.9.5 十二项功能优化全面上线**
-
-本次升级对全部 11 个现有工具进行了功能深化，并新增第 12 个独立工具：
-
-- 💰 **复利计算器**：新增年通胀率输入，同步展示"实际购买力"曲线，直观对比名义收益与真实增值。
-- 🎯 **储蓄目标计算器**：新增多目标管理器，可同时规划多个目标（如买房、旅行、教育），并按高/中/低优先级排序，统一展示进度。
-- 🏖️ **退休金估算器**：新增三种退休提款策略对比（固定金额、4%法则、动态弹性），可视化资产耗尽风险差异。
-- 🏦 **贷款计算器**：新增转贷模拟器，输入新利率/年限/手续费，自动计算净节省利息与手续费回本期数。
-- 📐 **投资组合优化器**：新增权重约束（单资产最大/最小持仓比例），防止优化结果过度集中。
-- 📈 **策略回测器**：新增指数基准对比（标普500、纳斯达克、沪深300等），显示策略超额收益（Alpha）。
-- 🎲 **蒙特卡洛模拟**：新增学生 t 分布（厚尾）选项，更真实地反映市场极端事件发生频率。
-- 🏠 **资产净值追踪器**：新增净资产未来预测模块，支持最长 20 年的增长路径可视化。
-- 📊 **实时报价面板**：新增价格预警功能，可为每个标的设置涨跌触发阈值，实时提示。
-- 🛡️ **保险产品测算器**：新增退保场景分析，模拟不同年份退保的现金价值、损失率和 IRR 走势。
-- 🔗 **主页仪表盘**：新增跨工具综合分析，自动生成退休、债务、储蓄、净资产之间的联动洞察。
-- 🧾 **新增税务计算器**（第12个工具）：支持工资薪金个税、劳务报酬预扣税、投资收益税后分析三大模块。
-""")
-
-with st.expander("📋 v1.9.0 及更早版本说明"):
-    st.markdown("""
-- **v1.9.0**: 一键财务诊断报告，打通所有 11 个工具状态，生成企业级 HTML 报告。
-- **v1.8 ~ v1.8.5**: 模块化侧边栏导航重构、Glassmorphism 视觉升级、深色模式修复。
-- **v1.7**: 新增蒙特卡洛模拟与马科维茨投资组合优化器模块，增强错误捕捉，支持 Excel 全面导出。
-- **v1.6**: 并发与架构优化（涵盖 API 异步请求与多进程回测机制）。
-- **v1.5**: 新增资产净值追踪，全局支持方案保存与状态联动。
-- **v1.4**: 核心解耦，全面强化并发数据缓存机制。
-- **v1.1 ~ v1.3**: 提供多货币支持，技术面板指标扩建，保险计算引擎迭代。
+### v1.9.0 及更早
+v1.9.0: 企业级 HTML 诊断报告 · v1.8: Glassmorphism 主题 · v1.7: 蒙卡+组合优化 · v1.6: 并发架构 · v1.5: 净资产追踪 · v1.1–v1.4: 多货币/技术指标/引擎迭代
 """)
 
 # ── Session persistence: restore data on load ─────────────
@@ -235,48 +90,40 @@ dash_tax = st.session_state.get("dashboard_tax")
 has_data = any([dash_compound, dash_loan, dash_savings, dash_budget, dash_retirement, dash_insurance, dash_networth, dash_tax])
 
 if has_data:
-    cols = st.columns(7)
+    # Collect active metrics into a flat list, then display in 3-column grid
+    _dash_metrics: list[tuple[str, str, str]] = []
 
     if dash_compound:
-        cols[0].metric("💰 复利终值", fmt(dash_compound['final_balance'], decimals=0))
-        cols[0].caption(f"累计收益 {fmt(dash_compound['total_interest'], decimals=0)}")
-
+        _dash_metrics.append(("💰 复利终值", fmt(dash_compound['final_balance'], decimals=0), f"累计收益 {fmt(dash_compound['total_interest'], decimals=0)}"))
     if dash_loan:
-        cols[1].metric("🏦 贷款总利息", fmt(dash_loan['total_interest'], decimals=0))
-        cols[1].caption(f"每期还款 {fmt(dash_loan['monthly_payment'], decimals=0)}")
-
+        _dash_metrics.append(("🏦 贷款总利息", fmt(dash_loan['total_interest'], decimals=0), f"每期还款 {fmt(dash_loan['monthly_payment'], decimals=0)}"))
     if dash_savings:
-        months = dash_savings["months_needed"]
-        y, m = months // 12, months % 12
-        cols[2].metric("🎯 储蓄达成", f"{y}年{m}个月")
-        cols[2].caption(f"复利贡献 {fmt(dash_savings['total_interest'], decimals=0)}")
-
+        _months = dash_savings["months_needed"]
+        _y, _m = _months // 12, _months % 12
+        _dash_metrics.append(("🎯 储蓄达成", f"{_y}年{_m}个月", f"复利贡献 {fmt(dash_savings['total_interest'], decimals=0)}"))
     if dash_budget:
-        cols[3].metric("💡 月储蓄额", fmt(dash_budget['amt_save'], decimals=0))
-        cols[3].caption(f"储蓄率 {dash_budget['pct_save']}%")
-
+        _dash_metrics.append(("💡 月储蓄额", fmt(dash_budget['amt_save'], decimals=0), f"储蓄率 {dash_budget['pct_save']}%"))
     if dash_retirement:
-        gap = dash_retirement["gap"]
-        if gap <= 0:
-            cols[4].metric("🏖️ 退休评估", "✅ 已充足")
+        _gap = dash_retirement["gap"]
+        if _gap <= 0:
+            _dash_metrics.append(("🏖️ 退休评估", "✅ 已充足", "退休资金充裕"))
         else:
-            cols[4].metric("🏖️ 退休缺口", fmt(gap, decimals=0))
-            cols[4].caption(f"需额外月存 {fmt(dash_retirement['extra_monthly'], decimals=0)}")
-
+            _dash_metrics.append(("🏖️ 退休缺口", fmt(_gap, decimals=0), f"需额外月存 {fmt(dash_retirement['extra_monthly'], decimals=0)}"))
     if dash_insurance:
-        cols[5].metric("🛡️ 保险总保费", fmt(dash_insurance['total_premium'], decimals=0))
-        cols[5].caption(f"保单 IRR {dash_insurance['irr_pct']:.2f}%")
-
+        _dash_metrics.append(("🛡️ 保险总保费", fmt(dash_insurance['total_premium'], decimals=0), f"保单 IRR {dash_insurance['irr_pct']:.2f}%"))
     if dash_networth:
-        cols[6].metric("🏠 净资产", fmt(dash_networth['net_worth'], decimals=0))
-        cols[6].caption(f"资产 {fmt(dash_networth['total_assets'], decimals=0)}")
-
+        _dash_metrics.append(("🏠 净资产", fmt(dash_networth['net_worth'], decimals=0), f"总资产 {fmt(dash_networth['total_assets'], decimals=0)}"))
     if dash_tax:
-        st.columns(1)  # spacer
-        tax_col = st.columns(3)
-        tax_col[0].metric("🧾 年应缴个税", fmt(dash_tax['annual_tax'], decimals=0))
-        tax_col[1].metric("🧾 实际税率", f"{dash_tax['effective_rate']:.2f}%")
-        tax_col[2].metric("🧾 税后月到手", fmt(dash_tax['after_tax_monthly'], decimals=0))
+        _dash_metrics.append(("🧾 年应缴个税", fmt(dash_tax['annual_tax'], decimals=0), f"实际税率 {dash_tax['effective_rate']:.2f}%"))
+        _dash_metrics.append(("🧾 税后月到手", fmt(dash_tax['after_tax_monthly'], decimals=0), "税后实际到手"))
+
+    _n_cols = 3
+    for _row_start in range(0, len(_dash_metrics), _n_cols):
+        _row = _dash_metrics[_row_start: _row_start + _n_cols]
+        _cols = st.columns(_n_cols)
+        for _ci, (label, value, caption) in enumerate(_row):
+            _cols[_ci].metric(label, value)
+            _cols[_ci].caption(caption)
 
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")
 

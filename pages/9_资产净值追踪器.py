@@ -37,27 +37,70 @@ records = _load_records()
 
 st.markdown("---")
 st.subheader("📝 录入资产与负债")
-col_a, col_l = st.columns(2)
-with col_a:
-    st.markdown("#### 💰 资产")
-    cash = st.number_input("现金及存款", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_cash")
-    stocks = st.number_input("股票及基金", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_stocks")
-    real_estate = st.number_input("房产（市值）", min_value=0.0, value=0.0, step=CFG.networth.real_estate_step, format="%.0f", key="nw_re")
-    other_assets = st.number_input("其他资产", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_oa")
-with col_l:
-    st.markdown("#### 💳 负债")
-    mortgage = st.number_input("房贷余额", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_mort")
-    car_loan = st.number_input("车贷/消费贷", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_car")
-    credit_card = st.number_input("信用卡欠款", min_value=0.0, value=0.0, step=CFG.networth.credit_card_step, format="%.0f", key="nw_cc")
-    other_liab = st.number_input("其他负债", min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key="nw_ol")
 
-total_assets = cash + stocks + real_estate + other_assets
-total_liab = mortgage + car_loan + credit_card + other_liab
+# Asset categories
+_ASSET_CATEGORIES = {
+    "流动资产": ["现金及存款", "货币基金/活期理财"],
+    "投资资产": ["股票及基金", "债券/P2P/其他投资"],
+    "固定资产": ["房产（市值）", "汽车（估值）"],
+    "其他资产": ["保险现金价值", "其他资产"],
+}
+_LIAB_CATEGORIES = {
+    "长期负债": ["房贷余额", "车贷余额"],
+    "短期负债": ["信用卡欠款", "消费贷/网贷"],
+    "其他负债": ["亲友借款", "其他负债"],
+}
+
+_asset_color_map = {
+    "现金及存款": "#1976D2", "货币基金/活期理财": "#42A5F5",
+    "股票及基金": "#00897B", "债券/P2P/其他投资": "#4DB6AC",
+    "房产（市值）": "#F4511E", "汽车（估值）": "#FF8A65",
+    "保险现金价值": "#8E24AA", "其他资产": "#CE93D8",
+}
+_liab_color_map = {
+    "房贷余额": "#C62828", "车贷余额": "#EF9A9A",
+    "信用卡欠款": "#E65100", "消费贷/网贷": "#FFCC80",
+    "亲友借款": "#5D4037", "其他负债": "#BCAAA4",
+}
+
+col_a, col_l = st.columns(2)
+_asset_values: dict[str, float] = {}
+_liab_values: dict[str, float] = {}
+
+with col_a:
+    st.markdown("#### 💰 资产（按类别分组）")
+    for cat, fields in _ASSET_CATEGORIES.items():
+        st.markdown(f"**{cat}**")
+        for field in fields:
+            _key = f"nw_a_{field}"
+            _step = CFG.networth.real_estate_step if "房产" in field else CFG.networth.asset_step
+            _asset_values[field] = st.number_input(field, min_value=0.0, value=0.0, step=_step, format="%.0f", key=_key)
+
+with col_l:
+    st.markdown("#### 💳 负债（按类别分组）")
+    for cat, fields in _LIAB_CATEGORIES.items():
+        st.markdown(f"**{cat}**")
+        for field in fields:
+            _key = f"nw_l_{field}"
+            _liab_values[field] = st.number_input(field, min_value=0.0, value=0.0, step=CFG.networth.asset_step, format="%.0f", key=_key)
+
+# Legacy field aliases for snapshot save compatibility
+cash = _asset_values["现金及存款"]
+stocks = _asset_values["股票及基金"]
+real_estate = _asset_values["房产（市值）"]
+other_assets = sum(v for k, v in _asset_values.items() if k not in ("现金及存款", "股票及基金", "房产（市值）"))
+mortgage = _liab_values["房贷余额"]
+car_loan = _liab_values["车贷余额"] + _liab_values["消费贷/网贷"]
+credit_card = _liab_values["信用卡欠款"]
+other_liab = _liab_values["亲友借款"] + _liab_values["其他负债"]
+
+total_assets = sum(_asset_values.values())
+total_liab = sum(_liab_values.values())
 net_worth = total_assets - total_liab
 
 st.markdown("---")
 st.subheader("📊 资产概览")
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 c1.metric("💰 总资产", fmt(total_assets, decimals=0))
 c2.metric("💳 总负债", fmt(total_liab, decimals=0))
 if records:
@@ -68,9 +111,12 @@ else:
 
 if total_assets > 0:
     dr = total_liab / total_assets * 100
+    c4.metric("📊 负债率", f"{dr:.1f}%")
     if dr > CFG.networth.debt_ratio_high: st.error(MSG.networth_debt_high.format(ratio=dr))
     elif dr > CFG.networth.debt_ratio_medium: st.warning(MSG.networth_debt_medium.format(ratio=dr))
     else: st.success(MSG.networth_debt_ok.format(ratio=dr))
+else:
+    c4.metric("📊 负债率", "—")
 
 st.session_state["dashboard_networth"] = {"net_worth": net_worth, "total_assets": total_assets, "total_liabilities": total_liab}
 
@@ -83,13 +129,39 @@ if st.button("💾 保存当前快照", type="primary"):
 st.caption(f"已保存 {len(records)} 条记录")
 
 if total_assets > 0:
-    st.subheader("📊 资产配置")
-    items = [("现金", cash, "#636EFA"), ("股票基金", stocks, "#00CC96"), ("房产", real_estate, "#EF553B"), ("其他", other_assets, "#AB63FA")]
-    al, av, ac = zip(*[(l, v, c) for l, v, c in items if v > 0], strict=False) if any(v > 0 for _, v, _ in items) else ([], [], [])
-    if al:
-        fig_pie = go.Figure(data=[go.Pie(labels=list(al), values=list(av), hole=0.5, marker=dict(colors=list(ac), line=dict(color="white", width=3)), textinfo="label+percent")])
-        fig_pie.update_layout(showlegend=False, margin=dict(t=20,b=20,l=20,r=20), height=380)
-        st.plotly_chart(fig_pie, use_container_width=True)
+    st.subheader("📊 资产 & 负债分布")
+    _pie_col, _bar_col = st.columns(2)
+
+    # Asset allocation donut
+    _asset_items = [(k, v) for k, v in _asset_values.items() if v > 0]
+    if _asset_items:
+        _al, _av = zip(*_asset_items, strict=False)
+        _ac = [_asset_color_map.get(l, "#999") for l in _al]
+        with _pie_col:
+            st.caption("资产配置")
+            fig_pie = go.Figure(data=[go.Pie(labels=list(_al), values=list(_av), hole=0.5, marker=dict(colors=_ac, line=dict(color="white", width=2)), textinfo="label+percent", textfont=dict(size=11))])
+            fig_pie.update_layout(showlegend=False, margin=dict(t=10,b=10,l=10,r=10), height=340)
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+    # Liability breakdown bar
+    _liab_items = [(k, v) for k, v in _liab_values.items() if v > 0]
+    if _liab_items:
+        _ll, _lv = zip(*_liab_items, strict=False)
+        _lc = [_liab_color_map.get(l, "#999") for l in _ll]
+        with _bar_col:
+            st.caption("负债结构")
+            fig_liab = go.Figure(data=[go.Bar(
+                x=list(_lv), y=list(_ll), orientation="h",
+                marker_color=_lc,
+                text=[fmt(v, decimals=0) for v in _lv],
+                textposition="auto",
+                hovertemplate="%{y}: " + get_symbol() + "%{x:,.0f}<extra></extra>",
+            )])
+            fig_liab.update_layout(margin=dict(t=10,b=10,l=10,r=10), height=340, showlegend=False,
+                                   xaxis_tickformat=",")
+            st.plotly_chart(fig_liab, use_container_width=True)
+    elif not _liab_items and not _asset_items:
+        pass  # nothing to show
 
 if len(records) >= 2:
     st.subheader("📈 净资产趋势")

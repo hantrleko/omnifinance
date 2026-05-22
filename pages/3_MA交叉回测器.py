@@ -493,55 +493,100 @@ if enable_benchmark and benchmark_ticker.strip():
     else:
         st.warning(f"无法获取 {benchmark_ticker.strip().upper()} 的历史数据，请检查代码是否正确。")
 
-# ── 策略对比（缓存计算） ──────────────────────────────────
-with st.expander("📊 策略对比（默认参数）"):
-    DEFAULT_PARAMS = {
-        "MA 交叉": {"short_window": 50, "long_window": 200},
-        "RSI": {"period": 14, "oversold": 30, "overbought": 70},
-        "MACD": {"fast": 12, "slow": 26, "signal_period": 9},
-        "布林带": {"period": 20, "num_std": 2.0},
-    }
+# ── 策略对比（始终显示） ──────────────────────────────────
+st.markdown("---")
+st.subheader("📊 四策略横向对比（默认参数）")
+st.caption("对同一标的在相同日期区间使用四种策略的默认参数计算，方便快速评估各策略适用性。")
 
-    # Build a simple cache key from the data characteristics
-    data_key = (ticker.upper(), str(start_date), str(end_date),
-                 initial_capital, fee_rate, slippage_rate, risk_free_rate)
+DEFAULT_PARAMS = {
+    "MA 交叉": {"short_window": 50, "long_window": 200},
+    "RSI": {"period": 14, "oversold": 30, "overbought": 70},
+    "MACD": {"fast": 12, "slow": 26, "signal_period": 9},
+    "布林带": {"period": 20, "num_std": 2.0},
+}
 
-    @st.cache_data(ttl=300, show_spinner="正在计算策略对比…")
-    def compute_comparison(
-        data_key: tuple,
-        _data: pd.DataFrame,   # leading underscore = not hashed by Streamlit
-    ) -> list[dict]:
-        rows = []
-        for s_name in STRATEGY_NAMES:
-            s_params = DEFAULT_PARAMS[s_name]
-            try:
-                s_sig = apply_strategy(_data, s_name, s_params)
-                s_result, s_trades = simulate_trades(
-                    s_sig, data_key[3], data_key[4], data_key[5]
-                )
-                s_metrics = compute_metrics(s_result, s_trades, data_key[3], data_key[6])
-                rows.append({
-                    "策略": s_name,
-                    "总回报率(%)": round(s_metrics["总回报率(%)"], 2),
-                    "年化回报(%)": round(s_metrics["年化回报(%)"], 2),
-                    "最大回撤(%)": round(s_metrics["最大回撤(%)"], 2),
-                    "夏普比率": round(s_metrics["夏普比率"], 2),
-                    "索提诺比率": round(s_metrics["索提诺比率"], 2),
-                    "卡玛比率": round(s_metrics["卡玛比率"], 2),
-                    "交易次数": s_metrics["交易次数"],
-                    "胜率(%)": round(s_metrics["胜率(%)"], 1),
-                })
-            except (ValueError, KeyError, ZeroDivisionError) as exc:
-                # Strategy computation failed for this combo — record as None row
-                _logger.warning("[策略对比] %s 计算失败: %s", s_name, exc, exc_info=True)
-                rows.append({"策略": s_name, **{k: None for k in [
-                    "总回报率(%)", "年化回报(%)", "最大回撤(%)",
-                    "夏普比率", "索提诺比率", "卡玛比率", "交易次数", "胜率(%)",
-                ]}})
-        return rows
+data_key = (ticker.upper(), str(start_date), str(end_date),
+             initial_capital, fee_rate, slippage_rate, risk_free_rate)
 
-    comparison_rows = compute_comparison(data_key, data)
-    st.dataframe(pd.DataFrame(comparison_rows), use_container_width=True, hide_index=True)
+@st.cache_data(ttl=300, show_spinner="正在计算策略对比…")
+def compute_comparison(
+    data_key: tuple,
+    _data: pd.DataFrame,
+) -> list[dict]:
+    rows = []
+    for s_name in STRATEGY_NAMES:
+        s_params = DEFAULT_PARAMS[s_name]
+        try:
+            s_sig = apply_strategy(_data, s_name, s_params)
+            s_result, s_trades = simulate_trades(
+                s_sig, data_key[3], data_key[4], data_key[5]
+            )
+            s_metrics = compute_metrics(s_result, s_trades, data_key[3], data_key[6])
+            rows.append({
+                "策略": s_name,
+                "总回报率(%)": round(s_metrics["总回报率(%)"], 2),
+                "年化回报(%)": round(s_metrics["年化回报(%)"], 2),
+                "最大回撤(%)": round(s_metrics["最大回撤(%)"], 2),
+                "夏普比率": round(s_metrics["夏普比率"], 2),
+                "索提诺比率": round(s_metrics["索提诺比率"], 2),
+                "卡玛比率": round(s_metrics["卡玛比率"], 2),
+                "交易次数": s_metrics["交易次数"],
+                "胜率(%)": round(s_metrics["胜率(%)"], 1),
+            })
+        except (ValueError, KeyError, ZeroDivisionError) as exc:
+            _logger.warning("[策略对比] %s 计算失败: %s", s_name, exc, exc_info=True)
+            rows.append({"策略": s_name, **{k: None for k in [
+                "总回报率(%)", "年化回报(%)", "最大回撤(%)",
+                "夏普比率", "索提诺比率", "卡玛比率", "交易次数", "胜率(%)",
+            ]}})
+    return rows
+
+comparison_rows = compute_comparison(data_key, data)
+cmp_df = pd.DataFrame(comparison_rows)
+st.dataframe(cmp_df, use_container_width=True, hide_index=True)
+
+# Sharpe ratio bar chart
+_sharpe_vals = [r.get("夏普比率") for r in comparison_rows]
+_sharpe_names = [r["策略"] for r in comparison_rows]
+if any(v is not None for v in _sharpe_vals):
+    _sharpe_colors = ["#00CC96" if (v is not None and v >= 0) else "#EF553B" for v in _sharpe_vals]
+    _sharpe_display = [v if v is not None else 0.0 for v in _sharpe_vals]
+
+    _cmp_col1, _cmp_col2 = st.columns(2)
+    with _cmp_col1:
+        st.caption("夏普比率对比")
+        fig_sharpe = go.Figure(go.Bar(
+            x=_sharpe_names, y=_sharpe_display,
+            marker_color=_sharpe_colors,
+            text=[f"{v:.2f}" if v is not None else "—" for v in _sharpe_vals],
+            textposition="outside",
+            hovertemplate="%{x}<br>夏普比率: %{y:.2f}<extra></extra>",
+        ))
+        fig_sharpe.add_hline(y=1.0, line_dash="dash", line_color="#FFA726",
+                             annotation_text="1.0 基准", annotation_position="top right")
+        fig_sharpe.update_layout(
+            height=300, margin=dict(t=30, b=20, l=20, r=20),
+            showlegend=False, yaxis_title="夏普比率",
+        )
+        st.plotly_chart(fig_sharpe, use_container_width=True)
+
+    _ann_vals = [r.get("年化回报(%)") for r in comparison_rows]
+    with _cmp_col2:
+        st.caption("年化回报率对比")
+        _ann_colors = ["#00CC96" if (v is not None and v >= 0) else "#EF553B" for v in _ann_vals]
+        fig_ann = go.Figure(go.Bar(
+            x=_sharpe_names, y=[v if v is not None else 0.0 for v in _ann_vals],
+            marker_color=_ann_colors,
+            text=[f"{v:+.1f}%" if v is not None else "—" for v in _ann_vals],
+            textposition="outside",
+            hovertemplate="%{x}<br>年化回报: %{y:+.2f}%<extra></extra>",
+        ))
+        fig_ann.add_hline(y=0, line_dash="solid", line_color="gray", line_width=1)
+        fig_ann.update_layout(
+            height=300, margin=dict(t=30, b=20, l=20, r=20),
+            showlegend=False, yaxis_title="年化回报率（%）",
+        )
+        st.plotly_chart(fig_ann, use_container_width=True)
 
 # ── 交易明细 ──────────────────────────────────────────────
 st.subheader("📋 交易明细")

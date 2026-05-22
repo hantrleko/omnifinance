@@ -373,6 +373,58 @@ for dep in comparison_deposits:
 comp_df = pd.DataFrame(comp_rows)
 st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
+# ── 敏感度热力图 ─────────────────────────────────────────
+st.markdown("---")
+st.subheader("🌡️ 敏感度热力图：月投入 × 年化利率 → 所需月数")
+st.caption("颜色越深蓝代表达成越快；灰色格表示无法在 600 个月内达成。")
+
+import numpy as np
+
+_hm_deposits = [
+    effective_deposit * m for m in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0]
+]
+_hm_deposits = sorted(set(max(100.0, d) for d in _hm_deposits))
+_hm_rates = [annual_rate + d for d in [-3, -2, -1, 0, 1, 2, 3, 5] if annual_rate + d >= 0]
+_hm_rates = sorted(set(r for r in _hm_rates if r <= 30))
+
+_hm_z: list[list[float]] = []
+_hm_text: list[list[str]] = []
+for _r in _hm_rates:
+    _row_z, _row_t = [], []
+    for _d in _hm_deposits:
+        _hm_res = calculate_savings_goal(current_savings, goal_amount, _r, _d)
+        if _hm_res.reached and 0 < _hm_res.months_needed <= 600:
+            _hm_y = _hm_res.months_needed // 12
+            _hm_m = _hm_res.months_needed % 12
+            _row_z.append(_hm_res.months_needed)
+            _row_t.append(f"{_hm_y}y{_hm_m}m" if _hm_y > 0 else f"{_hm_m}m")
+        else:
+            _row_z.append(float("nan"))
+            _row_t.append("—")
+    _hm_z.append(_row_z)
+    _hm_text.append(_row_t)
+
+_hm_fig = go.Figure(data=go.Heatmap(
+    z=_hm_z,
+    x=[f"{sym}{d:,.0f}" for d in _hm_deposits],
+    y=[f"{r:.1f}%" for r in _hm_rates],
+    text=_hm_text,
+    texttemplate="%{text}",
+    textfont=dict(size=11),
+    colorscale="Blues_r",
+    reversescale=False,
+    showscale=True,
+    colorbar=dict(title="月数", tickformat="d"),
+    hovertemplate="月投入: %{x}<br>年化利率: %{y}<br>所需时间: %{text}<extra></extra>",
+))
+_hm_fig.update_layout(
+    height=320,
+    margin=dict(t=30, b=40, l=60, r=20),
+    xaxis_title="每月投入",
+    yaxis_title="年化利率",
+)
+st.plotly_chart(_hm_fig, use_container_width=True)
+
 # ── 导出报告 ──────────────────────────────────────────────
 st.subheader("📤 导出报告")
 def _build_sav_report() -> str:
