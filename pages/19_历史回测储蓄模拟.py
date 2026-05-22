@@ -61,6 +61,11 @@ monthly = st.sidebar.number_input("每月定投", min_value=0.0, value=5000.0, s
 assumed_rate = st.sidebar.slider("假设固定收益率(%)", min_value=0.0, max_value=15.0, value=6.0, step=0.5)
 
 st.sidebar.markdown("---")
+st.sidebar.subheader("📉 通胀调整")
+inflation_rate = st.sidebar.slider("年通胀率(%)", min_value=0.0, max_value=10.0, value=3.0, step=0.5, help="用于将名义终值折算为实际购买力")
+show_inflation = st.sidebar.checkbox("显示通胀调整后购买力", value=True)
+
+st.sidebar.markdown("---")
 st.sidebar.caption(MSG.disclaimer_research)
 
 # ── Simulation ────────────────────────────────────────────
@@ -78,7 +83,6 @@ rows_hist: list[dict[str, Any]] = [{"年份": start_year, "余额": balance_hist
 for yr in sim_years[1:]:
     ret = returns_data.get(yr, 0.0) / 100
     yearly_contrib = monthly * 12
-    # Monthly DCA: approximate as contribution at mid-year earning half the annual return
     balance_hist = balance_hist * (1 + ret) + yearly_contrib * (1 + ret / 2)
     rows_hist.append({"年份": yr, "余额": balance_hist, "类型": "历史实际"})
 
@@ -94,29 +98,105 @@ for yr in sim_years[1:]:
 df_hist = pd.DataFrame(rows_hist)
 df_assumed = pd.DataFrame(rows_assumed)
 
-# Metrics
+# Inflation-adjusted (real) values
 actual_years = len(sim_years) - 1
+_infl_r = inflation_rate / 100
+df_hist["实际购买力"] = [
+    v / (1 + _infl_r) ** i for i, v in enumerate(df_hist["余额"])
+]
+df_assumed["实际购买力"] = [
+    v / (1 + _infl_r) ** i for i, v in enumerate(df_assumed["余额"])
+]
+
+# Total contribution (nominal)
 total_contrib = initial + monthly * 12 * actual_years
+# Real total contribution (deflated)
+total_contrib_real = initial + sum(
+    monthly * 12 / (1 + _infl_r) ** (i + 1) for i in range(actual_years)
+)
+
 actual_return = (balance_hist / total_contrib - 1) * 100 if total_contrib > 0 else 0
 assumed_return_total = (balance_assumed / total_contrib - 1) * 100 if total_contrib > 0 else 0
 
+real_hist_final = df_hist["实际购买力"].iloc[-1]
+real_assumed_final = df_assumed["实际购买力"].iloc[-1]
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("📅 投资期", f"{actual_years} 年")
-c2.metric("💰 历史终值", fmt(balance_hist, decimals=0))
-c3.metric("📊 假设终值", fmt(balance_assumed, decimals=0))
+c2.metric("💰 历史名义终值", fmt(balance_hist, decimals=0))
+c3.metric("📊 假设名义终值", fmt(balance_assumed, decimals=0))
 c4.metric("📈 差距", fmt(balance_hist - balance_assumed, decimals=0))
 
+if show_inflation and inflation_rate > 0:
+    rc1, rc2, rc3 = st.columns(3)
+    rc1.metric(
+        f"💰 历史实际购买力（通胀{inflation_rate}%）",
+        fmt(real_hist_final, decimals=0),
+        delta=f"名义 {fmt(balance_hist, decimals=0)}",
+        delta_color="off",
+    )
+    rc2.metric(
+        f"📊 假设实际购买力（通胀{inflation_rate}%）",
+        fmt(real_assumed_final, decimals=0),
+        delta=f"名义 {fmt(balance_assumed, decimals=0)}",
+        delta_color="off",
+    )
+    rc3.metric(
+        "购买力侵蚀",
+        fmt(balance_hist - real_hist_final, decimals=0),
+        delta=f"占名义值 {(1 - real_hist_final/balance_hist)*100:.1f}%" if balance_hist > 0 else "—",
+        delta_color="inverse",
+    )
+
 if balance_hist > balance_assumed:
-    st.success(f"✅ 在 {market} 中，{start_year}年开始的实际收益 **优于** {assumed_rate}% 的固定假设，多出 {fmt(balance_hist - balance_assumed, decimals=0)}。")
+    st.success(f"✅ 在 {market} 中，{start_year}年开始的实际收益 **优于** {assumed_rate}% 的固定假设，名义多出 {fmt(balance_hist - balance_assumed, decimals=0)}。")
 else:
-    st.warning(f"⚠️ 在 {market} 中，{start_year}年开始的实际收益 **低于** {assumed_rate}% 的固定假设，少了 {fmt(balance_assumed - balance_hist, decimals=0)}。")
+    st.warning(f"⚠️ 在 {market} 中，{start_year}年开始的实际收益 **低于** {assumed_rate}% 的固定假设，名义少了 {fmt(balance_assumed - balance_hist, decimals=0)}。")
 
 # ── Chart ─────────────────────────────────────────────────
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=df_hist["年份"], y=df_hist["余额"], mode="lines+markers", name="历史实际", line=dict(width=3, color="#2563eb")))
-fig.add_trace(go.Scatter(x=df_assumed["年份"], y=df_assumed["余额"], mode="lines", name=f"假设{assumed_rate}%", line=dict(width=2, dash="dash", color="#ef4444")))
-fig.update_layout(**build_layout(title=f"{market} 定投回测 ({start_year}-{end_year})", xaxis_title="年份", yaxis_title=f"余额 ({sym})", yaxis_tickformat=",.0f"))
+fig.add_trace(go.Scatter(
+    x=df_hist["年份"], y=df_hist["余额"],
+    mode="lines+markers", name="历史实际（名义）",
+    line=dict(width=3, color="#2563eb"),
+))
+fig.add_trace(go.Scatter(
+    x=df_assumed["年份"], y=df_assumed["余额"],
+    mode="lines", name=f"假设{assumed_rate}%（名义）",
+    line=dict(width=2, dash="dash", color="#ef4444"),
+))
+if show_inflation and inflation_rate > 0:
+    fig.add_trace(go.Scatter(
+        x=df_hist["年份"], y=df_hist["实际购买力"],
+        mode="lines", name="历史实际（通胀调整）",
+        line=dict(width=2, dash="dot", color="#0ea5e9"),
+    ))
+    fig.add_trace(go.Scatter(
+        x=df_assumed["年份"], y=df_assumed["实际购买力"],
+        mode="lines", name=f"假设{assumed_rate}%（通胀调整）",
+        line=dict(width=2, dash="dot", color="#f97316"),
+    ))
+# Total contribution reference line
+contrib_by_year = [initial + monthly * 12 * i for i in range(len(sim_years))]
+fig.add_trace(go.Scatter(
+    x=df_hist["年份"], y=contrib_by_year,
+    mode="lines", name="累计投入本金",
+    line=dict(width=1.5, dash="dot", color="#9ca3af"),
+))
+fig.update_layout(**build_layout(
+    title=f"{market} 定投回测 ({start_year}-{end_year})",
+    xaxis_title="年份", yaxis_title=f"余额 ({sym})", yaxis_tickformat=",.0f",
+))
 st.plotly_chart(fig, use_container_width=True)
+
+# Inflation explanation
+if show_inflation and inflation_rate > 0 and actual_years > 0:
+    _real_rate_hist = ((real_hist_final / total_contrib_real) ** (1 / actual_years) - 1) * 100 if total_contrib_real > 0 else 0
+    st.caption(
+        f"📉 通胀说明：假设年通胀 {inflation_rate}%，{actual_years}年后购买力折算系数为 "
+        f"{(1+_infl_r)**actual_years:.2f}x。历史终值实际购买力为 {fmt(real_hist_final, decimals=0)}，"
+        f"实际年化购买力增速约 {_real_rate_hist:.1f}%。"
+    )
 
 # ── Annual returns table ──────────────────────────────────
 st.markdown("---")
