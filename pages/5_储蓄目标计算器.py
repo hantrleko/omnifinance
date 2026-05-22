@@ -6,8 +6,10 @@
 v1.4: 核心计算已下沉到 core/savings.py；图表货币符号动态引用。
 """
 
+import json
 from datetime import date
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -21,7 +23,7 @@ from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.export import dataframes_to_excel
 from core.savings import SavingsResult, calculate_savings_goal
-from core.storage import scheme_manager_ui
+from core.storage import delete_scheme, list_schemes, load_scheme, save_scheme, scheme_manager_ui
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.set_page_config(page_title="储蓄目标计算器", page_icon="🎯", layout="wide")
@@ -378,8 +380,6 @@ st.markdown("---")
 st.subheader("🌡️ 敏感度热力图：月投入 × 年化利率 → 所需月数")
 st.caption("颜色越深蓝代表达成越快；灰色格表示无法在 600 个月内达成。")
 
-import numpy as np
-
 _hm_deposits = [
     effective_deposit * m for m in [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0]
 ]
@@ -452,10 +452,6 @@ st.subheader("🗂️ 多目标储蓄规划")
 st.caption("同时规划多个储蓄目标（如购房、旅行、教育），并对比各目标所需时间。数据自动保存到本地。")
 
 # Load multi-goals from persistent storage
-import json
-
-from core.storage import delete_scheme, list_schemes, load_scheme, save_scheme
-
 _MG_TOOL = "multi_goals"
 
 def _load_multi_goals() -> list[dict]:

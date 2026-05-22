@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -125,8 +126,6 @@ for dep in deposits_to_compare:
         "缺口/盈余": fmt(-r.gap, decimals=0) if r.gap <= 0 else f"-{fmt(r.gap, decimals=0)}",
         "状态": "✅ 充足" if r.gap <= 0 else "⚠️ 不足",
     })
-import pandas as pd
-
 st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
 
 st.markdown("---")

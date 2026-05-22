@@ -1,6 +1,15 @@
+import datetime as _dt
+
+import plotly.graph_objects as go
 import streamlit as st
 
+from core.benchmarks import BENCHMARKS
+from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
+from core.pdf_report import generate_pdf_report, is_pdf_available
+from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
+from core.reminders import add_reminder, complete_reminder, get_due_reminders, get_reminders
+from core.report_generator import generate_html_report
 from core.version import VERSION
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
@@ -68,8 +77,6 @@ v1.9.0: 企业级 HTML 诊断报告 · v1.8: Glassmorphism 主题 · v1.7: 蒙�
 """)
 
 # ── Session persistence: restore data on load ─────────────
-from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
-
 restored = restore_session_data()
 
 # ── 个人财务仪表盘 ────────────────────────────────────────
@@ -286,7 +293,6 @@ if has_data:
     st.markdown("---")
     st.subheader("📊 全国基准对比")
 
-    from core.benchmarks import BENCHMARKS
     has_benchmark_data = False
 
     if dash_budget:
@@ -399,7 +405,6 @@ if has_data:
         cf_has_data = True
 
     if cf_has_data:
-        import plotly.graph_objects as go
         for i in range(30):
             cf_net[i] = cf_income[i] - cf_expense[i]
 
@@ -428,7 +433,6 @@ if has_data:
         ))
         fig_cf.add_hline(y=0, line_dash="dash", line_color="gray", line_width=1)
 
-        from core.chart_config import build_layout
         fig_cf.update_layout(
             **build_layout(xaxis_title="年份", yaxis_title=f"金额（{sym}）", yaxis_tickformat=","),
             barmode="relative",
@@ -449,7 +453,6 @@ if has_data:
     st.subheader("📅 年度财务回顾")
     st.caption("整合所有工具数据，生成结构化年度财务总结。")
 
-    import datetime as _dt
     current_year_str = str(_dt.date.today().year)
 
     review_sections: list[str] = []
@@ -524,8 +527,6 @@ st.markdown("---")
 st.subheader("📄 个人财务全景诊断归档")
 st.write("一键全维扫描您的交互记录，提取所有核心指标并瞬间熔铸，为您秒级生成可脱机离线查阅的专属企业级 HTML 视觉财报。特别适配深浅明暗多主题无感切换；极度推荐查阅时按下 `Ctrl/Cmd + P` 轻松转储为纯矢量高清 PDF。")
 
-from core.report_generator import generate_html_report
-
 metrics_dict = {}
 if dash_compound:
     metrics_dict["compound"] = dash_compound
@@ -558,7 +559,6 @@ with report_cols[0]:
     )
 
 with report_cols[1]:
-    from core.pdf_report import generate_pdf_report, is_pdf_available
     if is_pdf_available():
         pdf_bytes = generate_pdf_report(metrics_dict)
         if pdf_bytes:
@@ -602,9 +602,8 @@ with pcol3:
     )
 
 with pcol4:
-    from core.pdf_report import generate_pdf_report as _gen_pdf, is_pdf_available as _pdf_ok
-    if _pdf_ok():
-        _pdf_bytes = _gen_pdf(metrics_dict)
+    if is_pdf_available():
+        _pdf_bytes = generate_pdf_report(metrics_dict)
         if _pdf_bytes:
             st.download_button(
                 label="📑 下载 PDF 仪表盘报告",
@@ -631,8 +630,6 @@ with _import_col:
 # ── Reminders (#12) ──────────────────────────────────────
 st.markdown("---")
 st.subheader("🔔 财务提醒")
-
-from core.reminders import add_reminder, complete_reminder, get_due_reminders, get_reminders
 
 due = get_due_reminders()
 if due:

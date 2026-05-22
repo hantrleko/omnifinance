@@ -4,6 +4,11 @@
 支持手动调比例、固定支出超标警示、高利债务优先还债。
 """
 
+import json
+import os
+from datetime import date as _date
+from pathlib import Path
+
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -217,10 +222,6 @@ st.markdown("---")
 st.subheader("🔗 本月实际支出 vs 预算")
 st.caption("读取收支记账本的当月支出，与当前预算设置进行对比。请先在「收支记账本」页面录入支出记录。")
 
-import json
-import os
-from pathlib import Path
-
 _LEDGER_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "ledger.json"
 
 def _load_current_month_expenses() -> dict[str, float]:
@@ -233,7 +234,6 @@ def _load_current_month_expenses() -> dict[str, float]:
     except (json.JSONDecodeError, OSError):
         return {}
 
-    from datetime import date as _date
     today = _date.today()
     cat_totals: dict[str, float] = {}
     for entry in data:

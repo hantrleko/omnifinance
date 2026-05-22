@@ -10,13 +10,13 @@
 
 import io
 
+import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from core.theme import inject_theme
 
 inject_theme()
-import pandas as pd
-import plotly.graph_objects as go
 
 from core.chart_config import build_layout
 from core.compound import add_annualized_return, compute_schedule

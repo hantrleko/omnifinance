@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 from datetime import date, datetime
@@ -236,11 +237,36 @@ with tab_exp:
         if budget_rows:
             st.markdown("**预算 vs 实际对比**")
             bdf = pd.DataFrame(budget_rows)
+            # Color actual bars: red if over budget, green if within
+            _bar_colors = ["#EF553B" if r["超支"] > 0 else "#00CC96" for _, r in bdf.iterrows()]
             fig_bud = go.Figure()
-            fig_bud.add_trace(go.Bar(x=bdf["类别"], y=bdf["预算"], name="预算", marker_color="rgba(100,149,237,0.6)"))
-            fig_bud.add_trace(go.Bar(x=bdf["类别"], y=bdf["实际支出"], name="实际支出", marker_color="#EF553B"))
-            fig_bud.update_layout(**build_layout(barmode="group", xaxis_title="类别", yaxis_title="金额（元）", yaxis_tickformat=",", height=350))
+            fig_bud.add_trace(go.Bar(
+                x=bdf["类别"], y=bdf["预算"], name="预算",
+                marker_color="rgba(100,149,237,0.5)",
+                hovertemplate="%{x}<br>预算: " + sym + "%{y:,.0f}<extra></extra>",
+            ))
+            fig_bud.add_trace(go.Bar(
+                x=bdf["类别"], y=bdf["实际支出"], name="实际支出",
+                marker_color=_bar_colors,
+                text=[r["状态"] if r["实际支出"] > 0 else "无记录" for _, r in bdf.iterrows()],
+                textposition="outside",
+                hovertemplate="%{x}<br>实际: " + sym + "%{y:,.0f}<extra></extra>",
+            ))
+            fig_bud.update_layout(**build_layout(
+                barmode="overlay", xaxis_title="类别",
+                yaxis_title="金额（元）", yaxis_tickformat=",", height=360,
+            ))
             st.plotly_chart(fig_bud, use_container_width=True)
+            # Summary row
+            _total_budget = bdf["预算"].sum()
+            _total_actual = bdf["实际支出"].sum()
+            _over_cats = bdf[bdf["超支"] > 0]
+            _bs1, _bs2, _bs3 = st.columns(3)
+            _bs1.metric("月度预算合计", fmt(_total_budget, decimals=0))
+            _bs2.metric("实际支出合计", fmt(_total_actual, decimals=0),
+                        delta=f"{'超支' if _total_actual > _total_budget else '结余'} {fmt(abs(_total_actual-_total_budget), decimals=0)}",
+                        delta_color="inverse" if _total_actual > _total_budget else "normal")
+            _bs3.metric("超支类别数", f"{len(_over_cats)} / {len(bdf)}")
     else:
         st.info("暂无支出记录。")
 
@@ -265,7 +291,6 @@ with tab_inc:
 st.markdown("---")
 st.subheader("📤 导出数据")
 
-import io
 buf = io.StringIO()
 df.drop(columns=["year_month", "month_label"], errors="ignore").to_csv(buf, index=False, encoding="utf-8-sig")
 st.download_button("📥 导出全部记录 (CSV)", data=buf.getvalue(), file_name="收支记账本.csv", mime="text/csv")
