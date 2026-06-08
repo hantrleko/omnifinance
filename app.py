@@ -2,6 +2,7 @@ import streamlit as st
 
 from core.currency import currency_selector
 from core.navigation import pages_by_category, search_pages
+from core.runtime_checks import build_runtime_report, runtime_fingerprint
 from core.theme import inject_theme, load_dark_mode_pref, save_dark_mode_pref
 
 # ── 页面基础配置 ───────────────────────────────────────
@@ -15,6 +16,12 @@ st.set_page_config(
 # ── 全局状态持久化 ───────────────────────────────────────
 if "global_dark_mode" not in st.session_state:
     st.session_state["global_dark_mode"] = load_dark_mode_pref()
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_runtime_report():
+    return build_runtime_report()
+
 
 def update_dark_mode():
     val = st.session_state["dark_mode_toggle"]
@@ -42,6 +49,20 @@ with st.sidebar:
     # Personal profile widget
     from core.profile import profile_sidebar_widget
     profile_sidebar_widget()
+
+    # Runtime health panel
+    _runtime_report = _cached_runtime_report()
+    _runtime_icons = {"ok": "✅", "warning": "⚠️", "error": "❌"}
+    st.markdown("---")
+    with st.expander(
+        f"{_runtime_icons[_runtime_report.status]} 系统状态 · {_runtime_report.summary}",
+        expanded=_runtime_report.status == "error",
+    ):
+        for check in _runtime_report.checks:
+            st.markdown(f"- {_runtime_icons[check.status]} **{check.label}**：{check.message}")
+            if check.hint and check.status != "ok":
+                st.caption(check.hint)
+        st.code(runtime_fingerprint(_runtime_report), language="text")
 
     # Global search
     st.markdown("---")
