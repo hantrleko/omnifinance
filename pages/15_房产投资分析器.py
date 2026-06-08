@@ -170,7 +170,8 @@ def _irr(cashflows: list[float]) -> float | None:
         rate = 0.1
         for _ in range(100):
             f = npv(rate)
-            df = float(np.sum(-t * cf[t := np.arange(len(cf))] / (1 + rate) ** (t + 1)))
+            t = np.arange(len(cf))
+            df = float(np.sum(-t * cf / (1 + rate) ** (t + 1)))
             if abs(df) < 1e-12:
                 break
             rate -= f / df

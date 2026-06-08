@@ -457,7 +457,7 @@ with st.expander("⚙️ Black-Litterman 参数与观点输入", expanded=True):
     for vi in range(min(5, n_tickers)):
         _vcol1, _vcol2, _vcol3 = st.columns([3, 2, 1])
         _vticker = _vcol1.selectbox(f"观点 {vi+1} 资产", ["（不设置）"] + tickers_list, key=f"bl_ticker_{vi}")
-        _vreturn = _vcol2.number_input(f"预期年化超额收益（%）", min_value=-50.0, max_value=100.0, value=0.0, step=0.5, format="%.1f", key=f"bl_ret_{vi}")
+        _vreturn = _vcol2.number_input("预期年化超额收益（%）", min_value=-50.0, max_value=100.0, value=0.0, step=0.5, format="%.1f", key=f"bl_ret_{vi}")
         if _vticker != "（不设置）":
             bl_views.append((_vticker, _vreturn / 100))
 
@@ -502,7 +502,7 @@ if st.button("🔄 运行 Black-Litterman 优化", key="bl_run"):
         res_bl = minimize(_neg_sharpe, x0, method="SLSQP", bounds=bounds, constraints=constraints)
 
         if res_bl.success:
-            bl_weights = dict(zip(tickers_list, res_bl.x))
+            bl_weights = dict(zip(tickers_list, res_bl.x, strict=True))
             bl_ret = float(bl_mu @ res_bl.x)
             bl_vol = float(np.sqrt(res_bl.x @ cov @ res_bl.x))
             bl_sr = (bl_ret - risk_free_rate / 100) / bl_vol if bl_vol > 0 else 0.0

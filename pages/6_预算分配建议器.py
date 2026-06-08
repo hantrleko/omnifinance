@@ -285,6 +285,7 @@ if _total_actual > 0:
         _bar_budget.append(est_budget)
         _bar_colors.append("#EF553B" if actual > est_budget else "#00CC96")
 
+    _sym = get_symbol()
     _fig_link = go.Figure()
     _fig_link.add_trace(go.Bar(
         name="实际支出",
@@ -292,13 +293,13 @@ if _total_actual > 0:
         marker_color=_bar_colors,
         text=[fmt(v, decimals=0) for v in _bar_actual],
         textposition="outside",
-        hovertemplate="%{x}<br>实际: " + sym + "%{y:,.0f}<extra></extra>",
+        hovertemplate="%{x}<br>实际: " + _sym + "%{y:,.0f}<extra></extra>",
     ))
     _fig_link.add_trace(go.Bar(
         name="参考预算",
         x=_bar_cats, y=_bar_budget,
         marker_color="rgba(100,100,200,0.3)",
-        hovertemplate="%{x}<br>参考: " + sym + "%{y:,.0f}<extra></extra>",
+        hovertemplate="%{x}<br>参考: " + _sym + "%{y:,.0f}<extra></extra>",
     ))
     _fig_link.update_layout(
         barmode="overlay",
@@ -306,7 +307,7 @@ if _total_actual > 0:
         margin=dict(t=30, b=20, l=20, r=20),
         showlegend=True,
         xaxis_title="类别",
-        yaxis_title=f"金额（{sym}）",
+        yaxis_title=f"金额（{_sym}）",
         yaxis_tickformat=",",
     )
     st.plotly_chart(_fig_link, use_container_width=True)

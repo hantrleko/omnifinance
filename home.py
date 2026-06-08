@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core.benchmarks import BENCHMARKS
+from core.brief import build_decision_brief
 from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
 from core.health import build_action_recommendations, build_health_report
@@ -47,6 +48,10 @@ st.caption("👈 也可以使用左侧搜索框快速定位；搜索结果现在
 
 with st.expander("📋 版本历史", expanded=False):
     st.markdown("""
+### v2.1.0 — 智能决策中枢升级
+🧠 决策简报 · 🛰️ 财务机会雷达 · 🧯 压力测试实验室 · 90 天行动冲刺 · 运行时自检
+把健康评分、机会识别、风险压力和行动清单串成完整闭环，并支持 Markdown 简报导出。
+
 ### v2.0.0 — 全平台深度升级
 🎨 深色模式持久化 · 全局搜索 · 新增 4 种货币（AUD/CAD/SGD/KRW）
 💡 贷款还款方式对比 · 税务大病/养老金扣除 · 10 大外汇对 · 社保养老金估算 · Black-Litterman 组合优化 · 蒙卡进度条（10,000 次）
@@ -288,6 +293,47 @@ if has_data:
                 st.page_link(page.path, label=f"打开{page.title}", icon=page.icon)
     else:
         st.caption("填写预算或资产净值数据后，将自动生成家庭财务压力测试。")
+
+    # ── Executive Decision Brief ──────────────────────────
+    st.markdown("---")
+    st.subheader("🧠 个人财务决策简报")
+    st.caption("自动整合健康评分、机会雷达与压力测试，生成可下载的本地规则化决策摘要，不依赖外部 AI 服务。")
+
+    decision_brief = build_decision_brief(
+        health_report=health_report,
+        opportunity_report=opportunity_report,
+        stress_report=stress_report,
+        generated_on=_dt.date.today(),
+    )
+    brief_cols = st.columns(3)
+    brief_cols[0].metric("决策模式", decision_brief.mode)
+    brief_cols[1].metric("准备度评分", f"{decision_brief.readiness_score}/100" if decision_brief.readiness_score is not None else "暂无")
+    brief_cols[2].metric("优先行动", f"{len(decision_brief.priority_actions)} 项")
+    st.info(f"**{decision_brief.headline}**\n\n{decision_brief.summary}")
+
+    brief_tab_findings, brief_tab_actions, brief_tab_export = st.tabs(["关键发现", "优先行动", "简报导出"])
+    with brief_tab_findings:
+        for finding in decision_brief.key_findings:
+            st.markdown(f"- {finding}")
+        if decision_brief.watchlist:
+            st.markdown("**观察清单**")
+            for watch in decision_brief.watchlist:
+                st.markdown(f"- {watch}")
+    with brief_tab_actions:
+        for idx, action in enumerate(decision_brief.priority_actions, start=1):
+            st.markdown(f"**{idx}. {action}**")
+        st.caption("建议把优先行动拆到本周待办，并在月末回到首页复盘。")
+    with brief_tab_export:
+        brief_markdown = decision_brief.to_markdown()
+        st.download_button(
+            "📥 下载 Markdown 决策简报",
+            data=brief_markdown,
+            file_name=f"OmniFinance_Decision_Brief_{decision_brief.generated_on}.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+        with st.expander("预览 Markdown"):
+            st.code(brief_markdown, language="markdown")
 
     # ── Goal-Based Allocation (#6) ────────────────────────
     st.markdown("---")
