@@ -3,6 +3,7 @@ import datetime as _dt
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.action_plan import build_action_impact_plan
 from core.benchmarks import BENCHMARKS
 from core.brief import build_decision_brief
 from core.chart_config import build_layout
@@ -48,6 +49,10 @@ st.caption("👈 也可以使用左侧搜索框快速定位；搜索结果现在
 
 with st.expander("📋 版本历史", expanded=False):
     st.markdown("""
+### v2.2.0 — 行动影响模拟器
+🧪 What-if 行动模拟 · 执行动能评分 · 第一周行动清单 · Markdown 行动计划
+把「知道问题」升级为「比较行动影响」，帮助用户判断本周最值得推进的财务动作。
+
 ### v2.1.0 — 智能决策中枢升级
 🧠 决策简报 · 🛰️ 财务机会雷达 · 🧯 压力测试实验室 · 90 天行动冲刺 · 运行时自检
 把健康评分、机会识别、风险压力和行动清单串成完整闭环，并支持 Markdown 简报导出。
@@ -334,6 +339,76 @@ if has_data:
         )
         with st.expander("预览 Markdown"):
             st.code(brief_markdown, language="markdown")
+
+    # ── Action Impact Simulator ───────────────────────────
+    st.markdown("---")
+    st.subheader("🧪 行动影响模拟器")
+    st.caption("把机会、压力和健康评分转化为可比较的 what-if 行动，估算执行后可能带来的动能提升。")
+
+    action_plan = build_action_impact_plan(
+        budget=dash_budget,
+        loan=dash_loan,
+        retirement=dash_retirement,
+        networth=dash_networth,
+        health_report=health_report,
+        opportunity_report=opportunity_report,
+        stress_report=stress_report,
+        money_formatter=lambda value: fmt(value, decimals=0),
+    )
+
+    if action_plan.actions:
+        action_cols = st.columns(4)
+        action_cols[0].metric("基线评分", f"{action_plan.baseline_score}/100" if action_plan.baseline_score is not None else "暂无")
+        action_cols[1].metric("执行动能", f"{action_plan.momentum_score}/100" if action_plan.momentum_score is not None else "暂无")
+        action_cols[2].metric("预计总提升", f"+{action_plan.total_estimated_uplift}")
+        action_cols[3].metric("高优先级", f"{action_plan.high_priority_count} 项")
+        st.info(action_plan.summary)
+
+        fig_action = go.Figure(go.Bar(
+            x=[action.estimated_uplift for action in action_plan.actions],
+            y=[action.title for action in action_plan.actions],
+            orientation="h",
+            marker_color=["#EF553B" if action.priority == "高" else "#FECB52" if action.priority == "中" else "#00CC96" for action in action_plan.actions],
+            text=[f"+{action.estimated_uplift} · {action.effort}努力" for action in action_plan.actions],
+            textposition="auto",
+            hovertemplate="%{y}<br>预计提升: +%{x}<extra></extra>",
+        ))
+        fig_action.update_layout(
+            **build_layout(xaxis_title="预计动能提升", yaxis_title="", showlegend=False, height=320),
+            yaxis=dict(autorange="reversed"),
+        )
+        st.plotly_chart(fig_action, use_container_width=True)
+
+        action_tabs = st.tabs(["行动卡", "第一周步骤", "计划导出"])
+        with action_tabs[0]:
+            card_cols = st.columns(min(3, len(action_plan.actions)))
+            for card_col, action in zip(card_cols, action_plan.actions[:3], strict=False):
+                page = get_page(action.page_key)
+                with card_col.container(border=True):
+                    st.caption(f"{action.category} · 优先级 {action.priority} · {action.horizon_days} 天")
+                    st.markdown(f"**{action.title}**")
+                    st.metric("预计提升", f"+{action.estimated_uplift}", delta=f"努力度 {action.effort}")
+                    st.caption(action.rationale)
+                    st.page_link(page.path, label=f"打开{page.title}", icon=page.icon)
+        with action_tabs[1]:
+            for idx, action in enumerate(action_plan.actions[:5], start=1):
+                st.markdown(f"**{idx}. {action.title}**")
+                st.caption(f"当前：{action.current_signal} → 目标：{action.target_signal}")
+                for step in action.first_week_steps:
+                    st.markdown(f"- {step}")
+        with action_tabs[2]:
+            action_markdown = action_plan.to_markdown()
+            st.download_button(
+                "📥 下载 Markdown 行动计划",
+                data=action_markdown,
+                file_name="OmniFinance_Action_Impact_Plan.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+            with st.expander("预览 Markdown"):
+                st.code(action_markdown, language="markdown")
+    else:
+        st.caption("继续补充预算、净资产、贷款或退休数据后，将自动生成行动影响模拟。")
 
     # ── Goal-Based Allocation (#6) ────────────────────────
     st.markdown("---")
