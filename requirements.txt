@@ -2,7 +2,7 @@
 # Versions are pinned with both lower and upper bounds to keep upgrades
 # intentional and avoid breakage from upstream major releases.
 
-streamlit>=1.30.0,<2.0.0
+streamlit>=1.36.0,<2.0.0
 plotly>=5.18.0,<6.0.0
 pandas>=2.0.0,<3.0.0
 numpy>=1.24.0,<3.0.0
