@@ -13,6 +13,7 @@ from core.pdf_report import generate_pdf_report, is_pdf_available
 from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
 from core.reminders import add_reminder, complete_reminder, get_due_reminders, get_reminders
 from core.report_generator import generate_html_report
+from core.stress import build_stress_report
 from core.version import VERSION
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
@@ -236,6 +237,57 @@ if has_data:
                     st.page_link(page.path, label=f"打开{page.title}", icon=page.icon)
     else:
         st.success("✅ 暂未发现明显短板。建议继续补充更多工具数据，或进入投资组合优化器探索资产配置效率。")
+
+    # ── Stress Test Lab ───────────────────────────────────
+    st.markdown("---")
+    st.subheader("🧯 财务压力测试实验室")
+    st.caption("把收入下降、突发支出、贷款月供上升和资产回撤转化为可量化冲击，提前查看家庭财务防线是否足够。")
+
+    stress_report = build_stress_report(
+        budget=dash_budget,
+        loan=dash_loan,
+        retirement=dash_retirement,
+        networth=dash_networth,
+        money_formatter=lambda value: fmt(value, decimals=0),
+    )
+
+    if stress_report.scenarios:
+        weakest_scenario = stress_report.weakest_scenario
+        stress_cols = st.columns(4)
+        stress_cols[0].metric("估算安全垫", f"{stress_report.buffer_months:.1f} 个月", delta=fmt(stress_report.liquid_buffer, decimals=0))
+        stress_cols[1].metric("月结余", fmt(stress_report.monthly_surplus, decimals=0), delta=f"月支出 {fmt(stress_report.monthly_expense, decimals=0)}")
+        stress_cols[2].metric("高压场景", f"{stress_report.critical_count} 个", delta="需优先处理" if stress_report.critical_count else "基础防线通过")
+        stress_cols[3].metric("最弱场景", weakest_scenario.title if weakest_scenario else "-", delta=f"韧性 {weakest_scenario.resilience_score}/100" if weakest_scenario else None)
+        st.info(stress_report.summary)
+
+        _stress_colors = {"safe": "#00CC96", "watch": "#FECB52", "critical": "#EF553B"}
+        fig_stress = go.Figure(go.Bar(
+            x=[scenario.title for scenario in stress_report.scenarios],
+            y=[scenario.buffer_months_after for scenario in stress_report.scenarios],
+            marker_color=[_stress_colors[scenario.status] for scenario in stress_report.scenarios],
+            text=[f"{scenario.buffer_months_after:.1f}月" for scenario in stress_report.scenarios],
+            textposition="outside",
+            hovertemplate="%{x}<br>冲击后安全垫: %{y:.1f}个月<extra></extra>",
+        ))
+        fig_stress.add_hline(y=3, line_dash="dash", line_color="gray", annotation_text="3 个月基础线")
+        fig_stress.update_layout(**build_layout(xaxis_title="压力场景", yaxis_title="冲击后安全垫（月）", showlegend=False, height=340))
+        st.plotly_chart(fig_stress, use_container_width=True)
+
+        scenario_cols = st.columns(min(3, len(stress_report.scenarios)))
+        for scenario_col, scenario in zip(scenario_cols, stress_report.scenarios[:3], strict=False):
+            page = get_page(scenario.page_key)
+            status_label = {"safe": "安全", "watch": "关注", "critical": "高压"}[scenario.status]
+            with scenario_col.container(border=True):
+                st.caption(f"{scenario.severity}压力 · {status_label} · 韧性 {scenario.resilience_score}/100")
+                st.markdown(f"**{scenario.title}**")
+                st.metric("估算冲击", fmt(scenario.estimated_impact, decimals=0), delta=f"缺口 {fmt(scenario.liquidity_gap, decimals=0)}" if scenario.liquidity_gap else "无流动性缺口")
+                st.caption(scenario.narrative)
+                with st.expander("行动清单", expanded=scenario.status == "critical"):
+                    for action in scenario.actions:
+                        st.markdown(f"- {action}")
+                st.page_link(page.path, label=f"打开{page.title}", icon=page.icon)
+    else:
+        st.caption("填写预算或资产净值数据后，将自动生成家庭财务压力测试。")
 
     # ── Goal-Based Allocation (#6) ────────────────────────
     st.markdown("---")
