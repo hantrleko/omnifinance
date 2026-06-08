@@ -8,6 +8,7 @@ from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
 from core.health import build_action_recommendations, build_health_report
 from core.navigation import get_page, pages_by_category
+from core.opportunity import build_90_day_sprint, build_opportunity_radar
 from core.pdf_report import generate_pdf_report, is_pdf_available
 from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
 from core.reminders import add_reminder, complete_reminder, get_due_reminders, get_reminders
@@ -171,6 +172,70 @@ if has_data:
                     st.page_link(page.path, label=page.title, icon=page.icon)
     else:
         st.caption("使用更多工具后，这里将展示各维度的精细评分与改善建议。")
+
+    # ── Opportunity Radar ─────────────────────────────────
+    st.markdown("---")
+    st.subheader("🛰️ 财务机会雷达")
+    st.caption("把预算、债务、退休、税务、保障等结果转译为可执行的机会清单，帮助你找到下一步最值得优化的杠杆点。")
+
+    opportunity_report = build_opportunity_radar(
+        budget=dash_budget,
+        loan=dash_loan,
+        savings=dash_savings,
+        retirement=dash_retirement,
+        networth=dash_networth,
+        tax=dash_tax,
+        insurance=dash_insurance,
+        money_formatter=lambda value: fmt(value, decimals=0),
+    )
+
+    if opportunity_report.opportunities:
+        top_opportunity = opportunity_report.top_opportunity
+        radar_cols = st.columns(3)
+        radar_cols[0].metric("发现机会", f"{len(opportunity_report.opportunities)} 个", delta=f"高优先级 {opportunity_report.high_priority_count} 个")
+        radar_cols[1].metric("首要机会", top_opportunity.title if top_opportunity else "-", delta=f"影响力 {top_opportunity.impact_score}/100" if top_opportunity else None)
+        radar_cols[2].metric("执行方式", "90 天冲刺", delta="按月拆解行动")
+        st.info(opportunity_report.summary)
+
+        fig_opp = go.Figure(go.Bar(
+            x=[opportunity.impact_score for opportunity in opportunity_report.opportunities],
+            y=[opportunity.title for opportunity in opportunity_report.opportunities],
+            orientation="h",
+            marker_color=["#EF553B" if opportunity.priority == "高" else "#FECB52" if opportunity.priority == "中" else "#00CC96" for opportunity in opportunity_report.opportunities],
+            text=[f"{opportunity.priority} · {opportunity.impact_score}" for opportunity in opportunity_report.opportunities],
+            textposition="auto",
+            hovertemplate="%{y}<br>影响力: %{x}/100<extra></extra>",
+        ))
+        fig_opp.update_layout(
+            **build_layout(xaxis_title="机会影响力评分", yaxis_title="", showlegend=False, height=320),
+            xaxis=dict(range=[0, 100]),
+            yaxis=dict(autorange="reversed"),
+        )
+        st.plotly_chart(fig_opp, use_container_width=True)
+
+        st.markdown("#### 🎯 推荐机会卡")
+        opportunity_cols = st.columns(min(3, len(opportunity_report.opportunities)))
+        for opportunity_col, opportunity in zip(opportunity_cols, opportunity_report.opportunities[:3], strict=False):
+            page = get_page(opportunity.page_key)
+            with opportunity_col.container(border=True):
+                st.caption(f"{opportunity.category} · 优先级 {opportunity.priority} · 置信度 {opportunity.confidence}%")
+                st.markdown(f"**{opportunity.title}**")
+                st.metric(opportunity.metric_label, opportunity.metric_value)
+                st.caption(opportunity.rationale)
+                st.page_link(page.path, label=f"进入{page.title}", icon=page.icon)
+
+        sprint_steps = build_90_day_sprint(opportunity_report)
+        if sprint_steps:
+            with st.expander("🧭 90 天行动冲刺计划", expanded=False):
+                for step in sprint_steps:
+                    page = get_page(step.page_key)
+                    st.markdown(f"**{step.phase}｜{step.title}**")
+                    st.caption(step.focus)
+                    for item in step.checklist:
+                        st.markdown(f"- {item}")
+                    st.page_link(page.path, label=f"打开{page.title}", icon=page.icon)
+    else:
+        st.success("✅ 暂未发现明显短板。建议继续补充更多工具数据，或进入投资组合优化器探索资产配置效率。")
 
     # ── Goal-Based Allocation (#6) ────────────────────────
     st.markdown("---")
