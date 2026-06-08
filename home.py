@@ -6,6 +6,7 @@ import streamlit as st
 from core.benchmarks import BENCHMARKS
 from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
+from core.navigation import get_page, pages_by_category
 from core.pdf_report import generate_pdf_report, is_pdf_available
 from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
 from core.reminders import add_reminder, complete_reminder, get_due_reminders, get_reminders
@@ -16,39 +17,30 @@ st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
 
 # ── 快速导航卡片 ──────────────────────────────────────────
-st.markdown("""
-<style>
-.nav-grid { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px 0; }
-.nav-card {
-    flex: 1 1 180px;
-    background: var(--secondary-background-color);
-    border: 1px solid rgba(128,128,128,0.15);
-    border-radius: 12px;
-    padding: 16px 18px;
-    cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-    text-decoration: none;
-}
-.nav-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0,120,255,0.12);
-    border-color: rgba(0,120,255,0.35);
-}
-.nav-card-icon { font-size: 28px; margin-bottom: 6px; }
-.nav-card-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
-.nav-card-desc { font-size: 12px; opacity: 0.65; line-height: 1.4; }
-</style>
-<div class="nav-grid">
-  <div class="nav-card"><div class="nav-card-icon">💰</div><div class="nav-card-title">基础理财管理</div><div class="nav-card-desc">复利 · 储蓄目标 · 预算 · 教育金</div></div>
-  <div class="nav-card"><div class="nav-card-icon">⚖️</div><div class="nav-card-title">资产与债务管理</div><div class="nav-card-desc">净值追踪 · 贷款 · 保险 · 债务规划</div></div>
-  <div class="nav-card"><div class="nav-card-icon">📈</div><div class="nav-card-title">投资分析引擎</div><div class="nav-card-desc">实时报价 · 组合优化 · 回测 · 外汇</div></div>
-  <div class="nav-card"><div class="nav-card-icon">🏖️</div><div class="nav-card-title">高级人生规划</div><div class="nav-card-desc">退休估算 · 蒙特卡洛 · 税务提款</div></div>
-  <div class="nav-card"><div class="nav-card-icon">🔬</div><div class="nav-card-title">分析与工具</div><div class="nav-card-desc">场景对比 · 财务日历 · 税务计算</div></div>
-  <div class="nav-card"><div class="nav-card-icon">🆕</div><div class="nav-card-title">高级工具 v2.0</div><div class="nav-card-desc">股票筛选器 · 收支记账本</div></div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("### 🚀 快速开始")
+st.caption("选择一个场景直接进入工具；所有页面元数据由统一导航注册表驱动，后续新增功能只需维护一处。")
 
-st.caption("👈 从左侧边栏选择工具，或使用搜索框快速定位")
+_category_icons = {
+    "基础理财管理": "💰",
+    "资产与债务管理": "⚖️",
+    "投资分析引擎": "📈",
+    "高级人生规划": "🏖️",
+    "分析与工具": "🔬",
+    "高级工具 (v2.0)": "🆕",
+}
+_category_pages = [(category, pages) for category, pages in pages_by_category().items() if category != "平台概览"]
+for _row_start in range(0, len(_category_pages), 3):
+    _cols = st.columns(3)
+    for _col, (_category, _pages) in zip(_cols, _category_pages[_row_start: _row_start + 3]):
+        with _col.container(border=True):
+            st.markdown(f"#### {_category_icons.get(_category, '📌')} {_category}")
+            st.caption(" · ".join(page.title for page in _pages[:4]))
+            for page in _pages[:2]:
+                st.page_link(page.path, label=page.title, icon=page.icon, help=page.description)
+            if len(_pages) > 2:
+                st.caption(f"另有 {len(_pages) - 2} 个工具可在左侧导航中查看")
+
+st.caption("👈 也可以使用左侧搜索框快速定位；搜索结果现在支持直接跳转。")
 
 with st.expander("📋 版本历史", expanded=False):
     st.markdown("""
@@ -520,7 +512,16 @@ else:
         st.success(f"✅ 已从磁盘恢复 {restored} 项仪表盘数据。")
         st.rerun()
     else:
-        st.info("👆 请先使用左侧工具进行计算，仪表盘将自动汇总各工具的关键指标。")
+        st.info("👆 请先使用任一工具进行计算，仪表盘将自动汇总关键指标并生成健康评分。")
+        starter_pages = [get_page("budget"), get_page("networth"), get_page("retirement")]
+        st.markdown("#### 推荐初始化路径")
+        _starter_cols = st.columns(3)
+        for _col, _page in zip(_starter_cols, starter_pages):
+            with _col.container(border=True):
+                st.markdown(f"### {_page.icon}")
+                st.markdown(f"**{_page.title}**")
+                st.caption(_page.description)
+                st.page_link(_page.path, label="开始使用", icon="➡️")
 
 # ── 综合财务诊断报告生成引擎 ─────────────────────────────────────
 st.markdown("---")

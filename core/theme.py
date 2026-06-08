@@ -51,6 +51,24 @@ _STANDARD_PAGE_CSS = """
     padding: 14px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
+  [data-testid="stVerticalBlockBorderWrapper"] {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  [data-testid="stVerticalBlockBorderWrapper"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 120, 255, 0.10);
+    border-color: rgba(0, 120, 255, 0.28) !important;
+  }
+  [data-testid="stPageLink"] a {
+    border-radius: 10px;
+    padding: 0.35rem 0.5rem;
+    transition: background-color 0.18s ease, transform 0.18s ease;
+  }
+  [data-testid="stPageLink"] a:hover {
+    background-color: rgba(0, 120, 255, 0.10);
+    transform: translateX(2px);
+    text-decoration: none;
+  }
 </style>
 """
 
