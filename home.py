@@ -6,6 +6,7 @@ import streamlit as st
 from core.benchmarks import BENCHMARKS
 from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
+from core.health import build_action_recommendations, build_health_report
 from core.navigation import get_page, pages_by_category
 from core.pdf_report import generate_pdf_report, is_pdf_available
 from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
@@ -130,105 +131,44 @@ if has_data:
     st.markdown("---")
     st.subheader("🏥 财务健康多维评分")
 
-    dim_scores: list[tuple[str, int, str, str]] = []
+    health_report = build_health_report(
+        budget=dash_budget,
+        retirement=dash_retirement,
+        networth=dash_networth,
+        tax=dash_tax,
+        insurance=dash_insurance,
+        money_formatter=lambda value: fmt(value, decimals=0),
+    )
+    dim_scores = [(dimension.name, dimension.score, dimension.tip, dimension.grade) for dimension in health_report.dimensions]
+    overall_score = health_report.overall_score
+    overall_grade = health_report.overall_grade
 
-    # Savings rate dimension
-    if dash_budget:
-        save_pct = dash_budget.get("pct_save", 0)
-        if save_pct >= 30:
-            s, tip, grade = 100, f"储蓄率 {save_pct}%，远超全国均值，表现卓越", "🟢"
-        elif save_pct >= 20:
-            s, tip, grade = 75, f"储蓄率 {save_pct}%，处于健康水平", "🟡"
-        elif save_pct >= 10:
-            s, tip, grade = 50, f"储蓄率 {save_pct}%，建议提升至 20% 以上", "🟠"
-        else:
-            s, tip, grade = 20, f"储蓄率 {save_pct}%，偏低，需要大幅改善", "🔴"
-        dim_scores.append(("💡 储蓄能力", s, tip, grade))
-
-    # Retirement readiness dimension
-    if dash_retirement:
-        gap = dash_retirement.get("gap", 0)
-        extra = dash_retirement.get("extra_monthly", 0)
-        if gap <= 0:
-            s, tip, grade = 100, "退休资金已充足，无需额外储蓄", "🟢"
-        elif extra < 2000:
-            s, tip, grade = 70, f"退休缺口可控，每月仅需额外补充 {fmt(extra, decimals=0)}", "🟡"
-        elif extra < 5000:
-            s, tip, grade = 45, f"退休缺口较大，需每月额外储蓄 {fmt(extra, decimals=0)}", "🟠"
-        else:
-            s, tip, grade = 20, f"退休缺口严峻，需每月额外储蓄 {fmt(extra, decimals=0)}，请尽早行动", "🔴"
-        dim_scores.append(("🏖️ 退休准备度", s, tip, grade))
-
-    # Debt level dimension
-    if dash_networth:
-        total_assets_nw = dash_networth.get("total_assets", 0)
-        total_liab_nw = total_assets_nw - dash_networth.get("net_worth", 0)
-        dr = (total_liab_nw / total_assets_nw * 100) if total_assets_nw > 0 else 0
-        if dr <= 20:
-            s, tip, grade = 100, f"负债率 {dr:.1f}%，资产结构健康", "🟢"
-        elif dr <= 40:
-            s, tip, grade = 75, f"负债率 {dr:.1f}%，处于合理区间", "🟡"
-        elif dr <= 60:
-            s, tip, grade = 45, f"负债率 {dr:.1f}%，偏高，建议加速还款", "🟠"
-        else:
-            s, tip, grade = 15, f"负债率 {dr:.1f}%，过高，存在较大财务风险", "🔴"
-        dim_scores.append(("💳 负债水平", s, tip, grade))
-
-    # Net worth dimension
-    if dash_networth:
-        nw = dash_networth.get("net_worth", 0)
-        if nw > 1000000:
-            s, tip, grade = 100, f"净资产 {fmt(nw, decimals=0)}，资产积累丰厚", "🟢"
-        elif nw > 200000:
-            s, tip, grade = 70, f"净资产 {fmt(nw, decimals=0)}，处于正常成长阶段", "🟡"
-        elif nw > 0:
-            s, tip, grade = 50, f"净资产 {fmt(nw, decimals=0)}，尚在起步阶段，持续积累", "🟠"
-        else:
-            s, tip, grade = 10, f"净资产为负（{fmt(nw, decimals=0)}），需优先降低负债", "🔴"
-        dim_scores.append(("🏠 净资产水平", s, tip, grade))
-
-    # Tax efficiency dimension
-    if dash_tax:
-        eff_rate = dash_tax.get("effective_rate", 0)
-        if eff_rate <= 5:
-            s, tip, grade = 100, f"实际税率 {eff_rate:.1f}%，税务负担轻", "🟢"
-        elif eff_rate <= 15:
-            s, tip, grade = 75, f"实际税率 {eff_rate:.1f}%，属正常水平", "🟡"
-        elif eff_rate <= 25:
-            s, tip, grade = 50, f"实际税率 {eff_rate:.1f}%，可考虑税务优化策略", "🟠"
-        else:
-            s, tip, grade = 30, f"实际税率 {eff_rate:.1f}%，建议使用税务优化工具", "🔴"
-        dim_scores.append(("🧾 税务效率", s, tip, grade))
-
-    # Insurance dimension
-    if dash_insurance:
-        irr = dash_insurance.get("irr_pct", 0)
-        if irr >= 4:
-            s, tip, grade = 100, f"保险 IRR {irr:.2f}%，保单回报优质", "🟢"
-        elif irr >= 2.5:
-            s, tip, grade = 65, f"保险 IRR {irr:.2f}%，收益一般，关注保障覆盖", "🟡"
-        else:
-            s, tip, grade = 35, f"保险 IRR 仅 {irr:.2f}%，建议评估保单性价比", "🟠"
-        dim_scores.append(("🛡️ 保险效益", s, tip, grade))
-
-    if dim_scores:
-        overall_score = int(sum(s for _, s, _, _ in dim_scores) / len(dim_scores))
-        overall_grade = "🟢 优秀" if overall_score >= 80 else ("🟡 良好" if overall_score >= 60 else ("🟠 一般" if overall_score >= 40 else "🔴 需改善"))
-
+    if health_report.dimensions and overall_score is not None:
         st.metric("💯 综合财务健康评分", f"{overall_score}/100", delta=overall_grade)
 
-        _n_dim_cols = min(3, len(dim_scores))
+        _n_dim_cols = min(3, len(health_report.dimensions))
         dim_cols = st.columns(_n_dim_cols)
-        for idx, (name, score_v, tip, grade) in enumerate(dim_scores):
+        for idx, dimension in enumerate(health_report.dimensions):
             with dim_cols[idx % _n_dim_cols]:
-                st.metric(name, f"{score_v}/100", delta=grade)
-                st.caption(tip)
+                st.metric(dimension.name, f"{dimension.score}/100", delta=dimension.grade)
+                st.caption(dimension.tip)
 
-        improvement_tips = [tip for _, score_v, tip, _ in dim_scores if score_v < 70]
-        if improvement_tips:
+        if health_report.improvement_tips:
             with st.expander("📋 改善建议详情"):
-                for tip in improvement_tips:
+                for tip in health_report.improvement_tips:
                     st.markdown(f"- {tip}")
+
+        action_recommendations = build_action_recommendations(health_report)
+        if action_recommendations:
+            st.markdown("#### 🧭 下一步行动建议")
+            action_cols = st.columns(len(action_recommendations))
+            for action_col, action in zip(action_cols, action_recommendations):
+                page = get_page(action.page_key)
+                with action_col.container(border=True):
+                    st.caption(f"优先级：{action.priority}")
+                    st.markdown(f"**{action.title}**")
+                    st.caption(action.reason)
+                    st.page_link(page.path, label=page.title, icon=page.icon)
     else:
         st.caption("使用更多工具后，这里将展示各维度的精细评分与改善建议。")
 
