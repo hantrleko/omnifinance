@@ -1,4 +1,10 @@
-from core.navigation import PAGES, NAVIGATION_CATEGORIES, get_page, pages_by_category, search_pages
+from core.navigation import (
+    NAVIGATION_CATEGORIES,
+    PAGES,
+    get_page,
+    pages_by_category,
+    search_pages,
+)
 
 
 def test_pages_are_grouped_in_declared_order():

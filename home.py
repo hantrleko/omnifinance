@@ -32,7 +32,7 @@ _category_icons = {
 _category_pages = [(category, pages) for category, pages in pages_by_category().items() if category != "平台概览"]
 for _row_start in range(0, len(_category_pages), 3):
     _cols = st.columns(3)
-    for _col, (_category, _pages) in zip(_cols, _category_pages[_row_start: _row_start + 3]):
+    for _col, (_category, _pages) in zip(_cols, _category_pages[_row_start: _row_start + 3], strict=False):
         with _col.container(border=True):
             st.markdown(f"#### {_category_icons.get(_category, '📌')} {_category}")
             st.caption(" · ".join(page.title for page in _pages[:4]))
@@ -162,7 +162,7 @@ if has_data:
         if action_recommendations:
             st.markdown("#### 🧭 下一步行动建议")
             action_cols = st.columns(len(action_recommendations))
-            for action_col, action in zip(action_cols, action_recommendations):
+            for action_col, action in zip(action_cols, action_recommendations, strict=True):
                 page = get_page(action.page_key)
                 with action_col.container(border=True):
                     st.caption(f"优先级：{action.priority}")
@@ -456,7 +456,7 @@ else:
         starter_pages = [get_page("budget"), get_page("networth"), get_page("retirement")]
         st.markdown("#### 推荐初始化路径")
         _starter_cols = st.columns(3)
-        for _col, _page in zip(_starter_cols, starter_pages):
+        for _col, _page in zip(_starter_cols, starter_pages, strict=True):
             with _col.container(border=True):
                 st.markdown(f"### {_page.icon}")
                 st.markdown(f"**{_page.title}**")
