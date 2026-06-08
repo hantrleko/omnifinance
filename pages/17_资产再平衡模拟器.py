@@ -251,7 +251,7 @@ if bah_weight_hist and thr_weight_hist:
     # Threshold rebalanced
     fig_drift.add_trace(go.Scatter(
         x=_months_x, y=_thr_w, mode="lines",
-        name=f"阈值再平衡",
+        name="阈值再平衡",
         line=dict(width=1.5, color="#10b981"),
         hovertemplate="第%{x}月<br>权重: %{y:.1f}%<extra></extra>",
     ))

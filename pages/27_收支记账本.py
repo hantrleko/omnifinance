@@ -223,7 +223,7 @@ with tab_exp:
         # 预算 vs 实际：遍历所有已设置预算的类别，支出为0的也显示
         _budgets = st.session_state.get("monthly_budgets", {})
         _active_budgets = {cat: amt for cat, amt in _budgets.items() if amt > 0}
-        _cat_actual = dict(zip(cat_exp["category"], cat_exp["amount"]))
+        _cat_actual = dict(zip(cat_exp["category"], cat_exp["amount"], strict=True))
         budget_rows = []
         for cat, budget in _active_budgets.items():
             actual = float(_cat_actual.get(cat, 0.0))
