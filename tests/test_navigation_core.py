@@ -33,3 +33,19 @@ def test_get_page_fetches_exact_key():
 
     assert page.title == "预算分配建议器"
     assert page in PAGES
+
+
+def test_decision_center_registered_under_platform_overview():
+    grouped = pages_by_category()
+    decision_page = get_page("decision")
+
+    assert decision_page in grouped["平台概览"]
+    assert decision_page.title == "决策中枢"
+    assert decision_page.path == "pages/0_决策中枢.py"
+
+
+def test_decision_center_is_searchable_by_chinese_and_english_aliases():
+    decision_page = get_page("decision")
+
+    assert decision_page in search_pages("决策")
+    assert decision_page in search_pages("decision")
