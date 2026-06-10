@@ -38,8 +38,8 @@ NAVIGATION_CATEGORIES: tuple[str, ...] = (
 )
 
 PAGES: tuple[PageInfo, ...] = (
-    PageInfo("home", "仪表盘首页", "🏠", "home.py", "平台概览", "全局汇总、健康评分、报告导出与提醒管理", ("首页", "dashboard", "home"), True),
-    PageInfo("decision", "决策中枢", "🧭", "pages/0_决策中枢.py", "平台概览", "按财务画像、健康诊断、机会识别和行动计划组织使用路径", ("决策", "中枢", "workflow", "decision")),
+    PageInfo("decision", "决策中枢", "🧭", "pages/0_决策中枢.py", "平台概览", "按财务画像、健康诊断、机会识别和行动计划组织使用路径", ("决策", "中枢", "workflow", "decision"), True),
+    PageInfo("home", "仪表盘首页", "🏠", "home.py", "平台概览", "全局汇总、健康评分、报告导出与提醒管理", ("首页", "dashboard", "home")),
     PageInfo("compound", "复利计算器", "💰", "pages/1_复利计算器.py", "基础理财管理", "测算长期复利、通胀影响与收益敏感性", ("复利", "compound")),
     PageInfo("savings", "储蓄目标计算器", "🎯", "pages/5_储蓄目标计算器.py", "基础理财管理", "反推目标金额所需时间、月存额与复利贡献", ("目标", "储蓄", "saving")),
     PageInfo("budget", "预算分配建议器", "💡", "pages/6_预算分配建议器.py", "基础理财管理", "基于收入支出生成预算结构与储蓄率建议", ("预算", "50/30/20", "budget")),
