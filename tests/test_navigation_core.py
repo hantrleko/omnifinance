@@ -49,3 +49,11 @@ def test_decision_center_is_searchable_by_chinese_and_english_aliases():
 
     assert decision_page in search_pages("决策")
     assert decision_page in search_pages("decision")
+
+
+def test_decision_center_is_the_default_landing_page():
+    default_pages = [page for page in PAGES if page.default]
+
+    assert len(default_pages) == 1
+    assert default_pages[0].key == "decision"
+    assert get_page("home").default is False
