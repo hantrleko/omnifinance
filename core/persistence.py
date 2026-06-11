@@ -16,7 +16,8 @@ from typing import Any
 import streamlit as st
 
 _PERSIST_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "session_data.json"
-_ACTION_PROGRESS_PREFIX = "decision_action_done_"
+ACTION_PROGRESS_PREFIX = "decision_action_done_"
+_ACTION_PROGRESS_PREFIX = ACTION_PROGRESS_PREFIX
 
 # Keys in session_state that should be persisted
 DASHBOARD_KEYS = [

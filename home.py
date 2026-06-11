@@ -457,13 +457,17 @@ if has_data:
                     with cols[2]:
                         if st.button("📆 7 天提醒", key=f"action_reminder_{action.key}", use_container_width=True):
                             due = str(_dt.date.today() + _dt.timedelta(days=7))
-                            add_reminder(
+                            added = add_reminder(
                                 title=f"行动回顾：{action.title}",
                                 description=f"建议在 {due} 复盘：{action.current_signal} -> {action.target_signal}。",
                                 due_date=due,
                                 category=_reminder_category_for_page(action.page_key),
+                                dedupe=True,
                             )
-                            st.success("✅ 已写入提醒")
+                            if added:
+                                st.success("✅ 已写入提醒")
+                            else:
+                                st.info("ℹ️ 已存在相同提醒，已跳过重复添加。")
 
             action_done_count = sum(
                 1 for action in action_plan.actions if st.session_state.get(_action_progress_key(action.key), False)

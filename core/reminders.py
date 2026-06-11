@@ -39,8 +39,21 @@ def add_reminder(
     due_date: str,
     category: str = "general",
     amount: float = 0.0,
-) -> None:
-    """Add a new reminder."""
+    dedupe: bool = False,
+) -> bool:
+    """Add a new reminder.
+
+    Returns:
+        True when a new reminder was added, False when dedupe skipped it.
+    """
+    if dedupe and has_duplicate_reminder(
+        title=title,
+        due_date=due_date,
+        category=category,
+        description=description,
+    ):
+        return False
+
     reminders = _load_reminders()
     reminders.append({
         "id": len(reminders) + 1,
@@ -53,6 +66,29 @@ def add_reminder(
         "completed": False,
     })
     _save_reminders(reminders)
+    return True
+
+
+def has_duplicate_reminder(
+    *,
+    title: str,
+    due_date: str,
+    category: str | None = None,
+    description: str | None = None,
+) -> bool:
+    """Return whether an active reminder with similar signature already exists."""
+    reminders = get_reminders(include_completed=False)
+    for reminder in reminders:
+        if reminder.get("title") != title:
+            continue
+        if reminder.get("due_date") != due_date:
+            continue
+        if category is not None and reminder.get("category") != category:
+            continue
+        if description is not None and reminder.get("description") != description:
+            continue
+        return True
+    return False
 
 
 def get_reminders(include_completed: bool = False) -> list[dict[str, Any]]:

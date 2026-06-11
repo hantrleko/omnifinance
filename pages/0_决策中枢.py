@@ -1,7 +1,15 @@
 import streamlit as st
 
+import datetime as _dt
+
+from core.action_plan import build_action_impact_plan
 from core.currency import fmt
+from core.health import build_health_report
 from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page
+from core.opportunity import build_opportunity_radar
+from core.persistence import ACTION_PROGRESS_PREFIX as _ACTION_PROGRESS_PREFIX
+from core.reminders import add_reminder
+from core.stress import build_stress_report
 from core.version import VERSION
 
 st.title(f"🧭 OmniFinance 决策中枢 `{VERSION}`")
@@ -26,6 +34,26 @@ def _build_task_spec() -> list[tuple[str, str, str, str, int, str]]:
             description,
         ))
     return task_specs
+
+
+def _action_progress_key(action_key: str) -> str:
+    """Stable session key for an action completion checkbox."""
+    return f"{_ACTION_PROGRESS_PREFIX}{action_key}"
+
+
+def _reminder_category_for_page(page_key: str) -> str:
+    """Map action cards to the reminder category set used in the app."""
+    if page_key in {"loan", "debt"}:
+        return "还贷"
+    if page_key in {"insurance"}:
+        return "保费"
+    if page_key in {"tax"}:
+        return "税务"
+    if page_key in {"portfolio", "fx", "quote", "backtest", "rebalance", "screener"}:
+        return "投资"
+    if page_key in {"savings", "budget", "retirement", "networth"}:
+        return "储蓄"
+    return "其他"
 
 
 _TASKS = _build_task_spec()
@@ -173,6 +201,92 @@ if any([budget, networth, retirement, loan, insurance, savings]):
     st.page_link("home.py", label="回到仪表盘首页", icon="🏠")
 else:
     st.warning("当前还没有可用于综合诊断的资料。请先按推荐初始化路径完成基础输入。")
+
+# ── Action impact loop ────────────────────────────────
+st.markdown("---")
+st.markdown("### 5. 行动影响与复盘")
+if any([budget, networth, retirement, loan, insurance, savings]):
+    st.caption("基于当前资料生成可执行行动建议，并支持完成打勾、7 天复盘提醒，形成闭环。")
+
+    health_report = build_health_report(
+        budget=budget,
+        retirement=retirement,
+        networth=networth,
+        tax=st.session_state.get("dashboard_tax"),
+        insurance=insurance,
+        money_formatter=lambda value: fmt(value, decimals=0),
+    )
+    opportunity_report = build_opportunity_radar(
+        budget=budget,
+        loan=loan,
+        savings=savings,
+        retirement=retirement,
+        networth=networth,
+        tax=st.session_state.get("dashboard_tax"),
+        insurance=insurance,
+        money_formatter=lambda value: fmt(value, decimals=0),
+    )
+    stress_report = build_stress_report(
+        budget=budget,
+        loan=loan,
+        retirement=retirement,
+        networth=networth,
+        money_formatter=lambda value: fmt(value, decimals=0),
+    )
+
+    action_plan = build_action_impact_plan(
+        budget=budget,
+        loan=loan,
+        retirement=retirement,
+        networth=networth,
+        health_report=health_report,
+        opportunity_report=opportunity_report,
+        stress_report=stress_report,
+        money_formatter=lambda value: fmt(value, decimals=0),
+    )
+
+    if action_plan.actions:
+        for idx, action in enumerate(action_plan.actions, start=1):
+            with st.container(border=True):
+                cols = st.columns([4, 1, 1.8])
+                with cols[0]:
+                    st.caption(f"行动 {idx}")
+                    st.markdown(f"**{action.title}**")
+                    st.caption(f"目标：{action.current_signal} -> {action.target_signal}")
+                    st.caption(action.rationale)
+                done_key = _action_progress_key(action.key)
+                with cols[1]:
+                    st.checkbox(
+                        "已完成",
+                        value=bool(st.session_state.get(done_key, False)),
+                        key=done_key,
+                    )
+                with cols[2]:
+                    if st.button("📆 7 天提醒", key=f"action_reminder_{action.key}", use_container_width=True):
+                        due = str(_dt.date.today() + _dt.timedelta(days=7))
+                        added = add_reminder(
+                            title=f"行动回顾：{action.title}",
+                            description=f"建议在 {due} 复盘：{action.current_signal} -> {action.target_signal}。",
+                            due_date=due,
+                            category=_reminder_category_for_page(action.page_key),
+                            dedupe=True,
+                        )
+                        if added:
+                            st.success("✅ 已写入提醒")
+                        else:
+                            st.info("ℹ️ 已存在相同提醒，已跳过重复添加。")
+
+        action_done_count = sum(
+            1 for action in action_plan.actions if st.session_state.get(_action_progress_key(action.key), False)
+        )
+        st.progress(
+            action_done_count / len(action_plan.actions),
+            text=f"本周完成度：{action_done_count}/{len(action_plan.actions)} 个行动",
+        )
+    else:
+        st.info("请补充预算、净资产、退休等输入后查看可执行行动建议。")
+else:
+    st.caption("先补充基础资料后，系统会自动生成行动建议。")
 
 # ── Tool groups ───────────────────────────────────────────
 st.markdown("---")
