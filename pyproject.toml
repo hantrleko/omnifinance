@@ -76,6 +76,7 @@ line-ending = "auto"
 minversion = "7.0"
 testpaths = ["tests"]
 addopts = "-ra"
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "ignore::DeprecationWarning:yfinance.*",
     "ignore::DeprecationWarning:pandas.*",
