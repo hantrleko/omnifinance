@@ -115,6 +115,8 @@ if any([budget, networth, retirement, loan, insurance, savings]):
             savings_label = "已达标"
         elif months_needed > 0:
             savings_label = f"{months_needed} 个月可达成"
+        elif months_needed < 0:
+            savings_label = "无法达成"
         else:
             savings_label = "待填写"
         summary_cols[4].metric("储蓄目标", savings_label, delta=f"月投 {fmt(savings.get('monthly_deposit', 0), decimals=0)}")
