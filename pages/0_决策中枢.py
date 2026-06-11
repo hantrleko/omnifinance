@@ -35,6 +35,7 @@ _status_items = [
     ("退休", "dashboard_retirement", "retirement"),
     ("贷款", "dashboard_loan", "loan"),
     ("保险", "dashboard_insurance", "insurance"),
+    ("储蓄", "dashboard_savings", "savings"),
     ("税务", "dashboard_tax", "tax"),
 ]
 completed = sum(1 for _, key, _ in _status_items if st.session_state.get(key))
@@ -81,9 +82,10 @@ networth = st.session_state.get("dashboard_networth")
 retirement = st.session_state.get("dashboard_retirement")
 loan = st.session_state.get("dashboard_loan")
 insurance = st.session_state.get("dashboard_insurance")
+savings = st.session_state.get("dashboard_savings")
 
-if any([budget, networth, retirement, loan, insurance]):
-    summary_cols = st.columns(4)
+if any([budget, networth, retirement, loan, insurance, savings]):
+    summary_cols = st.columns(5)
     if budget:
         summary_cols[0].metric("月储蓄额", fmt(budget.get("amt_save", 0), decimals=0), delta=f"储蓄率 {budget.get('pct_save', 0)}%")
     else:
@@ -106,6 +108,18 @@ if any([budget, networth, retirement, loan, insurance]):
         summary_cols[3].metric("保险总保费", fmt(insurance.get("total_premium", 0), decimals=0))
     else:
         summary_cols[3].metric("债务/保障", "待填写")
+
+    if savings:
+        months_needed = savings.get("months_needed", -1)
+        if months_needed == 0:
+            savings_label = "已达标"
+        elif months_needed > 0:
+            savings_label = f"{months_needed} 个月可达成"
+        else:
+            savings_label = "待填写"
+        summary_cols[4].metric("储蓄目标", savings_label, delta=f"月投 {fmt(savings.get('monthly_deposit', 0), decimals=0)}")
+    else:
+        summary_cols[4].metric("储蓄目标", "待填写")
 
     st.success("已有资料可以参与综合分析。建议回到首页查看完整诊断、机会雷达、压力测试和行动影响模拟。")
     st.page_link("home.py", label="回到仪表盘首页", icon="🏠")
