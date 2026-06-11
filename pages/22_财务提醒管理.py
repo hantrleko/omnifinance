@@ -13,7 +13,9 @@ from core.reminders import (
     add_reminder,
     complete_reminder,
     delete_reminder,
+    export_reminders,
     clear_completed_reminders,
+    import_reminders,
     get_due_reminders,
     get_reminders,
 )
@@ -65,6 +67,72 @@ if due_now:
         st.warning(f"{icon_label} **{r['title']}** 截止 `{r['due_date']}`{amt_text}")
     if len(due_now) > 3:
         st.caption(f"... 以及另外 {len(due_now) - 3} 条，请在下方查看全部。")
+
+st.markdown("---")
+
+# ── Reminder data management ──────────────────────────────
+export_scope_cols = st.columns([1, 1, 1, 1])
+export_payload_active = export_reminders(scope="active")
+export_payload_completed = export_reminders(scope="completed")
+export_payload_all = export_reminders(scope="all")
+with export_scope_cols[0]:
+    st.download_button(
+        "📤 导出待处理",
+        data=export_payload_active,
+        file_name=f"OmniFinance_Reminders_Active_{date.today()}.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+with export_scope_cols[1]:
+    st.download_button(
+        "📤 导出已完成",
+        data=export_payload_completed,
+        file_name=f"OmniFinance_Reminders_Completed_{date.today()}.json",
+        key="export_completed",
+        mime="application/json",
+        use_container_width=True,
+    )
+with export_scope_cols[2]:
+    st.download_button(
+        "📤 导出全部",
+        data=export_payload_all,
+        file_name=f"OmniFinance_Reminders_All_{date.today()}.json",
+        key="export_all",
+        mime="application/json",
+        use_container_width=True,
+    )
+with export_scope_cols[3]:
+    if st.button("🗄️ 清理已完成提醒", use_container_width=True, type="secondary"):
+        removed_count = clear_completed_reminders()
+        if removed_count:
+            st.success(f"已清理 {removed_count} 条已完成提醒")
+        else:
+            st.info("当前没有可清理的已完成提醒")
+        st.rerun()
+
+# ── Import reminders ──────────────────────────────────────
+with st.expander("📥 导入提醒备份", expanded=False):
+    st.caption("支持导入 JSON 备份文件，默认与现有提醒合并并按标题+日期+分类+备注去重。")
+    uploaded = st.file_uploader("选择备份文件", type=["json"], key="reminder_import")
+    if uploaded is not None:
+        mode = st.selectbox(
+            "导入策略",
+            ["append", "replace"],
+            format_func=lambda v: "叠加到现有" if v == "append" else "替换全部",
+            key="reminder_import_mode",
+        )
+        import_dedupe = st.checkbox("导入时去重", value=True, key="reminder_import_dedupe")
+        if st.button("开始导入", key="reminder_import_run"):
+            imported = import_reminders(
+                uploaded.read().decode("utf-8"),
+                dedupe=import_dedupe,
+                mode=mode,
+            )
+            if imported > 0:
+                st.success(f"✅ 已导入 {imported} 条提醒")
+            else:
+                st.info("未导入任何提醒（文件为空或全部重复/无效）")
+            st.rerun()
 
 st.markdown("---")
 

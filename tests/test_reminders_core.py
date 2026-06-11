@@ -48,3 +48,24 @@ def test_clear_completed_reminders(monkeypatch: object, tmp_path: Path) -> None:
     removed = reminders.clear_completed_reminders()
     assert removed == 1
     assert len(reminders.get_reminders(include_completed=True)) == 1
+
+
+def test_export_and_import_reminders(monkeypatch: object, tmp_path: Path) -> None:
+    reminder_path = tmp_path / "reminders.json"
+    monkeypatch.setattr(reminders, "_REMINDERS_PATH", reminder_path)
+
+    reminders.add_reminder(title="待完成A", description="A", due_date="2026-06-20", category="general")
+    reminders.add_reminder(title="已完成A", description="B", due_date="2026-06-21", category="general")
+    reminders.complete_reminder(2)
+
+    exported = reminders.export_reminders(scope="active")
+    imported_count = reminders.import_reminders(exported, dedupe=False, mode="append")
+    assert imported_count == 1
+
+    imported_all = reminders.import_reminders(exported, dedupe=True, mode="append")
+    assert imported_all == 0
+
+    all_reminders = reminders.get_reminders(include_completed=True)
+    assert len(all_reminders) == 3
+    titles = [r["title"] for r in all_reminders]
+    assert sorted(titles).count("待完成A") == 2
