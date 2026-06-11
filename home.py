@@ -18,6 +18,29 @@ from core.report_generator import generate_html_report
 from core.stress import build_stress_report
 from core.version import VERSION
 
+_ACTION_PROGRESS_PREFIX = "decision_action_done_"
+
+
+def _action_progress_key(action_key: str) -> str:
+    """Stable session key for a generated action completion state."""
+    return f"{_ACTION_PROGRESS_PREFIX}{action_key}"
+
+
+def _reminder_category_for_page(page_key: str) -> str:
+    """Map action cards to the reminder page's existing category set."""
+    if page_key in {"loan", "debt"}:
+        return "还贷"
+    if page_key in {"insurance"}:
+        return "保费"
+    if page_key in {"tax"}:
+        return "税务"
+    if page_key in {"portfolio", "fx", "quote", "backtest", "rebalance", "screener"}:
+        return "投资"
+    if page_key in {"savings", "budget", "retirement", "networth"}:
+        return "储蓄"
+    return "其他"
+
+
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
 
@@ -408,6 +431,41 @@ if has_data:
             )
             with st.expander("预览 Markdown"):
                 st.code(action_markdown, language="markdown")
+
+        st.markdown("#### ✅ 行动闭环")
+        with st.expander("🧾 为行动建立复盘闭环", expanded=True):
+            for idx, action in enumerate(action_plan.actions, start=1):
+                with st.container(border=True):
+                    cols = st.columns([4, 1, 1.8])
+                    with cols[0]:
+                        st.caption(f"行动 {idx}")
+                        st.markdown(f"**{action.title}**")
+                        st.caption(f"目标：{action.current_signal} -> {action.target_signal}")
+                    done_key = _action_progress_key(action.key)
+                    with cols[1]:
+                        st.checkbox(
+                            "已完成",
+                            value=bool(st.session_state.get(done_key, False)),
+                            key=done_key,
+                        )
+                    with cols[2]:
+                        if st.button("📆 7 天提醒", key=f"action_reminder_{action.key}", use_container_width=True):
+                            due = str(_dt.date.today() + _dt.timedelta(days=7))
+                            add_reminder(
+                                title=f"行动回顾：{action.title}",
+                                description=f"建议在 {due} 复盘：{action.current_signal} -> {action.target_signal}。",
+                                due_date=due,
+                                category=_reminder_category_for_page(action.page_key),
+                            )
+                            st.success("✅ 已写入提醒")
+
+            action_done_count = sum(
+                1 for action in action_plan.actions if st.session_state.get(_action_progress_key(action.key), False)
+            )
+            st.progress(
+                action_done_count / len(action_plan.actions),
+                text=f"本周完成度：{action_done_count}/{len(action_plan.actions)} 个行动",
+            )
     else:
         st.caption("继续补充预算、净资产、贷款或退休数据后，将自动生成行动影响模拟。")
 
