@@ -283,6 +283,11 @@ if any([budget, networth, retirement, loan, insurance, savings]):
             action_done_count / len(action_plan.actions),
             text=f"本周完成度：{action_done_count}/{len(action_plan.actions)} 个行动",
         )
+        if st.button("🔄 重置本周行动状态", key="action_reset_decision", use_container_width=True):
+            for action in action_plan.actions:
+                st.session_state[_action_progress_key(action.key)] = False
+            st.success("✅ 已重置本周行动状态")
+            st.rerun()
     else:
         st.info("请补充预算、净资产、退休等输入后查看可执行行动建议。")
 else:
