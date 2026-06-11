@@ -7,8 +7,59 @@ from core.version import VERSION
 st.title(f"🧭 OmniFinance 决策中枢 `{VERSION}`")
 st.caption("把个人财务输入转化为健康诊断、机会识别、压力测试和行动计划。")
 
+if "show_decision_onboarding" not in st.session_state:
+    st.session_state["show_decision_onboarding"] = True
+
+
+def _build_task_spec() -> list[tuple[str, str, str, str, int, str]]:
+    """Build the starter task specs used for first-time guidance."""
+    task_specs: list[tuple[str, str, str, str, int, str]] = []
+    for idx, item in enumerate(DASHBOARD_PROGRESS_ITEMS, start=1):
+        page = get_page(item.page_key)
+        description = item.ready_hint if idx <= 3 else "补齐税务/现金流口径后，可让决策摘要更完整"
+        task_specs.append((
+            f"第 {idx} 步",
+            page.title,
+            item.session_key,
+            item.pending_hint,
+            2 + idx,
+            description,
+        ))
+    return task_specs
+
+
+_TASKS = _build_task_spec()
+
+_task_completion = {session_key: bool(st.session_state.get(session_key)) for _, _, session_key, _, _, _ in _TASKS}
+_completed_tasks = sum(_task_completion.values())
+_total_tasks = len(_TASKS)
+_completion_ratio = _completed_tasks / _total_tasks if _total_tasks else 1.0
+
+if st.session_state["show_decision_onboarding"]:
+    with st.expander("🧭 任务导向新手指引", expanded=True):
+        st.markdown("### 按任务先后顺序完成，越快看到完整决策闭环")
+        st.progress(_completion_ratio, text=f"已完成 {_completed_tasks}/{_total_tasks} 个关键任务")
+
+        _task_cols = st.columns(3)
+        for idx, (step_title, page_title, session_key, instruction, minutes, outcome_hint) in enumerate(_TASKS):
+            page = get_page(next(item.page_key for item in DASHBOARD_PROGRESS_ITEMS if item.session_key == session_key))
+            done = _task_completion[session_key]
+            with _task_cols[idx % 3].container(border=True):
+                st.markdown(f"**{step_title}｜{page_title}**")
+                st.caption(f"{'✅ 已完成' if done else '⬜ 待完成'} · 预计 {minutes} 分钟")
+                st.caption(instruction)
+                st.caption(outcome_hint)
+                if not done:
+                    st.page_link(page.path, label="前往填写", icon=page.icon)
+                else:
+                    st.page_link(page.path, label="复查数据", icon=page.icon)
+
+        if st.button("我先跳过新手指引，直接看诊断结果"):
+            st.session_state["show_decision_onboarding"] = False
+            st.rerun()
+
 st.info(
-    "建议先完成预算、净资产和退休三个基础输入。完成后，首页会自动汇总关键指标，生成财务健康评分、机会雷达、压力测试和行动计划。"
+    "建议按上方任务导向流程完成：预算、净资产、退休、贷款、保险、储蓄、税务输入。完成后，首页会自动汇总关键指标，生成财务健康评分、机会雷达、压力测试和行动计划。"
 )
 
 # ── Workflow overview ─────────────────────────────────────
