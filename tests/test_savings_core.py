@@ -17,6 +17,7 @@ def test_goal_already_reached():
     assert r.months_needed == 0
     assert r.total_deposited == 1_000_000
     assert r.total_interest == 0.0
+    assert r.monthly_deposit == 0.0
 
 
 def test_goal_reachable():
@@ -36,6 +37,7 @@ def test_months_positive_and_reasonable():
     r = calculate_savings_goal(0, 120_000, 0.0, 10_000)
     # With no interest, pure saving: 12 months exactly
     assert r.months_needed == 12
+    assert r.monthly_deposit == 10_000
 
 
 def test_schedule_not_empty():

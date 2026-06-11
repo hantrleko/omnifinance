@@ -18,6 +18,7 @@ class SavingsResult:
     yearly: pd.DataFrame    # Annual summary rows
     total_deposited: float  # Total principal contributed (including initial balance)
     total_interest: float   # Total compound interest earned
+    monthly_deposit: float  # Original user monthly contribution used in calculation
 
 
 def calculate_savings_goal(
@@ -46,6 +47,7 @@ def calculate_savings_goal(
             reached=True, months_needed=0,
             schedule=empty, yearly=empty,
             total_deposited=current, total_interest=0.0,
+            monthly_deposit=0.0,
         )
 
     monthly_rate = (annual_rate_pct / 100.0) / 12
@@ -121,4 +123,5 @@ def calculate_savings_goal(
         yearly=yearly,
         total_deposited=total_deposited,
         total_interest=total_interest,
+        monthly_deposit=monthly_deposit,
     )

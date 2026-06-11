@@ -135,6 +135,7 @@ result = _cached_savings(current_savings, goal_amount, annual_rate, effective_de
 st.session_state["dashboard_savings"] = {
     "months_needed": result.months_needed,
     "total_interest": result.total_interest,
+    "monthly_deposit": result.monthly_deposit,
 }
 
 sym = get_symbol()

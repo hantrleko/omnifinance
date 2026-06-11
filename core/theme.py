@@ -9,8 +9,6 @@ import streamlit as st
 
 _PREFS_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "preferences.json"
 
-VERSION = "v2.0.0"
-
 
 def load_dark_mode_pref() -> bool:
     try:
@@ -79,7 +77,7 @@ def inject_page_css() -> None:
 def inject_theme():
     """
     Injects a premium UI theme into Streamlit.
-    Reads 'dark_mode' from st.session_state (default True).
+    Reads 'dark_mode' from st.session_state (default False).
     Features: Glassmorphism, modern typography (Inter), rounded corners, soft shadows,
     and micro-animations on interactive elements.
     """

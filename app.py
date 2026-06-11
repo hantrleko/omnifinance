@@ -4,6 +4,7 @@ from core.currency import currency_selector
 from core.navigation import pages_by_category, search_pages
 from core.runtime_checks import build_runtime_report, runtime_fingerprint
 from core.theme import inject_theme, load_dark_mode_pref, save_dark_mode_pref
+from core.version import VERSION
 
 # ── 页面基础配置 ───────────────────────────────────────
 st.set_page_config(
@@ -82,10 +83,9 @@ with st.sidebar:
     st.markdown("🔗 **旗下服务矩阵**")
     st.page_link("https://financial-analysis-agent-eugenefinance02.streamlit.app/", label="Fin-Analysis", icon="🤖")
     st.page_link("https://github.com/hantrleko?tab=repositories", label="GitHub 开源生态", icon="🐙")
-    from core.theme import VERSION as _VER
-    st.caption(f"OmniFinance {_VER}")
+    st.caption(f"OmniFinance {VERSION}")
 
-# ── 模块分类与导航路由 (v2.0.0) ─────────────────────────
+# ── 模块分类与导航路由 (v2.2.0) ─────────────────────────
 pg = st.navigation({
     category: [st.Page(page.path, title=page.title, icon=page.icon, default=page.default) for page in pages]
     for category, pages in pages_by_category().items()

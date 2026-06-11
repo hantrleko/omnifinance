@@ -538,7 +538,6 @@ if has_data:
     st.subheader("🌊 现金流时间轴规划器")
     st.caption("将所有工具的年度收支流叠加到统一时间轴，识别未来哪年现金流最紧张。")
 
-    cf_years = list(range(1, 31))
     cf_income = [0.0] * 30
     cf_expense = [0.0] * 30
     cf_net = [0.0] * 30
@@ -566,13 +565,14 @@ if has_data:
 
     if dash_savings and dash_savings.get("months_needed", 0) > 0:
         months_left = dash_savings.get("months_needed", 0)
+        savings_monthly = dash_savings.get("monthly_deposit", 0)
+        if savings_monthly > 0:
+            cf_has_data = True
         for i in range(30):
             yr_start_month = i * 12
-            yr_end_month = (i + 1) * 12
             if yr_start_month < months_left:
                 active_months = min(12, months_left - yr_start_month)
-                monthly_deposit_sav = dash_savings.get("total_interest", 0)
-        cf_has_data = True
+                cf_expense[i] += savings_monthly * active_months
 
     if cf_has_data:
         for i in range(30):
