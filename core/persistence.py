@@ -16,6 +16,7 @@ from typing import Any
 import streamlit as st
 
 _PERSIST_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "session_data.json"
+_ACTION_PROGRESS_PREFIX = "decision_action_done_"
 
 # Keys in session_state that should be persisted
 DASHBOARD_KEYS = [
@@ -36,6 +37,9 @@ def save_session_data() -> None:
         val = st.session_state.get(key)
         if val is not None:
             data[key] = val
+    for key, val in st.session_state.items():
+        if isinstance(key, str) and key.startswith(_ACTION_PROGRESS_PREFIX):
+            data[key] = bool(val)
     _PERSIST_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
 
@@ -49,7 +53,11 @@ def load_session_data() -> dict[str, Any]:
         return {}
     try:
         data = json.loads(_PERSIST_PATH.read_text(encoding="utf-8"))
-        return {k: v for k, v in data.items() if k in DASHBOARD_KEYS}
+        return {
+            k: v
+            for k, v in data.items()
+            if k in DASHBOARD_KEYS or (isinstance(k, str) and k.startswith(_ACTION_PROGRESS_PREFIX))
+        }
     except (json.JSONDecodeError, OSError):
         return {}
 
@@ -109,6 +117,9 @@ def import_all_data(json_str: str) -> int:
     for key, value in dashboard.items():
         if key in DASHBOARD_KEYS:
             st.session_state[key] = value
+            count += 1
+        elif isinstance(key, str) and key.startswith(_ACTION_PROGRESS_PREFIX):
+            st.session_state[key] = bool(value)
             count += 1
 
     save_session_data()

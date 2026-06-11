@@ -12,13 +12,19 @@ from core.health import build_action_recommendations, build_health_report
 from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page, pages_by_category
 from core.opportunity import build_90_day_sprint, build_opportunity_radar
 from core.pdf_report import generate_pdf_report, is_pdf_available
-from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
+from core.persistence import (
+    ACTION_PROGRESS_PREFIX as _ACTION_PROGRESS_PREFIX,
+)
+from core.persistence import (
+    export_all_data,
+    import_all_data,
+    restore_session_data,
+    save_session_data,
+)
 from core.reminders import add_reminder, complete_reminder, get_due_reminders, get_reminders
 from core.report_generator import generate_html_report
 from core.stress import build_stress_report
 from core.version import VERSION
-
-_ACTION_PROGRESS_PREFIX = "decision_action_done_"
 
 
 def _action_progress_key(action_key: str) -> str:
