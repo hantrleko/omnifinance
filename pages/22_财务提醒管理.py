@@ -13,6 +13,7 @@ from core.reminders import (
     add_reminder,
     complete_reminder,
     delete_reminder,
+    clear_completed_reminders,
     get_due_reminders,
     get_reminders,
 )
@@ -29,7 +30,13 @@ CATEGORY_ICONS = {
     "retirement": "🏖️ 退休规划",
     "tax": "🧾 税务申报",
     "investment": "📈 投资操作",
+    "portfolio": "📈 投资操作",
     "general": "📌 其他事项",
+    "还贷": "💳 还贷",
+    "储蓄": "🎯 储蓄",
+    "保费": "🛡️ 保费",
+    "税务": "🧾 税务申报",
+    "投资": "📈 投资操作",
 }
 
 CATEGORY_COLORS = {
@@ -41,6 +48,11 @@ CATEGORY_COLORS = {
     "tax": "#19D3F3",
     "investment": "#FF6692",
     "general": "#B6E880",
+    "还贷": "#EF553B",
+    "储蓄": "#00CC96",
+    "保费": "#636EFA",
+    "税务": "#19D3F3",
+    "投资": "#FF6692",
 }
 
 # ── Due alerts at top ─────────────────────────────────────
@@ -77,15 +89,19 @@ with st.expander("➕ 添加新提醒", expanded=len(get_reminders()) == 0):
         desc_full = new_desc.strip()
         if new_recur != "不重复":
             desc_full = f"[{new_recur}] " + desc_full
-        add_reminder(
+        added = add_reminder(
             title=new_title.strip(),
             description=desc_full,
             due_date=str(new_due),
             category=new_category,
             amount=new_amount,
+            dedupe=True,
         )
-        st.success(f"已添加提醒：{new_title.strip()}")
-        st.rerun()
+        if added:
+            st.success(f"已添加提醒：{new_title.strip()}")
+            st.rerun()
+        else:
+            st.info("相同提醒已存在，未重复添加。")
 
 st.markdown("---")
 
@@ -144,15 +160,22 @@ with tab_done:
     if not done:
         st.info("暂无已完成提醒。")
     else:
+        filter_done = st.selectbox(
+            "按类别筛选",
+            ["全部"] + list(CATEGORY_ICONS.keys()),
+            format_func=lambda k: "全部" if k == "全部" else CATEGORY_ICONS[k],
+            key="rm_filter_done",
+        )
+        if filter_done != "全部":
+            done = [r for r in done if r.get("category") == filter_done]
+
         for r in reversed(done[-20:]):
             icon_label = CATEGORY_ICONS.get(r.get("category", "general"), "📌 其他事项")
             st.markdown(f"~~{icon_label} {r['title']}~~ `{r.get('due_date', '')}`")
 
-        if st.button("🗑️ 清除所有已完成提醒", key="rm_clear_done"):
-            from core.reminders import _load_reminders, _save_reminders
-            all_r = _load_reminders()
-            _save_reminders([r for r in all_r if not r.get("completed")])
-            st.success("已清除")
+        if st.button("🗑️ 清除全部已完成提醒", key="rm_clear_done"):
+            removed = clear_completed_reminders()
+            st.success(f"已清除 {removed} 条已完成提醒")
             st.rerun()
 
 # ── Quick add templates ───────────────────────────────────
@@ -173,12 +196,16 @@ tpl_cols = st.columns(3)
 for idx, (title, cat, desc, amt) in enumerate(templates):
     with tpl_cols[idx % 3]:
         if st.button(f"{CATEGORY_ICONS[cat].split()[0]} {title}", key=f"tpl_{idx}", use_container_width=True):
-            add_reminder(
+            added = add_reminder(
                 title=title,
                 description=desc,
                 due_date=str(date.today() + timedelta(days=30)),
                 category=cat,
                 amount=amt,
+                dedupe=True,
             )
-            st.success(f"已添加「{title}」提醒（截止日期：30天后），请在上方调整。")
-            st.rerun()
+            if added:
+                st.success(f"已添加「{title}」提醒（截止日期：30天后），请在上方调整。")
+                st.rerun()
+            else:
+                st.info("相同提醒已存在，未重复添加。")

@@ -126,3 +126,13 @@ def get_due_reminders() -> list[dict[str, Any]]:
 def clear_all_reminders() -> None:
     """Remove all reminders."""
     _save_reminders([])
+
+
+def clear_completed_reminders() -> int:
+    """Clear completed reminders and return how many were removed."""
+    reminders = _load_reminders()
+    remaining = [r for r in reminders if not r.get("completed", False)]
+    removed = len(reminders) - len(remaining)
+    if removed:
+        _save_reminders(remaining)
+    return removed

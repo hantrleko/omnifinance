@@ -47,6 +47,37 @@ def _reminder_category_for_page(page_key: str) -> str:
     return "其他"
 
 
+def _build_action_review_markdown(
+    actions,
+    *,
+    action_progress: dict[str, bool] | None = None,
+    heading: str = "本周行动复盘清单",
+) -> str:
+    """Render the current action-loop state as a reviewable markdown text."""
+    action_progress = action_progress or {}
+    lines = [
+        "# OmniFinance 行动复盘",
+        "",
+        f"**{heading}**",
+        f"- 生成时间：{_dt.date.today().isoformat()}",
+        "",
+        "## 待执行行动",
+    ]
+    for idx, action in enumerate(actions, start=1):
+        done = "✅ 已完成" if action_progress.get(action.key, False) else "⬜ 未完成"
+        lines.extend(
+            [
+                f"{idx}. {done} {action.title}",
+                f"   - 当前：{action.current_signal}",
+                f"   - 目标：{action.target_signal}",
+                f"   - 预计提升：+{action.estimated_uplift} / 努力：{action.effort}",
+            ]
+        )
+    if not actions:
+        lines.append("- 暂无可执行行动，先补齐关键输入。")
+    return "\n".join(lines).strip() + "\n"
+
+
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
 
@@ -471,6 +502,22 @@ if has_data:
 
             action_done_count = sum(
                 1 for action in action_plan.actions if st.session_state.get(_action_progress_key(action.key), False)
+            )
+            action_progress = {
+                action.key: bool(st.session_state.get(_action_progress_key(action.key), False))
+                for action in action_plan.actions
+            }
+            action_review_markdown = _build_action_review_markdown(
+                action_plan.actions,
+                action_progress=action_progress,
+                heading="首页行动闭环复盘",
+            )
+            st.download_button(
+                "📥 导出本周行动复盘",
+                data=action_review_markdown,
+                file_name=f"OmniFinance_Action_Review_Home_{_dt.date.today()}.md",
+                mime="text/markdown",
+                use_container_width=True,
             )
             st.progress(
                 action_done_count / len(action_plan.actions),
