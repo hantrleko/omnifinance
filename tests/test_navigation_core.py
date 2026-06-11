@@ -1,4 +1,5 @@
 from core.navigation import (
+    DASHBOARD_PROGRESS_ITEMS,
     NAVIGATION_CATEGORIES,
     PAGES,
     get_page,
@@ -26,6 +27,12 @@ def test_search_pages_matches_aliases_and_is_limited():
 def test_search_pages_supports_english_aliases():
     assert search_pages("ledger")[0].key == "ledger"
     assert search_pages("portfolio")[0].key == "portfolio"
+
+
+def test_search_pages_uses_synonyms():
+    # Chinese synonyms should still resolve to the right page
+    assert search_pages("养老金")[0].key == "retirement"
+    assert search_pages("税务")[0].key == "tax"
 
 
 def test_get_page_fetches_exact_key():
@@ -57,3 +64,10 @@ def test_decision_center_is_the_default_landing_page():
     assert len(default_pages) == 1
     assert default_pages[0].key == "decision"
     assert get_page("home").default is False
+
+
+def test_decision_center_progress_items_cover_expected_data_sources():
+    expected = {"dashboard_budget", "dashboard_networth", "dashboard_retirement", "dashboard_loan", "dashboard_insurance", "dashboard_savings", "dashboard_tax"}
+    actual = {item.session_key for item in DASHBOARD_PROGRESS_ITEMS}
+
+    assert expected == expected.intersection(actual)

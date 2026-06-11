@@ -9,7 +9,7 @@ from core.brief import build_decision_brief
 from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
 from core.health import build_action_recommendations, build_health_report
-from core.navigation import get_page, pages_by_category
+from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page, pages_by_category
 from core.opportunity import build_90_day_sprint, build_opportunity_radar
 from core.pdf_report import generate_pdf_report, is_pdf_available
 from core.persistence import export_all_data, import_all_data, restore_session_data, save_session_data
@@ -99,7 +99,8 @@ dash_insurance = st.session_state.get("dashboard_insurance")
 dash_networth = st.session_state.get("dashboard_networth")
 dash_tax = st.session_state.get("dashboard_tax")
 
-has_data = any([dash_compound, dash_loan, dash_savings, dash_budget, dash_retirement, dash_insurance, dash_networth, dash_tax])
+dashboard_keys = ("dashboard_compound", *(item.session_key for item in DASHBOARD_PROGRESS_ITEMS))
+has_data = any(st.session_state.get(key) for key in dashboard_keys)
 
 if has_data:
     # Collect active metrics into a flat list, then display in 3-column grid
@@ -690,16 +691,30 @@ else:
         st.success(f"✅ 已从磁盘恢复 {restored} 项仪表盘数据。")
         st.rerun()
     else:
-        st.info("👆 请先使用任一工具进行计算，仪表盘将自动汇总关键指标并生成健康评分。")
-        starter_pages = [get_page("budget"), get_page("networth"), get_page("retirement")]
-        st.markdown("#### 推荐初始化路径")
+        st.info("👆 这是一个“先算数据，再看结论”的工作流。建议按以下步骤先补 3 个核心资料，再回到决策中枢获取行动清单。")
+        starter_pages = [get_page("budget"), get_page("networth"), get_page("retirement"), get_page("decision")]
+        st.markdown("#### 新手建议")
+        st.caption("第一次使用时，不要急着点所有功能：先完成这 4 步，能最快看到有价值的建议。")
         _starter_cols = st.columns(3)
-        for _col, _page in zip(_starter_cols, starter_pages, strict=True):
+        _starter_pages = starter_pages[:3]
+        _labels = ["第一步", "第二步", "第三步"]
+        for idx, _col in enumerate(_starter_cols):
+            _page = _starter_pages[idx]
+            _label = _labels[idx]
             with _col.container(border=True):
+                st.caption(_label)
                 st.markdown(f"### {_page.icon}")
                 st.markdown(f"**{_page.title}**")
                 st.caption(_page.description)
-                st.page_link(_page.path, label="开始使用", icon="➡️")
+                st.page_link(_page.path, label="开始", icon="➡️")
+
+        st.markdown("#### 接着去决策中枢")
+        with st.container(border=True):
+            decision_page = get_page("decision")
+            st.caption("第四步")
+            st.markdown(f"### {decision_page.icon} {decision_page.title}")
+            st.caption("完成基础配置后，进入决策中枢查看健康评分、机会雷达与 90 天行动建议。")
+            st.page_link(decision_page.path, label="打开决策中枢", icon="🧭")
 
 # ── 综合财务诊断报告生成引擎 ─────────────────────────────────────
 st.markdown("---")

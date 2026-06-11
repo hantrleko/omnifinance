@@ -1,7 +1,7 @@
 import streamlit as st
 
 from core.currency import fmt
-from core.navigation import get_page
+from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page
 from core.version import VERSION
 
 st.title(f"🧭 OmniFinance 决策中枢 `{VERSION}`")
@@ -30,26 +30,21 @@ st.markdown("---")
 st.markdown("### 2. 当前资料完成度")
 
 _status_items = [
-    ("预算", "dashboard_budget", "budget"),
-    ("净资产", "dashboard_networth", "networth"),
-    ("退休", "dashboard_retirement", "retirement"),
-    ("贷款", "dashboard_loan", "loan"),
-    ("保险", "dashboard_insurance", "insurance"),
-    ("储蓄", "dashboard_savings", "savings"),
-    ("税务", "dashboard_tax", "tax"),
+    (_item.label, _item.session_key, _item.page_key, _item.ready_hint, _item.pending_hint)
+    for _item in DASHBOARD_PROGRESS_ITEMS
 ]
-completed = sum(1 for _, key, _ in _status_items if st.session_state.get(key))
+completed = sum(1 for _, key, _, _, _ in _status_items if st.session_state.get(key))
 completion_ratio = completed / len(_status_items)
 
 st.progress(completion_ratio, text=f"已完成 {completed}/{len(_status_items)} 项基础资料")
 
 status_cols = st.columns(3)
-for idx, (label, key, page_key) in enumerate(_status_items):
+for idx, (label, key, page_key, ready_hint, pending_hint) in enumerate(_status_items):
     page = get_page(page_key)
     done = bool(st.session_state.get(key))
     with status_cols[idx % 3].container(border=True):
         st.markdown(f"{'✅' if done else '⬜'} **{label}**")
-        st.caption("已完成，可参与综合诊断" if done else "待补充，建议优先填写")
+        st.caption(ready_hint if done else pending_hint)
         st.page_link(page.path, label=f"打开{page.title}", icon=page.icon)
 
 # ── Recommended starter path ──────────────────────────────
