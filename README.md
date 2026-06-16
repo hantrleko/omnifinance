@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/hantrleko/omnifinance/actions/workflows/ci.yml/badge.svg)](https://github.com/hantrleko/omnifinance/actions/workflows/ci.yml)
 
-当前版本：`v2.2.0`
+当前版本：`v2.3.0`
 
 OmniFinance 是一个基于 **Streamlit** 的个人财务规划与轻量投资分析平台。项目将预算、储蓄、债务、保险、退休、投资组合优化、策略回测、压力测试和行动计划整合到一个多页面应用中，目标不是替代专业投顾，而是帮助用户完成：
 
