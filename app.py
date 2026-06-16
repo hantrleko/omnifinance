@@ -43,6 +43,8 @@ inject_theme()
 # ── 侧边栏全局设置与品牌信息 ────────────────────────────
 import os
 
+_PAGE_LINK_PAGES: dict[str, st.Page] = {}
+
 if os.path.exists("assets/logo.png"):
     st.logo("assets/logo.png", link="https://github.com/hantrleko")
 
@@ -82,7 +84,7 @@ with st.sidebar:
         if results:
             st.caption(f"找到 {len(results)} 个相关工具，点击即可跳转：")
             for page in results:
-                st.page_link(page.path, label=page.title, icon=page.icon, help=page.description)
+                _safe_page_link(page.key, label=page.title, icon=page.icon)
         else:
             st.caption("未找到匹配功能，试试输入类别或英文关键词。")
 
@@ -95,7 +97,7 @@ with st.sidebar:
                 visited_page = get_page(key)
             except KeyError:
                 continue
-            st.page_link(visited_page.path, label=f"↩ {visited_page.title}", icon=visited_page.icon)
+            _safe_page_link(visited_page.key, label=f"↩ {visited_page.title}", icon=visited_page.icon)
     else:
         st.caption("首次访问先从左侧主线/搜索开始吧。")
 
@@ -118,13 +120,13 @@ with st.sidebar:
         with st.container(border=True):
             st.caption(f"下一步：{next_step.label}（约 {next_step.minutes} 分钟）")
             st.caption(next_step.outcome_hint)
-            st.page_link(next_page.path, label=f"继续：{next_page.title}", icon=next_page.icon)
+            _safe_page_link(next_step.page_key, label=f"继续：{next_page.title}", icon=next_page.icon)
         if journey_snapshot.pending_count <= 2:
             st.caption("只差最后几步即可进入完整决策闭环。")
     else:
         st.success("✅ 核心主线已填完，可直接查看“决策中枢”与首页的完整建议。")
         decision_page = get_page("decision")
-        st.page_link(decision_page.path, label="前往决策中枢", icon=decision_page.icon)
+        _safe_page_link(decision_page.key, label="前往决策中枢", icon=decision_page.icon)
 
     st.markdown("---")
     st.markdown("### ⏰ 提醒预览")
@@ -141,14 +143,14 @@ with st.sidebar:
         else:
             st.caption("暂无提醒，建议先在“财务提醒管理”创建。")
     reminder_page = get_page("reminders")
-    st.page_link(reminder_page.path, label="打开提醒管理", icon=reminder_page.icon)
+    _safe_page_link(reminder_page.key, label="打开提醒管理", icon=reminder_page.icon)
 
     st.markdown("---")
     st.markdown("### ⚡ 常用场景")
     for key in ("budget", "networth", "retirement", "loan", "insurance"):
         with st.container():
             key_page = get_page(key)
-            st.page_link(key_page.path, label=key_page.title, icon=key_page.icon)
+            _safe_page_link(key_page.key, label=key_page.title, icon=key_page.icon)
 
     st.markdown("---")
     st.markdown("### Eugene Finance")
@@ -159,9 +161,37 @@ with st.sidebar:
     st.caption(f"OmniFinance {VERSION}")
 
 # ── 模块分类与导航路由 (v2.2.0) ─────────────────────────
-pg = st.navigation({
-    category: [st.Page(page.path, title=page.title, icon=page.icon, default=page.default) for page in pages]
-    for category, pages in pages_by_category().items()
-})
+_navigation_categories = pages_by_category()
+_navigation_pages: dict[str, list[st.Page]] = {}
+for _category, _pages in _navigation_categories.items():
+    _navigation_pages[_category] = []
+    for _page in _pages:
+        _page_link_obj = st.Page(_page.path, title=_page.title, icon=_page.icon, default=_page.default)
+        _navigation_pages[_category].append(_page_link_obj)
+        _PAGE_LINK_PAGES[_page.key] = _page_link_obj
+
+
+def _safe_page_link(page_key: str, *, label: str, icon: str) -> None:
+    """Render a safe page link with graceful fallback for mapping errors."""
+    page_obj = _PAGE_LINK_PAGES.get(page_key)
+    if page_obj is not None:
+        try:
+            st.page_link(page_obj, label=label, icon=icon)
+            return
+        except Exception:
+            pass
+
+    try:
+        page = get_page(page_key)
+    except KeyError:
+        st.caption(f"页面未注册：{page_key}")
+        return
+    try:
+        st.page_link(page.path, label=label, icon=icon)
+    except Exception:
+        st.caption(f"当前环境暂不支持直接跳转：{page.title}")
+
+
+pg = st.navigation(_navigation_pages)
 
 pg.run()
