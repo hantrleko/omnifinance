@@ -37,6 +37,28 @@ def update_dark_mode():
     st.session_state["global_dark_mode"] = val
     save_dark_mode_pref(val)
 
+
+def _safe_page_link(page_key: str, *, label: str, icon: str) -> None:
+    """Render a safe page link with graceful fallback for mapping errors."""
+    page_obj = _PAGE_LINK_PAGES.get(page_key)
+    if page_obj is not None:
+        try:
+            st.page_link(page_obj, label=label, icon=icon)
+            return
+        except Exception:
+            pass
+
+    try:
+        page = get_page(page_key)
+    except KeyError:
+        st.caption(f"页面未注册：{page_key}")
+        return
+    try:
+        st.page_link(page.path, label=label, icon=icon)
+    except Exception:
+        st.caption(f"当前环境暂不支持直接跳转：{page.title}")
+
+
 # ── 注入核心主题 ───────────────────────────────────────
 inject_theme()
 
@@ -169,27 +191,6 @@ for _category, _pages in _navigation_categories.items():
         _page_link_obj = st.Page(_page.path, title=_page.title, icon=_page.icon, default=_page.default)
         _navigation_pages[_category].append(_page_link_obj)
         _PAGE_LINK_PAGES[_page.key] = _page_link_obj
-
-
-def _safe_page_link(page_key: str, *, label: str, icon: str) -> None:
-    """Render a safe page link with graceful fallback for mapping errors."""
-    page_obj = _PAGE_LINK_PAGES.get(page_key)
-    if page_obj is not None:
-        try:
-            st.page_link(page_obj, label=label, icon=icon)
-            return
-        except Exception:
-            pass
-
-    try:
-        page = get_page(page_key)
-    except KeyError:
-        st.caption(f"页面未注册：{page_key}")
-        return
-    try:
-        st.page_link(page.path, label=label, icon=icon)
-    except Exception:
-        st.caption(f"当前环境暂不支持直接跳转：{page.title}")
 
 
 pg = st.navigation(_navigation_pages)
