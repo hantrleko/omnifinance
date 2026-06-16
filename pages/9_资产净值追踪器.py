@@ -8,6 +8,8 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'networth')
 
 from core.theme import inject_theme
 
@@ -362,3 +364,4 @@ st.caption(MSG.print_hint)
 
 st.divider()
 st.caption(MSG.networth_footer)
+

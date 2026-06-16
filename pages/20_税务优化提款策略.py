@@ -10,6 +10,8 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'withdrawal')
 
 from core.theme import inject_theme
 
@@ -178,3 +180,4 @@ with st.expander("📋 最优策略逐年详情"):
 
 st.markdown("---")
 st.caption("🏦 税务优化提款策略 | 仅供参考 | 运行命令：`streamlit run app.py`")
+

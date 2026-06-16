@@ -10,6 +10,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'montecarlo')
 
 from core.theme import inject_theme
 
@@ -367,3 +369,4 @@ with st.expander("ℹ️ 方法论说明"):
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption("🎲 蒙特卡洛退休规划模拟 | 仅供参考，不构成投资建议 | 运行：`streamlit run app.py`")
+

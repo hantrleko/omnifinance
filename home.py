@@ -10,6 +10,11 @@ from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
 from core.health import build_action_recommendations, build_health_report
 from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page, pages_by_category
+from core.navigation import (
+    get_product_journey,
+    get_product_journey_snapshot,
+    track_recent_page,
+)
 from core.opportunity import build_90_day_sprint, build_opportunity_radar
 from core.pdf_report import generate_pdf_report, is_pdf_available
 from core.persistence import (
@@ -80,6 +85,55 @@ def _build_action_review_markdown(
 
 st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
 st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
+
+# 体验层：记忆最近访问，支持侧边栏“最近访问”快速定位
+track_recent_page(st.session_state, "home")
+
+PRODUCT_JOURNEY = get_product_journey()
+journey_snapshot = get_product_journey_snapshot(st.session_state)
+journey_completed, journey_total = journey_snapshot.completed, journey_snapshot.total
+next_journey_step = journey_snapshot.next_step
+
+
+def _render_journey_status_card() -> None:
+    """Render a compact, reusable journey card used by home and decision pages."""
+    st.markdown("### 🧭 产品主线")
+    st.caption("首页与决策中枢按统一主线联动，先补齐关键基础资料再看闭环建议。")
+    progress_cols = st.columns(3)
+    with progress_cols[0]:
+        st.metric("已完成", f"{journey_completed}", delta=f"待补 {journey_total - journey_completed}")
+    with progress_cols[1]:
+        st.metric("主线进度", f"{journey_completed}/{journey_total}")
+    with progress_cols[2]:
+        st.metric("完成率", f"{journey_snapshot.completion_ratio:.0%}")
+    st.progress(journey_snapshot.completion_ratio, text=f"主线完成 {journey_completed}/{journey_total}")
+
+    with st.container(border=True):
+        if next_journey_step:
+            next_page = get_page(next_journey_step.page_key)
+            st.caption(f"下一步建议：先完成「{next_journey_step.label}」（{next_journey_step.minutes} 分钟）")
+            st.caption(next_journey_step.outcome_hint)
+            st.page_link(next_page.path, label=f"立即开始：{next_page.title}", icon=next_page.icon)
+        else:
+            st.success("🎉 核心主线已完成，建议直接回到“决策中枢”执行行动计划。")
+            decision_page = get_page("decision")
+            st.page_link(decision_page.path, label="打开决策中枢", icon=decision_page.icon)
+        if journey_snapshot.completed > 0:
+            previous_step = journey_snapshot.completed_steps[-1]
+            previous_page = get_page(previous_step.page_key)
+            st.caption(f"已完成到：{previous_step.label}（{previous_page.title}）")
+
+# ── 产品主线区 ─────────────────────────────────────────
+_render_journey_status_card()
+
+with st.expander("🧩 快速任务入口", expanded=False):
+    quick_cols = st.columns(3)
+    for col, step in zip(quick_cols, PRODUCT_JOURNEY[:3]):
+        quick_page = get_page(step.page_key)
+        with col.container(border=True):
+            st.caption(f"第 {step.step_no} 步 · {step.label}")
+            st.caption(f"{step.pending_hint}（{step.minutes} 分钟）")
+            st.page_link(quick_page.path, label=quick_page.title, icon=quick_page.icon)
 
 # ── 快速导航卡片 ──────────────────────────────────────────
 st.markdown("### 🚀 快速开始")
@@ -813,28 +867,35 @@ else:
         st.rerun()
     else:
         st.info("👆 这是一个“先算数据，再看结论”的工作流。建议按以下步骤先补 3 个核心资料，再回到决策中枢获取行动清单。")
-        starter_pages = [get_page("budget"), get_page("networth"), get_page("retirement"), get_page("decision")]
+        journey = list(PRODUCT_JOURNEY)
         st.markdown("#### 新手建议")
-        st.caption("第一次使用时，不要急着点所有功能：先完成这 4 步，能最快看到有价值的建议。")
+        st.caption("第一次使用时，不要急着点所有功能：先按主线完成关键基础资料。")
         _starter_cols = st.columns(3)
-        _starter_pages = starter_pages[:3]
         _labels = ["第一步", "第二步", "第三步"]
         for idx, _col in enumerate(_starter_cols):
-            _page = _starter_pages[idx]
-            _label = _labels[idx]
+            step = journey[idx]
+            _page = get_page(step.page_key)
             with _col.container(border=True):
-                st.caption(_label)
+                st.caption(_labels[idx])
                 st.markdown(f"### {_page.icon}")
                 st.markdown(f"**{_page.title}**")
-                st.caption(_page.description)
+                st.caption(step.pending_hint)
+                st.caption(f"预计 {step.minutes} 分钟")
                 st.page_link(_page.path, label="开始", icon="➡️")
+
+        if len(journey) > 3:
+            with st.expander("查看更多主线任务", expanded=False):
+                for step in journey[3:]:
+                    _page = get_page(step.page_key)
+                    st.markdown(f"- 第 {step.step_no} 步：{_page.title}（{step.minutes} 分钟）")
+                    st.caption(step.outcome_hint)
 
         st.markdown("#### 接着去决策中枢")
         with st.container(border=True):
             decision_page = get_page("decision")
             st.caption("第四步")
             st.markdown(f"### {decision_page.icon} {decision_page.title}")
-            st.caption("完成基础配置后，进入决策中枢查看健康评分、机会雷达与 90 天行动建议。")
+            st.caption("完成基础配置后，进入决策中枢查看健康评分、机会雷达和 90 天行动建议。")
             st.page_link(decision_page.path, label="打开决策中枢", icon="🧭")
 
 # ── 综合财务诊断报告生成引擎 ─────────────────────────────────────

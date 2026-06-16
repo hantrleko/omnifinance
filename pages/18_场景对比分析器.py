@@ -9,6 +9,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'scenario')
 from plotly.subplots import make_subplots
 
 from core.theme import inject_theme
@@ -207,3 +209,4 @@ else:
 
 st.markdown("---")
 st.caption("🔬 场景对比分析器 | 跨工具敏感度分析平台")
+

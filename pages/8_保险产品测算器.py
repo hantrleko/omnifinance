@@ -14,6 +14,8 @@ import io
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'insurance')
 
 from core.theme import inject_theme
 
@@ -283,3 +285,4 @@ with st.expander("⚙️ 配置退保分析", expanded=False):
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.insurance_footer)
+

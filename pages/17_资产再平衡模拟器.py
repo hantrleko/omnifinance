@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'rebalance')
 
 from core.theme import inject_theme
 
@@ -292,3 +294,4 @@ with st.expander("📖 再平衡策略说明"):
 
 st.markdown("---")
 st.caption("⚖️ 资产再平衡模拟器 | 运行命令：`streamlit run app.py`")
+

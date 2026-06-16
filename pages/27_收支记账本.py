@@ -19,6 +19,8 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'ledger')
 
 from core.theme import inject_theme
 
@@ -297,3 +299,4 @@ st.download_button("📥 导出全部记录 (CSV)", data=buf.getvalue(), file_na
 
 st.divider()
 st.caption("📒 收支记账本 | 数据存储于本地 ~/.omnifinance/ledger.json")
+

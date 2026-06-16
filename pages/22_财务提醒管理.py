@@ -3,6 +3,8 @@
 from datetime import date, timedelta
 
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'reminders')
 
 from core.theme import inject_theme
 
@@ -277,3 +279,4 @@ for idx, (title, cat, desc, amt) in enumerate(templates):
                 st.rerun()
             else:
                 st.info("相同提醒已存在，未重复添加。")
+

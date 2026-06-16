@@ -7,6 +7,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'currency')
 
 from core.theme import inject_theme
 
@@ -161,3 +163,4 @@ if batch_text.strip():
 
 st.markdown("---")
 st.caption("💱 货币转换器 | 运行命令：`streamlit run app.py`")
+

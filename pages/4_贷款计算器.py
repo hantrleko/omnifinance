@@ -8,6 +8,8 @@ import io
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'loan')
 
 from core.chart_config import build_layout
 from core.config import CFG, MSG
@@ -404,3 +406,4 @@ with st.expander("⚙️ 设置转贷条件", expanded=False):
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.loan_footer)
+

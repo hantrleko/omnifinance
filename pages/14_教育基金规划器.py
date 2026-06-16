@@ -8,6 +8,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'education')
 
 from core.theme import inject_theme
 
@@ -130,3 +132,4 @@ st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
 
 st.markdown("---")
 st.caption("🏫 教育基金规划器 | 运行命令：`streamlit run app.py`")
+

@@ -5,7 +5,12 @@ import datetime as _dt
 from core.action_plan import build_action_impact_plan
 from core.currency import fmt
 from core.health import build_health_report
-from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page
+from core.navigation import (
+    get_page,
+    get_product_journey_snapshot,
+    track_recent_page,
+    get_product_journey,
+)
 from core.opportunity import build_opportunity_radar
 from core.persistence import ACTION_PROGRESS_PREFIX as _ACTION_PROGRESS_PREFIX
 from core.reminders import add_reminder
@@ -15,25 +20,40 @@ from core.version import VERSION
 st.title(f"🧭 OmniFinance 决策中枢 `{VERSION}`")
 st.caption("把个人财务输入转化为健康诊断、机会识别、压力测试和行动计划。")
 
+# 体验层：记忆最近访问，支持侧边栏“最近访问”快速定位
+track_recent_page(st.session_state, "decision")
+
 if "show_decision_onboarding" not in st.session_state:
     st.session_state["show_decision_onboarding"] = True
 
+_JOURNEY_STEPS = get_product_journey()
+_journey_snapshot = get_product_journey_snapshot(st.session_state)
+_next_step = _journey_snapshot.next_step
+_completion_ratio = _journey_snapshot.completion_ratio
 
-def _build_task_spec() -> list[tuple[str, str, str, str, int, str]]:
-    """Build the starter task specs used for first-time guidance."""
-    task_specs: list[tuple[str, str, str, str, int, str]] = []
-    for idx, item in enumerate(DASHBOARD_PROGRESS_ITEMS, start=1):
-        page = get_page(item.page_key)
-        description = item.ready_hint if idx <= 3 else "补齐税务/现金流口径后，可让决策摘要更完整"
-        task_specs.append((
-            f"第 {idx} 步",
-            page.title,
-            item.session_key,
-            item.pending_hint,
-            2 + idx,
-            description,
-        ))
-    return task_specs
+st.markdown("### 🧭 决策中枢主线导航")
+nav_cols = st.columns([2, 1, 1])
+with nav_cols[0]:
+    st.metric("主线进度", f"{_journey_snapshot.completed}/{_journey_snapshot.total}")
+with nav_cols[1]:
+    st.metric("待补", f"{_journey_snapshot.pending_count}")
+with nav_cols[2]:
+    st.metric("完成率", f"{_journey_snapshot.completion_ratio:.0%}")
+if _next_step:
+    next_page = get_page(_next_step.page_key)
+    st.caption(f"建议下一步：{_next_step.label}（{_next_step.minutes} 分钟）")
+    st.caption(_next_step.outcome_hint)
+    st.page_link(next_page.path, label=f"立即开始：{next_page.title}", icon=next_page.icon)
+else:
+    home_page = get_page("home")
+    st.success("主线已完成，可直接进入综合分析与行动执行。")
+    st.page_link(home_page.path, label="回到首页查看闭环分析", icon=home_page.icon)
+
+
+_task_completion = {
+    step.session_key: bool(st.session_state.get(step.session_key))
+    for step in _JOURNEY_STEPS
+}
 
 
 def _action_progress_key(action_key: str) -> str:
@@ -87,27 +107,25 @@ def _build_action_review_markdown(
     return "\n".join(lines).strip() + "\n"
 
 
-_TASKS = _build_task_spec()
-
-_task_completion = {session_key: bool(st.session_state.get(session_key)) for _, _, session_key, _, _, _ in _TASKS}
-_completed_tasks = sum(_task_completion.values())
-_total_tasks = len(_TASKS)
-_completion_ratio = _completed_tasks / _total_tasks if _total_tasks else 1.0
-
 if st.session_state["show_decision_onboarding"]:
     with st.expander("🧭 任务导向新手指引", expanded=True):
         st.markdown("### 按任务先后顺序完成，越快看到完整决策闭环")
-        st.progress(_completion_ratio, text=f"已完成 {_completed_tasks}/{_total_tasks} 个关键任务")
+        st.progress(_completion_ratio, text=f"已完成 {_journey_snapshot.completed}/{_journey_snapshot.total} 个关键任务")
+        if _next_step:
+            st.info(f"建议先完成下一步：{_next_step.label}（{_next_step.minutes} 分钟），先补齐后再继续。")
+        else:
+            st.success("核心主线已完成，可直接查看完整决策摘要与行动计划。")
 
         _task_cols = st.columns(3)
-        for idx, (step_title, page_title, session_key, instruction, minutes, outcome_hint) in enumerate(_TASKS):
-            page = get_page(next(item.page_key for item in DASHBOARD_PROGRESS_ITEMS if item.session_key == session_key))
+        for step in _JOURNEY_STEPS:
+            page = get_page(step.page_key)
+            session_key = step.session_key
             done = _task_completion[session_key]
-            with _task_cols[idx % 3].container(border=True):
-                st.markdown(f"**{step_title}｜{page_title}**")
-                st.caption(f"{'✅ 已完成' if done else '⬜ 待完成'} · 预计 {minutes} 分钟")
-                st.caption(instruction)
-                st.caption(outcome_hint)
+            with _task_cols[(step.step_no - 1) % 3].container(border=True):
+                st.markdown(f"**第 {step.step_no} 步｜{page.title}**")
+                st.caption(f"{'✅ 已完成' if done else '⬜ 待完成'} · 预计 {step.minutes} 分钟")
+                st.caption(step.pending_hint)
+                st.caption(step.outcome_hint)
                 if not done:
                     st.page_link(page.path, label="前往填写", icon=page.icon)
                 else:
@@ -116,10 +134,6 @@ if st.session_state["show_decision_onboarding"]:
         if st.button("我先跳过新手指引，直接看诊断结果"):
             st.session_state["show_decision_onboarding"] = False
             st.rerun()
-
-st.info(
-    "建议按上方任务导向流程完成：预算、净资产、退休、贷款、保险、储蓄、税务输入。完成后，首页会自动汇总关键指标，生成财务健康评分、机会雷达、压力测试和行动计划。"
-)
 
 # ── Workflow overview ─────────────────────────────────────
 st.markdown("### 1. 主工作流")
@@ -138,23 +152,22 @@ for col, (title, desc) in zip(workflow_cols, _workflow, strict=True):
 # ── Data completion status ────────────────────────────────
 st.markdown("---")
 st.markdown("### 2. 当前资料完成度")
-
 _status_items = [
-    (_item.label, _item.session_key, _item.page_key, _item.ready_hint, _item.pending_hint)
-    for _item in DASHBOARD_PROGRESS_ITEMS
+    (step.label, step.session_key, step.page_key, step.pending_hint, step.outcome_hint)
+    for step in _JOURNEY_STEPS
 ]
-completed = sum(1 for _, key, _, _, _ in _status_items if st.session_state.get(key))
-completion_ratio = completed / len(_status_items)
+completed = _journey_snapshot.completed
+completion_ratio = _journey_snapshot.completion_ratio
 
 st.progress(completion_ratio, text=f"已完成 {completed}/{len(_status_items)} 项基础资料")
 
 status_cols = st.columns(3)
-for idx, (label, key, page_key, ready_hint, pending_hint) in enumerate(_status_items):
+for idx, (label, key, page_key, pending_hint, outcome_hint) in enumerate(_status_items):
     page = get_page(page_key)
     done = bool(st.session_state.get(key))
     with status_cols[idx % 3].container(border=True):
         st.markdown(f"{'✅' if done else '⬜'} **{label}**")
-        st.caption(ready_hint if done else pending_hint)
+        st.caption(outcome_hint if done else pending_hint)
         st.page_link(page.path, label=f"打开{page.title}", icon=page.icon)
 
 # ── Recommended starter path ──────────────────────────────
@@ -163,15 +176,18 @@ st.markdown("### 3. 推荐初始化路径")
 st.caption("第一次使用时，不要从几十个工具里随便点。先按下面顺序完成基础资料，首页的综合分析会更有价值。")
 
 starter_steps = [
-    ("第一步", "budget", "确认收入、支出和可储蓄金额"),
-    ("第二步", "networth", "建立资产、负债和净资产基线"),
-    ("第三步", "retirement", "估算长期退休缺口与月度补充额"),
+    ("第一步", _JOURNEY_STEPS[0], "确认收入、支出和可储蓄金额"),
+    ("第二步", _JOURNEY_STEPS[1], "建立资产、负债和净资产基线"),
+    ("第三步", _JOURNEY_STEPS[2], "估算长期退休缺口与月度补充额"),
     ("第四步", "home", "回到首页查看健康评分、机会雷达和行动计划"),
 ]
 
 starter_cols = st.columns(4)
 for col, (step, page_key, reason) in zip(starter_cols, starter_steps, strict=True):
-    page = get_page(page_key)
+    if page_key == "home":
+        page = get_page(page_key)
+    else:
+        page = get_page(page_key.page_key)
     with col.container(border=True):
         st.caption(step)
         st.markdown(f"**{page.title}**")

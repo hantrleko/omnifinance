@@ -24,6 +24,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'quote')
 
 from core.theme import inject_theme
 
@@ -757,3 +759,4 @@ if kline_ticker:
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.quote_footer.format(interval=refresh_interval))
+

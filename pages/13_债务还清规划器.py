@@ -8,6 +8,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'debt')
 
 from core.theme import inject_theme
 
@@ -204,3 +206,4 @@ with st.expander("📖 策略说明"):
 
 st.markdown("---")
 st.caption("💳 债务还清规划器 | 运行命令：`streamlit run app.py`")
+

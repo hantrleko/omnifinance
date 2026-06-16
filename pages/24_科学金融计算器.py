@@ -9,6 +9,8 @@ import math
 from typing import Any
 
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'calculator')
 
 from core.theme import inject_theme
 
@@ -301,3 +303,4 @@ with col_fin:
 
 st.markdown("---")
 st.caption("🧮 科学金融计算器 | 运行命令：`streamlit run app.py`")
+

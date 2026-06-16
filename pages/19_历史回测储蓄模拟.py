@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'historical')
 
 from core.theme import inject_theme
 
@@ -234,3 +236,4 @@ if comp_rows:
 
 st.markdown("---")
 st.caption("📜 历史回测储蓄模拟 | 数据仅供参考，历史不代表未来 | 运行命令：`streamlit run app.py`")
+

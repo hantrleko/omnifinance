@@ -11,6 +11,8 @@ from pathlib import Path
 
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'budget')
 
 from core.theme import inject_theme
 
@@ -327,3 +329,4 @@ st.caption(MSG.print_hint)
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.budget_footer)
+

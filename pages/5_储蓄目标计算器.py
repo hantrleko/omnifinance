@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'savings')
 
 from core.theme import inject_theme
 
@@ -539,3 +541,4 @@ if st.session_state["multi_goals"]:
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.savings_footer)
+

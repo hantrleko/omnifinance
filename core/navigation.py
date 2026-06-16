@@ -7,6 +7,7 @@ sidebar search, and dashboard quick-start UI.
 from __future__ import annotations
 
 import re
+from typing import Mapping, MutableMapping
 from dataclasses import dataclass
 
 
@@ -39,6 +40,48 @@ class DashboardProgressItem:
     pending_hint: str = "待补充，建议优先填写"
 
 
+@dataclass(frozen=True)
+class JourneyStep:
+    """Product journey step used by home and decision pages."""
+
+    step_no: int
+    label: str
+    session_key: str
+    page_key: str
+    minutes: int
+    pending_hint: str
+    outcome_hint: str
+
+
+@dataclass(frozen=True)
+class JourneySnapshot:
+    """Compact read-only snapshot for the product onboarding journey."""
+
+    journey: tuple[JourneyStep, ...]
+    completed_steps: tuple[JourneyStep, ...]
+    remaining_steps: tuple[JourneyStep, ...]
+
+    @property
+    def completed(self) -> int:
+        return len(self.completed_steps)
+
+    @property
+    def total(self) -> int:
+        return len(self.journey)
+
+    @property
+    def pending_count(self) -> int:
+        return len(self.remaining_steps)
+
+    @property
+    def completion_ratio(self) -> float:
+        return self.completed / self.total if self.total else 1.0
+
+    @property
+    def next_step(self) -> JourneyStep | None:
+        return self.remaining_steps[0] if self.remaining_steps else None
+
+
 SEARCH_SYNONYMS: dict[str, tuple[str, ...]] = {
     "养老金": ("退休", "退休金", "养老", "养老金规划"),
     "退休": ("养老金", "养老", "退休金", "养老金规划"),
@@ -54,6 +97,7 @@ SEARCH_SYNONYMS: dict[str, tuple[str, ...]] = {
     "理财": ("投资", "财务"),
     "记账": ("收支", "账本", "账务"),
     "模拟": ("蒙卡", "蒙特卡洛", "回测"),
+    "护城河": ("moat", "竞争优势", "壁垒", "长期护城河", "竞争壁垒"),
 }
 
 NAVIGATION_POPULARITY: dict[str, int] = {
@@ -69,6 +113,7 @@ NAVIGATION_POPULARITY: dict[str, int] = {
     "portfolio": 62,
     "scenario": 56,
     "reminders": 52,
+    "moat": 48,
     "compound": 50,
 }
 
@@ -100,6 +145,7 @@ PAGES: tuple[PageInfo, ...] = (
     PageInfo("backtest", "策略回测器", "📈", "pages/3_MA交叉回测器.py", "投资分析引擎", "回测均线策略并考虑费用、滑点与基准", ("回测", "策略", "MA", "backtest")),
     PageInfo("rebalance", "资产再平衡模拟器", "⚖️", "pages/17_资产再平衡模拟器.py", "投资分析引擎", "模拟定期再平衡、偏离阈值与交易影响", ("再平衡", "rebalance")),
     PageInfo("fx", "外汇对冲计算器", "💱", "pages/16_外汇对冲计算器.py", "投资分析引擎", "评估汇率风险、对冲成本与敞口管理", ("外汇", "汇率", "对冲", "fx")),
+    PageInfo("moat", "长期护城河评分器", "🛡️", "pages/28_长期护城河评分器.py", "投资分析引擎", "用财务指标与主观评估打分，快速判断企业的长期竞争优势", ("护城河", "moat", "竞争壁垒", "长期优势")),
     PageInfo("retirement", "退休金估算器", "🏖️", "pages/7_退休金估算器.py", "高级人生规划", "估算退休缺口、月存需求与敏感度", ("退休", "养老", "retirement")),
     PageInfo("montecarlo", "蒙特卡洛模拟", "🎲", "pages/10_蒙特卡洛模拟.py", "高级人生规划", "用随机模拟评估目标达成概率与风险分布", ("蒙卡", "模拟", "monte carlo")),
     PageInfo("withdrawal", "税务优化提款策略", "🏦", "pages/20_税务优化提款策略.py", "高级人生规划", "比较退休提款顺序、税务影响与资金寿命", ("提款", "税务提款", "withdrawal")),
@@ -124,6 +170,145 @@ DASHBOARD_PROGRESS_ITEMS: tuple[DashboardProgressItem, ...] = (
     DashboardProgressItem("储蓄", "dashboard_savings", "savings"),
     DashboardProgressItem("税务", "dashboard_tax", "tax"),
 )
+
+
+PRODUCT_USER_JOURNEY: tuple[JourneyStep, ...] = (
+    JourneyStep(
+        step_no=1,
+        label="预算",
+        session_key="dashboard_budget",
+        page_key="budget",
+        minutes=10,
+        pending_hint="待补充，建议优先填写",
+        outcome_hint="形成现金流基线，快速支持净资产和储蓄率诊断。",
+    ),
+    JourneyStep(
+        step_no=2,
+        label="净资产",
+        session_key="dashboard_networth",
+        page_key="networth",
+        minutes=12,
+        pending_hint="待补充，建议优先填写",
+        outcome_hint="建立资产负债盘点，便于判断现金压力与杠杆水平。",
+    ),
+    JourneyStep(
+        step_no=3,
+        label="退休",
+        session_key="dashboard_retirement",
+        page_key="retirement",
+        minutes=12,
+        pending_hint="待补充，建议优先填写",
+        outcome_hint="确认退休缺口，推导每月补齐目标。",
+    ),
+    JourneyStep(
+        step_no=4,
+        label="贷款",
+        session_key="dashboard_loan",
+        page_key="loan",
+        minutes=14,
+        pending_hint="待补充，建议优先填写",
+        outcome_hint="确认负债结构，准备“先还贷还是先储蓄”决策。",
+    ),
+    JourneyStep(
+        step_no=5,
+        label="保险",
+        session_key="dashboard_insurance",
+        page_key="insurance",
+        minutes=10,
+        pending_hint="待补充，建议优先填写",
+        outcome_hint="确认保障开支与成本，支持效率与现金流对比。",
+    ),
+    JourneyStep(
+        step_no=6,
+        label="储蓄",
+        session_key="dashboard_savings",
+        page_key="savings",
+        minutes=10,
+        pending_hint="待补充，建议优先填写",
+        outcome_hint="确认目标与节奏，形成 12/24 个月执行节拍。",
+    ),
+    JourneyStep(
+        step_no=7,
+        label="税务",
+        session_key="dashboard_tax",
+        page_key="tax",
+        minutes=8,
+        pending_hint="待补充，建议优先填写",
+        outcome_hint="确认税后现金流，完善风险、收益和复利分析口径。",
+    ),
+)
+
+
+def get_product_journey() -> tuple[JourneyStep, ...]:
+    """Return the default onboarding journey used by multi-page product logic."""
+    return PRODUCT_USER_JOURNEY
+
+
+def get_product_journey_snapshot(session_state: Mapping[str, object]) -> JourneySnapshot:
+    """Return a reusable journey state snapshot for UX summaries."""
+    completed_steps: list[JourneyStep] = []
+    remaining_steps: list[JourneyStep] = []
+
+    for item in PRODUCT_USER_JOURNEY:
+        if bool(session_state.get(item.session_key, False)):
+            completed_steps.append(item)
+        else:
+            remaining_steps.append(item)
+
+    return JourneySnapshot(
+        journey=PRODUCT_USER_JOURNEY,
+        completed_steps=tuple(completed_steps),
+        remaining_steps=tuple(remaining_steps),
+    )
+
+
+def get_product_journey_progress(session_state: Mapping[str, object]) -> tuple[int, int]:
+    """Return (completed, total) count for journey completeness."""
+    snapshot = get_product_journey_snapshot(session_state)
+    return snapshot.completed, snapshot.total
+
+
+def get_next_journey_step(session_state: Mapping[str, object]) -> JourneyStep | None:
+    """Return the first uncompleted step in the journey."""
+    return get_product_journey_snapshot(session_state).next_step
+
+
+RECENT_PAGES_STATE_KEY = "ui_recent_pages"
+MAX_RECENT_PAGES = 6
+
+
+def track_recent_page(
+    session_state: MutableMapping[str, object],
+    page_key: str,
+    *,
+    max_items: int = MAX_RECENT_PAGES,
+) -> None:
+    """Record a recent page visit, with most recent first and deduplicated."""
+    if not page_key:
+        return
+    existing = list(session_state.get(RECENT_PAGES_STATE_KEY, ()))
+    if not isinstance(existing, list):
+        existing = list(existing) if isinstance(existing, tuple) else []
+
+    filtered = [item for item in existing if item != page_key]
+    filtered.insert(0, page_key)
+    session_state[RECENT_PAGES_STATE_KEY] = filtered[:max(1, max_items)]
+
+
+def get_recent_pages(
+    session_state: Mapping[str, object],
+    *,
+    max_items: int = MAX_RECENT_PAGES,
+) -> tuple[str, ...]:
+    """Fetch recent page keys for sidebar quick access."""
+    recent = session_state.get(RECENT_PAGES_STATE_KEY, ())
+    if not isinstance(recent, (list, tuple)):
+        return ()
+    deduped: list[str] = []
+    for key in recent:
+        if isinstance(key, str) and key not in deduped:
+            deduped.append(key)
+    return tuple(deduped[:max(1, max_items)])
 
 
 def pages_by_category() -> dict[str, list[PageInfo]]:

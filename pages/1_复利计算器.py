@@ -13,6 +13,8 @@ import io
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'compound')
 
 from core.theme import inject_theme
 
@@ -365,3 +367,4 @@ st.caption(MSG.print_hint)
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(f"提示：在左侧面板调整参数后结果会自动更新。{MSG.run_hint}")
+

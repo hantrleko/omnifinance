@@ -12,6 +12,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'tax')
 
 from core.theme import inject_theme
 
@@ -356,3 +358,4 @@ st.download_button("📥 下载税务报告 (HTML)", data=_build_tax_report(), f
 
 st.divider()
 st.caption("🧾 税务计算器 | 基于中国现行个税法规，仅供参考，实际税务请以税务机关核定为准。")
+

@@ -11,6 +11,8 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'calendar')
 
 from core.theme import inject_theme
 
@@ -162,3 +164,4 @@ st.plotly_chart(fig2, use_container_width=True)
 
 st.markdown("---")
 st.caption("📅 财务日历 | 运行命令：`streamlit run app.py`")
+

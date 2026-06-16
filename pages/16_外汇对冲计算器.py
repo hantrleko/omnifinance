@@ -10,6 +10,8 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'fx')
 
 from core.theme import inject_theme
 
@@ -196,3 +198,4 @@ with st.expander("📖 利率平价理论说明"):
 
 st.markdown("---")
 st.caption("💱 外汇对冲计算器 | 运行命令：`streamlit run app.py`")
+

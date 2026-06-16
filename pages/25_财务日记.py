@@ -13,6 +13,8 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'diary')
 
 from core.theme import inject_theme
 
@@ -208,3 +210,4 @@ if st.button("生成年度财务回顾 HTML"):
 
 st.markdown("---")
 st.caption("📔 财务日记 | 运行命令：`streamlit run app.py`")
+

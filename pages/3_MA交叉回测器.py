@@ -22,6 +22,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from core.navigation import track_recent_page
+track_recent_page(st.session_state, 'backtest')
 from plotly.subplots import make_subplots
 
 from core.theme import inject_theme
@@ -808,3 +810,4 @@ st.caption("提示：打开 HTML 文件后按 Ctrl+P 可打印/另存为 PDF。"
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.backtest_footer)
+
