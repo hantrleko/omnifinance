@@ -8,19 +8,13 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'education')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("教育基金规划器", "🎓", "education")
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import fmt, get_symbol
 from core.education import calculate_education_fund
 
-st.set_page_config(page_title="教育基金规划器", page_icon="🏫", layout="wide")
 st.title("🏫 教育基金规划器")
 st.caption("规划子女教育经费，模拟定投增长路径，评估奖学金影响")
 

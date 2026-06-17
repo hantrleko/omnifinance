@@ -4,31 +4,20 @@
 支持手动调比例、固定支出超标警示、高利债务优先还债。
 """
 
-import json
-import os
 from datetime import date as _date
-from pathlib import Path
 
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'budget')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("预算分配建议器", "💡", "budget")
 from core.benchmarks import benchmark_inline
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.planning import calculate_budget
-from core.storage import scheme_manager_ui
+from core.storage import load_document, scheme_manager_ui
 
 # ── 页面配置 ──────────────────────────────────────────────
-st.set_page_config(page_title="预算分配建议器", page_icon="💡", layout="wide")
-
-
 st.title("💡 50/30/20 预算分配建议器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
@@ -224,16 +213,9 @@ st.markdown("---")
 st.subheader("🔗 本月实际支出 vs 预算")
 st.caption("读取收支记账本的当月支出，与当前预算设置进行对比。请先在「收支记账本」页面录入支出记录。")
 
-_LEDGER_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "ledger.json"
-
 def _load_current_month_expenses() -> dict[str, float]:
-    if not _LEDGER_PATH.exists():
-        return {}
-    try:
-        data = json.loads(_LEDGER_PATH.read_text(encoding="utf-8"))
-        if not isinstance(data, list):
-            return {}
-    except (json.JSONDecodeError, OSError):
+    data = load_document("ledger", default=[])
+    if not isinstance(data, list):
         return {}
 
     today = _date.today()

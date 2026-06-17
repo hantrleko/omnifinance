@@ -1,39 +1,27 @@
 """资产净值追踪器 — 记录各类资产与负债，计算净资产并追踪变化趋势。"""
 
-import json
-import os
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'networth')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("资产净値追踪器", "🏠", "networth")
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
+from core.storage import load_document, save_document
 
-st.set_page_config(page_title="资产净值追踪器", page_icon="🏠", layout="wide")
 st.title("🏠 资产净值追踪器")
 
 st.sidebar.header("📋 设置")
 
-_NW_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "networth.json"
-
 def _load_records() -> list[dict]:
-    if not _NW_PATH.exists(): return []
-    try: return json.loads(_NW_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError): return []
+    data = load_document("networth", default=[])
+    return data if isinstance(data, list) else []
 
 def _save_records(records: list[dict]) -> None:
-    _NW_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _NW_PATH.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+    save_document("networth", records)
 
 records = _load_records()
 

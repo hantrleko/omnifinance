@@ -16,16 +16,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'screener')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("股票筛选器", "🔎", "screener")
 from core.chart_config import build_layout
-
-st.set_page_config(page_title="股票筛选器", page_icon="🔎", layout="wide")
 
 st.title("🔎 股票筛选器")
 st.caption("自由输入任意股票代码，通过 PE/PB/股息率/市值等基本面指标快速筛选，找出符合条件的标的。")

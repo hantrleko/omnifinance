@@ -22,13 +22,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'backtest')
+from core.page_setup import init_page
+init_page("策略回测器", "📈", "backtest")
 from plotly.subplots import make_subplots
 
-from core.theme import inject_theme
-
-inject_theme()
 import yfinance as yf
 
 from core.backtest import STRATEGY_NAMES, apply_strategy, compute_metrics, simulate_trades
@@ -41,9 +38,6 @@ from core.storage import scheme_manager_ui
 _logger = logging.getLogger(__name__)
 
 # ── 页面配置 ──────────────────────────────────────────────
-st.set_page_config(page_title="策略回测器", page_icon="📈", layout="wide")
-
-
 st.title("📈 策略回测器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────

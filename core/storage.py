@@ -1,14 +1,33 @@
-"""Lightweight JSON-based scheme persistence for parameter presets.
+"""Lightweight JSON-based persistence for OmniFinance.
 
+Two distinct storage APIs are provided:
+
+1. **Scheme store** (``save_scheme`` / ``load_scheme`` / …)
+   Stores named parameter presets per tool (e.g. "我的激进方案").
+   Files are stored as ``~/.omnifinance/<tool_name>.json``.
+
+2. **Document store** (``load_document`` / ``save_document``)
+   General-purpose key-value store for arbitrary JSON-serialisable data.
+   Each logical document lives in its own file:
+   ``~/.omnifinance/<document_name>.json``.
+
+   This replaces the repeated copy-paste of ``_load_xxx`` / ``_save_xxx``
+   helpers that previously appeared in several ``pages/`` files.
+
+Changelog
+---------
 v1.4: Added schema_version field and forward-compatible migration mechanism.
       Old files without version field are automatically treated as v1 and migrated.
 v1.5: Added file-level locking (fcntl on POSIX, msvcrt on Windows) to prevent
       data corruption under concurrent access.  Corrupt JSON now surfaces a
       user-visible warning instead of silently returning an empty dict.
+v1.6: Added generic :func:`load_document` / :func:`save_document` API so that
+      individual pages no longer need to duplicate JSON read/write helpers.
 """
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 from collections.abc import Callable, Generator
@@ -21,6 +40,7 @@ import streamlit as st
 
 _STORAGE_DIR = Path(os.path.expanduser("~")) / ".omnifinance"
 _SCHEMA_VERSION = 2   # bump this whenever the stored format changes
+_logger = logging.getLogger(__name__)
 
 
 # ── TypedDict definitions ─────────────────────────────────
@@ -155,7 +175,7 @@ def _save_all(tool_name: str, data: SchemeStore) -> None:
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-# ── Public API ────────────────────────────────────────────
+# ── Scheme store public API ───────────────────────────────
 
 def save_scheme(tool_name: str, scheme_name: str, params: dict[str, Any]) -> None:
     """Save a named parameter scheme for a given tool.
@@ -263,3 +283,99 @@ def scheme_manager_ui(
                 st.rerun()
 
     return loaded
+
+
+# ── Document store public API ─────────────────────────────
+# Replaces the repeated _load_xxx / _save_xxx helpers in pages/.
+# Each "document" is a single JSON file in ~/.omnifinance/<name>.json.
+
+def _document_path(name: str) -> Path:
+    """Return the storage path for a named document."""
+    return _ensure_dir() / f"{name}.json"
+
+
+def _default_json_serialiser(obj: Any) -> str:
+    """Fallback serialiser for types not handled by the standard library."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serialisable")
+
+
+def load_document(name: str, default: Any = None) -> Any:
+    """Load a JSON document from ``~/.omnifinance/<name>.json``.
+
+    This is the canonical replacement for the ``_load_xxx()`` helpers that
+    were previously duplicated across multiple ``pages/`` files.
+
+    Args:
+        name:    Document name (without ``.json`` extension), e.g.
+                 ``"diary"``, ``"ledger"``, ``"networth"``.
+        default: Value returned when the file does not exist or is corrupt.
+                 Defaults to ``None``.
+
+    Returns:
+        The deserialised JSON value, or *default* on any error.
+
+    Example::
+
+        entries: list[dict] = load_document("diary", default=[])
+    """
+    path = _document_path(name)
+    if not path.exists():
+        return default
+    try:
+        with _file_lock(path):
+            data = json.loads(path.read_text(encoding="utf-8"))
+        return data
+    except (json.JSONDecodeError, OSError) as exc:
+        _logger.warning("load_document(%r) failed: %s", name, exc)
+        return default
+
+
+def save_document(name: str, data: Any) -> None:
+    """Persist *data* as ``~/.omnifinance/<name>.json``.
+
+    This is the canonical replacement for the ``_save_xxx()`` helpers that
+    were previously duplicated across multiple ``pages/`` files.
+
+    Args:
+        name: Document name (without ``.json`` extension).
+        data: Any JSON-serialisable value (dict, list, str, …).
+              ``datetime`` objects are automatically converted to ISO strings.
+
+    Raises:
+        Nothing — all errors are logged at WARNING level and silently ignored
+        so that a storage failure never crashes the Streamlit UI.
+
+    Example::
+
+        save_document("diary", entries)
+    """
+    path = _document_path(name)
+    try:
+        with _file_lock(path):
+            path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2, default=_default_json_serialiser),
+                encoding="utf-8",
+            )
+    except OSError as exc:
+        _logger.warning("save_document(%r) failed: %s", name, exc)
+
+
+def delete_document(name: str) -> bool:
+    """Delete ``~/.omnifinance/<name>.json`` if it exists.
+
+    Args:
+        name: Document name (without ``.json`` extension).
+
+    Returns:
+        ``True`` if the file was deleted, ``False`` if it did not exist.
+    """
+    path = _document_path(name)
+    if path.exists():
+        try:
+            path.unlink()
+            return True
+        except OSError as exc:
+            _logger.warning("delete_document(%r) failed: %s", name, exc)
+    return False

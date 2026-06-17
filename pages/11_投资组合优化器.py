@@ -17,12 +17,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'portfolio')
-
-from core.theme import inject_theme
-
-inject_theme()
+from core.page_setup import init_page
+init_page("投资组合优化器", "📐", "portfolio")
 import yfinance as yf
 
 from core.chart_config import build_layout, render_empty_state
@@ -35,9 +31,6 @@ from core.portfolio import EfficientFrontierResult, optimize_portfolio
 _logger = logging.getLogger(__name__)
 
 # ── 页面配置 ──────────────────────────────────────────────
-st.set_page_config(page_title="投资组合优化器", page_icon="📐", layout="wide")
-
-
 st.title("📐 投资组合优化器")
 st.caption("基于马科维茨均值-方差模型，计算最大夏普比率组合与最小方差组合，并展示有效前沿。")
 

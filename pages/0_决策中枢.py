@@ -8,20 +8,19 @@ from core.health import build_health_report
 from core.navigation import (
     get_page,
     get_product_journey_snapshot,
-    track_recent_page,
     get_product_journey,
 )
 from core.opportunity import build_opportunity_radar
+from core.page_setup import init_page
 from core.persistence import ACTION_PROGRESS_PREFIX as _ACTION_PROGRESS_PREFIX
 from core.reminders import add_reminder
 from core.stress import build_stress_report
 from core.version import VERSION
 
+init_page("决策中枢", "🧭", "decision")
+
 st.title(f"🧭 OmniFinance 决策中枢 `{VERSION}`")
 st.caption("把个人财务输入转化为健康诊断、机会识别、压力测试和行动计划。")
-
-# 体验层：记忆最近访问，支持侧边栏“最近访问”快速定位
-track_recent_page(st.session_state, "decision")
 
 if "show_decision_onboarding" not in st.session_state:
     st.session_state["show_decision_onboarding"] = True

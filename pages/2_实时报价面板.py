@@ -12,31 +12,24 @@ v1.7:
 """
 
 import asyncio
-import json
 import logging
-import os
 import urllib.error
 from datetime import datetime
-from pathlib import Path
 
 import httpx
 import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'quote')
-
-from core.theme import inject_theme
-
-inject_theme()
+from core.page_setup import init_page
+init_page("实时报价面板", "📊", "quote")
 import yfinance as yf
 from plotly.subplots import make_subplots
 from streamlit_autorefresh import st_autorefresh
 
 from core.chart_config import render_empty_state
 from core.config import CFG, MSG
-from core.storage import list_schemes, load_scheme, save_scheme
+from core.storage import list_schemes, load_document, save_document, load_scheme, save_scheme
 from core.theme import show_error_banner
 
 _AKSHARE_AVAILABLE = False
@@ -48,29 +41,14 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
-_QUOTE_DISK_CACHE_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "quote_last_cache.json"
-
-
 def _load_disk_cache() -> dict[str, dict]:
-    if not _QUOTE_DISK_CACHE_PATH.exists():
-        return {}
-    try:
-        return json.loads(_QUOTE_DISK_CACHE_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
+    data = load_document("quote_last_cache", default={})
+    return data if isinstance(data, dict) else {}
 
 
 def _save_disk_cache(cache: dict[str, dict]) -> None:
-    try:
-        _QUOTE_DISK_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _QUOTE_DISK_CACHE_PATH.write_text(
-            json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-    except OSError as exc:
-        _logger.warning("无法写入磁盘报价缓存: %s", exc)
+    save_document("quote_last_cache", cache)
 
-
-st.set_page_config(page_title="实时报价面板", page_icon="📊", layout="wide")
 
 PRESETS: dict[str, list[str]] = {
     "A股": ["600519", "000858", "601318", "000333", "300750"],
@@ -131,22 +109,12 @@ refresh_interval = st.sidebar.slider(
 st.sidebar.divider()
 st.sidebar.subheader("📂 自定义分组预设")
 
-_PRESETS_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "watchlist_presets.json"
-
 def _load_presets() -> dict[str, list[str]]:
-    if not _PRESETS_PATH.exists():
-        return {}
-    try:
-        return json.loads(_PRESETS_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
+    data = load_document("watchlist_presets", default={})
+    return data if isinstance(data, dict) else {}
 
 def _save_presets(presets: dict[str, list[str]]) -> None:
-    try:
-        _PRESETS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _PRESETS_PATH.write_text(json.dumps(presets, ensure_ascii=False, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    save_document("watchlist_presets", presets)
 
 if "custom_presets" not in st.session_state:
     st.session_state["custom_presets"] = _load_presets()

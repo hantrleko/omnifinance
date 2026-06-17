@@ -9,20 +9,15 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'scenario')
+from core.page_setup import init_page
+init_page("场景对比分析器", "🔬", "scenario")
 from plotly.subplots import make_subplots
-
-from core.theme import inject_theme
-
-inject_theme()
 
 from core.chart_config import build_layout
 from core.config import MSG
 from core.currency import fmt, get_symbol
 from core.scenarios import run_inflation_scenarios, run_return_scenarios
 
-st.set_page_config(page_title="场景对比分析器", page_icon="🔬", layout="wide")
 st.title("🔬 场景对比分析器")
 st.caption("跨工具 What-If 分析 — 同一参数变动在复利、储蓄、退休、贷款中的联动影响")
 
