@@ -7,13 +7,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'currency')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("货币转换器", "💱", "currency")
 from core.chart_config import build_layout
 from core.currency import CURRENCIES, get_symbol
 from core.exchange_rates import (
@@ -25,7 +20,6 @@ from core.exchange_rates import (
 )
 from core.storage import scheme_manager_ui
 
-st.set_page_config(page_title="货币转换器", page_icon="💱", layout="wide")
 st.title("💱 货币转换器")
 
 live = is_live()

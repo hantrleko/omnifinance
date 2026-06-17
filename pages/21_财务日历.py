@@ -11,18 +11,12 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'calendar')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("财务日历", "📅", "calendar")
 from core.chart_config import build_layout
 from core.config import MSG
 from core.currency import fmt
 
-st.set_page_config(page_title="财务日历", page_icon="📅", layout="wide")
 st.title("📅 财务日历与时间线")
 st.caption("将所有财务事件整合到统一时间线视图，掌控每个关键节点")
 

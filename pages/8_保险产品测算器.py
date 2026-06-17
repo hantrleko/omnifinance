@@ -14,20 +14,14 @@ import io
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'insurance')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("保险产品测算器", "🛡️", "insurance")
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
 from core.insurance import analyze_insurance_plan
 from core.storage import scheme_manager_ui
 
-st.set_page_config(page_title="保险产品测算器", page_icon="🛡️", layout="wide")
 st.title("🛡️ 保险产品测算器")
 st.caption("用于评估保费效率、通胀后的保障力度，以及储蓄型保险 IRR。")
 

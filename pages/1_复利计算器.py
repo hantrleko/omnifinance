@@ -13,13 +13,8 @@ import io
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'compound')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("复利计算器", "📈", "compound")
 from core.chart_config import build_layout
 from core.compound import add_annualized_return, compute_schedule
 from core.config import CFG, MSG
@@ -27,7 +22,6 @@ from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.storage import scheme_manager_ui
 
 # ── 页面配置 ──────────────────────────────────────────────
-st.set_page_config(page_title="复利计算器", page_icon="💰", layout="centered")
 st.title("💰 复利计算器")
 
 # ── 侧边栏：输入参数 ──────────────────────────────────────

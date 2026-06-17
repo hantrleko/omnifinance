@@ -10,18 +10,12 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'fx')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("外汇对冲计算器", "💹", "fx")
 from core.chart_config import build_layout
 from core.config import MSG
 from core.currency import fmt, get_symbol
 
-st.set_page_config(page_title="外汇对冲计算器", page_icon="💱", layout="wide")
 st.title("💱 外汇对冲计算器")
 st.caption("评估多币种资产敞口，计算远期汇率与对冲成本（利率平价法）")
 

@@ -11,18 +11,13 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'rebalance')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("资产再平衡模拟器", "⚖️", "rebalance")
 from core.chart_config import build_layout
 from core.config import MSG
 from core.currency import fmt, get_symbol
+from core.rebalance import generate_monthly_returns, run_all_strategies, simulate_strategy
 
-st.set_page_config(page_title="资产再平衡模拟器", page_icon="⚖️", layout="wide")
 st.title("⚖️ 资产再平衡模拟器")
 st.caption("对比定期再平衡、阈值再平衡与买入持有策略的长期收益差异")
 
@@ -70,88 +65,44 @@ threshold_pct = st.sidebar.slider("阈值再平衡触发偏差(%)", min_value=1,
 st.sidebar.markdown("---")
 st.sidebar.caption(MSG.disclaimer_research)
 
-# ── Simulation ────────────────────────────────────────────
+# ── Simulation (计算逻辑已下沉到 core/rebalance.py) ──────────────────────
 n_months = years * 12
-rng = np.random.default_rng(42)
 
-mu_m = [np.log(1 + r) / 12 for r in expected_returns]
-sig_m = [v / np.sqrt(12) for v in volatilities]
+# Generate monthly returns via core/rebalance.py
+monthly_returns = generate_monthly_returns(
+    expected_returns, volatilities, n_months, seed=42
+)
 
-# Generate monthly returns
-monthly_returns = np.zeros((n_months, int(n_assets)))
-for i in range(int(n_assets)):
-    monthly_returns[:, i] = np.exp(rng.normal(mu_m[i], sig_m[i], n_months)) - 1
-
-def simulate_strategy(
-    strategy: str,
-    track_weights: bool = False,
-) -> tuple[list[float], int, float, list[list[float]] | None]:
-    """Simulate a rebalancing strategy.
-
-    Returns (portfolio_values, rebal_count, total_fees, weight_history|None).
-    weight_history is a list of per-month weight vectors when track_weights=True.
-    """
-    n = int(n_assets)
-    allocations = np.array([initial_value * w for w in target_weights])
-    portfolio_values = [initial_value]
-    rebal_count = 0
-    total_fees = 0.0
-    weight_history: list[list[float]] | None = [] if track_weights else None
-
-    for m in range(n_months):
-        for i in range(n):
-            allocations[i] *= (1 + monthly_returns[m, i])
-
-        total = allocations.sum()
-
-        should_rebal = False
-        if strategy == "monthly" or strategy == "quarterly" and (m + 1) % 3 == 0 or strategy == "annually" and (m + 1) % 12 == 0:
-            should_rebal = True
-        elif strategy == "threshold":
-            current_weights = allocations / total if total > 0 else np.zeros(n)
-            max_drift = max(abs(current_weights[i] - target_weights[i]) for i in range(n))
-            if max_drift >= threshold_pct / 100:
-                should_rebal = True
-
-        if should_rebal and strategy != "buy_and_hold":
-            fee = total * rebal_fee_pct / 100
-            total -= fee
-            total_fees += fee
-            allocations = np.array([total * w for w in target_weights])
-            rebal_count += 1
-
-        portfolio_values.append(allocations.sum())
-
-        if track_weights:
-            t = allocations.sum()
-            weight_history.append((allocations / t).tolist() if t > 0 else list(target_weights))  # type: ignore[union-attr]
-
-    return portfolio_values, rebal_count, total_fees, weight_history
-
-
-strategies = {
-    "buy_and_hold": "📦 买入持有",
-    "annually": "📅 年度再平衡",
-    "quarterly": "📅 季度再平衡",
-    "monthly": "📅 月度再平衡",
-    "threshold": f"🎯 阈值再平衡 (±{threshold_pct}%)",
-}
-
-results: dict[str, dict[str, Any]] = {}
-for key, label in strategies.items():
-    values, count, fees, _wh = simulate_strategy(key)
-    final = values[-1]
-    total_return = (final / initial_value - 1) * 100
-    ann_return = ((final / initial_value) ** (1 / years) - 1) * 100
-    results[key] = {
-        "label": label, "values": values, "rebal_count": count,
-        "total_fees": fees, "final": final,
-        "total_return": total_return, "ann_return": ann_return,
-    }
+# Run all strategies via core/rebalance.py
+results: dict[str, dict[str, Any]] = run_all_strategies(
+    initial_value=initial_value,
+    target_weights=target_weights,
+    monthly_returns=monthly_returns,
+    years=years,
+    rebal_fee_pct=rebal_fee_pct,
+    threshold_pct=float(threshold_pct),
+)
 
 # Drift data: track weights for buy-and-hold and threshold strategies
-_bah_vals, _bah_cnt, _bah_fees, bah_weight_hist = simulate_strategy("buy_and_hold", track_weights=True)
-_thr_vals, _thr_cnt, _thr_fees, thr_weight_hist = simulate_strategy("threshold", track_weights=True)
+_bah_vals, _bah_cnt, _bah_fees, bah_weight_hist = simulate_strategy(
+    "buy_and_hold",
+    initial_value=initial_value,
+    target_weights=target_weights,
+    monthly_returns=monthly_returns,
+    rebal_fee_pct=rebal_fee_pct,
+    threshold_pct=float(threshold_pct),
+    track_weights=True,
+)
+_thr_vals, _thr_cnt, _thr_fees, thr_weight_hist = simulate_strategy(
+    "threshold",
+    initial_value=initial_value,
+    target_weights=target_weights,
+    monthly_returns=monthly_returns,
+    rebal_fee_pct=rebal_fee_pct,
+    threshold_pct=float(threshold_pct),
+    track_weights=True,
+)
+strategies = {k: v["label"] for k, v in results.items()}
 
 # ── Key metrics ───────────────────────────────────────────
 st.markdown("---")

@@ -6,31 +6,22 @@
 v1.4: 核心计算已下沉到 core/savings.py；图表货币符号动态引用。
 """
 
-import json
 from datetime import date
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'savings')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("储蓄目标计算器", "🎯", "savings")
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.export import dataframes_to_excel
 from core.savings import SavingsResult, calculate_savings_goal
-from core.storage import delete_scheme, list_schemes, load_scheme, save_scheme, scheme_manager_ui
+from core.storage import delete_scheme, list_schemes, load_document, save_document, load_scheme, save_scheme, scheme_manager_ui
 
 # ── 页面配置 ──────────────────────────────────────────────
-st.set_page_config(page_title="储蓄目标计算器", page_icon="🎯", layout="wide")
-
-
 st.title("🎯 储蓄目标达成计算器")
 
 # ── 侧边栏参数 ────────────────────────────────────────────
@@ -455,20 +446,14 @@ st.subheader("🗂️ 多目标储蓄规划")
 st.caption("同时规划多个储蓄目标（如购房、旅行、教育），并对比各目标所需时间。数据自动保存到本地。")
 
 # Load multi-goals from persistent storage
-_MG_TOOL = "multi_goals"
-
 def _load_multi_goals() -> list[dict]:
     """Load multi-goals from disk persistence."""
-    names = list_schemes(_MG_TOOL)
-    if "default" in names:
-        data = load_scheme(_MG_TOOL, "default")
-        if data and "goals" in data:
-            return data["goals"]
-    return []
+    data = load_document("multi_goals", default=[])
+    return data if isinstance(data, list) else []
 
 def _save_multi_goals(goals: list[dict]) -> None:
     """Save multi-goals to disk persistence."""
-    save_scheme(_MG_TOOL, "default", {"goals": goals})
+    save_document("multi_goals", goals)
 
 if "multi_goals" not in st.session_state:
     st.session_state["multi_goals"] = _load_multi_goals()

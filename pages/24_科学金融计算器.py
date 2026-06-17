@@ -9,17 +9,11 @@ import math
 from typing import Any
 
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'calculator')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("科学金融计算器", "🧮", "calculator")
 from core.currency import fmt, get_symbol
 from core.planning import solve_irr
 
-st.set_page_config(page_title="科学金融计算器", page_icon="🧮", layout="wide")
 st.title("🧮 科学 + 金融计算器")
 st.caption("科学计算与常用金融公式的统一工具台")
 

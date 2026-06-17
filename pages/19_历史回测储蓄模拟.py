@@ -11,18 +11,12 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'historical')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("历史回测储蓄模拟", "📜", "historical")
 from core.chart_config import build_layout
 from core.config import MSG
 from core.currency import fmt, get_symbol
 
-st.set_page_config(page_title="历史回测储蓄模拟", page_icon="📜", layout="wide")
 st.title("📜 历史回测储蓄模拟")
 st.caption("用历史市场真实回报率验证定投计划，对比假设收益 vs 实际结果")
 

@@ -10,18 +10,12 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'withdrawal')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("税务优化提款策略", "🏦", "withdrawal")
 from core.chart_config import build_layout
 from core.config import MSG
 from core.currency import fmt, get_symbol
 
-st.set_page_config(page_title="税务优化提款策略", page_icon="🏦", layout="wide")
 st.title("🏦 税务优化提款策略")
 st.caption("优化退休阶段从不同类型账户（应税/延税/免税）的提款顺序，最小化终身税负")
 

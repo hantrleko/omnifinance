@@ -5,48 +5,32 @@
 from __future__ import annotations
 
 import datetime
-import json
-import os
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'diary')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("财务日记", "📔", "diary")
 from core.chart_config import build_layout
 from core.currency import fmt, get_symbol
 from core.report_generator import build_single_report
+from core.storage import load_document, save_document
 
-st.set_page_config(page_title="财务日记", page_icon="📔", layout="wide")
 st.title("📔 财务日记")
 st.caption("记录每月净资产快照与心情标注，追踪财务旅程")
 
 sym = get_symbol()
 
 # ── Storage helpers ────────────────────────────────────────
-_DIARY_PATH = Path(os.path.expanduser("~")) / ".omnifinance" / "diary.json"
-
 
 def _load_entries() -> list[dict[str, Any]]:
-    if not _DIARY_PATH.exists():
-        return []
-    try:
-        data = json.loads(_DIARY_PATH.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    data = load_document("diary", default=[])
+    return data if isinstance(data, list) else []
 
 
 def _save_entries(entries: list[dict[str, Any]]) -> None:
-    _DIARY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _DIARY_PATH.write_text(json.dumps(entries, ensure_ascii=False, indent=2), encoding="utf-8")
+    save_document("diary", entries)
 
 
 MOOD_OPTIONS = ["😊 满意", "😐 一般", "😟 担忧", "💪 充满斗志", "🎉 里程碑！"]

@@ -10,13 +10,8 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'montecarlo')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("蒙特卡洛模拟", "🎲", "montecarlo")
 from core.chart_config import build_layout, render_empty_state
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
@@ -24,9 +19,6 @@ from core.export import dataframes_to_excel
 from core.montecarlo import run_retirement_montecarlo
 
 # ── 页面配置 ──────────────────────────────────────────────
-st.set_page_config(page_title="蒙特卡洛模拟", page_icon="🎲", layout="wide")
-
-
 st.title("🎲 动态蒙特卡洛退休规划模拟")
 st.caption("基于随机收益路径，量化退休资产的不确定性。置信区间宽度越宽，说明结果不确定性越高。")
 

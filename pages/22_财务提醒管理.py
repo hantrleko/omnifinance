@@ -3,13 +3,8 @@
 from datetime import date, timedelta
 
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'reminders')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("财务提醒管理", "🔔", "reminders")
 from core.currency import fmt
 from core.reminders import (
     add_reminder,
@@ -22,7 +17,6 @@ from core.reminders import (
     get_reminders,
 )
 
-st.set_page_config(page_title="财务提醒管理", page_icon="🔔", layout="wide")
 st.title("🔔 财务提醒管理器")
 st.caption("集中管理所有财务提醒事项，再也不错过缴款、定投或复盘日期。")
 

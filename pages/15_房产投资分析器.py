@@ -10,18 +10,12 @@ from typing import Any
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'realestate')
-
-from core.theme import inject_theme
-
-inject_theme()
-
+from core.page_setup import init_page
+init_page("房产投资分析器", "🏡", "realestate")
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import fmt, get_symbol
 
-st.set_page_config(page_title="房产投资分析器", page_icon="🏘️", layout="wide")
 st.title("🏘️ 房产投资分析器")
 st.caption("买房 vs 租房对比、租金回报率分析、房产投资 ROI 综合评估")
 

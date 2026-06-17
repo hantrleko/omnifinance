@@ -8,22 +8,14 @@ import io
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from core.navigation import track_recent_page
-track_recent_page(st.session_state, 'loan')
-
+from core.page_setup import init_page
+init_page("贷款计算器", "🏦", "loan")
 from core.chart_config import build_layout
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.planning import calculate_loan
 from core.storage import scheme_manager_ui
-from core.theme import inject_theme
-
-inject_theme()
-
 # ── 页面配置 ──────────────────────────────────────────────
-st.set_page_config(page_title="贷款计算器", page_icon="🏦", layout="wide")
-
-
 st.title("🏦 贷款计算器")
 
 sym = get_symbol()
