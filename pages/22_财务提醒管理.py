@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 from core.page_setup import init_page
+from core.chart_config import render_empty_state
 init_page("财务提醒管理", "🔔", "reminders")
 from core.currency import fmt
 from core.reminders import (
@@ -175,7 +176,7 @@ tab_active, tab_done = st.tabs(["📋 待处理提醒", "✅ 已完成提醒"])
 with tab_active:
     active = get_reminders(include_completed=False)
     if not active:
-        st.info("暂无待处理提醒，点击上方「添加新提醒」创建第一条。")
+        render_empty_state("暂无待处理提醒", "点击上方「添加新提醒」创建第一条。", "🔔")
     else:
         today_str = str(date.today())
         filter_cat = st.selectbox(
@@ -222,7 +223,7 @@ with tab_active:
 with tab_done:
     done = [r for r in get_reminders(include_completed=True) if r.get("completed")]
     if not done:
-        st.info("暂无已完成提醒。")
+        render_empty_state("暂无已完成提醒", "完成提醒后将在此归档。", "✅")
     else:
         filter_done = st.selectbox(
             "按类别筛选",

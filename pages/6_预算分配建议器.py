@@ -11,7 +11,7 @@ import streamlit as st
 from core.page_setup import init_page
 init_page("预算分配建议器", "💡", "budget")
 from core.benchmarks import benchmark_inline
-from core.chart_config import build_layout
+from core.chart_config import build_layout, render_empty_state
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, fmt_delta, get_symbol
 from core.planning import calculate_budget
@@ -297,7 +297,7 @@ if _total_actual > 0:
     st.plotly_chart(_fig_link, use_container_width=True)
     st.caption("参考预算以必需/想要总预算平均分配到对应类别；如需精细化设置，请在记账本页面使用月度预算功能。")
 else:
-    st.info("本月暂无支出记录。请在「收支记账本」页面录入本月支出后，这里将自动显示实际 vs 预算对比。")
+    render_empty_state("本月暂无支出记录", "请先在「收支记账本」录入本月支出，这里将自动显示实际 vs 预算对比。", "📊")
 
 # ── 导出报告 ──────────────────────────────────────────────
 st.subheader("📤 导出报告")

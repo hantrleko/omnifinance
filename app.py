@@ -71,9 +71,19 @@ if os.path.exists("assets/logo.png"):
     st.logo("assets/logo.png", link="https://github.com/hantrleko")
 
 with st.sidebar:
-    st.header("⚙️ 全局设置")
-    currency_selector()
-    st.toggle("🌙 深色模式", value=st.session_state["global_dark_mode"], key="dark_mode_toggle", on_change=update_dark_mode)
+    # ── 全局设置 ─────────────────────────────────────
+    st.markdown("**⚙️ 全局设置**")
+    _setting_col1, _setting_col2 = st.columns([3, 2])
+    with _setting_col1:
+        currency_selector()
+    with _setting_col2:
+        st.toggle(
+            "🌙 深色",
+            value=st.session_state["global_dark_mode"],
+            key="dark_mode_toggle",
+            on_change=update_dark_mode,
+            help="切换深色 / 浅色模式",
+        )
 
     # Language selector (i18n)
     from core.i18n import locale_selector
@@ -83,104 +93,93 @@ with st.sidebar:
     from core.profile import profile_sidebar_widget
     profile_sidebar_widget()
 
-    # Runtime health panel
-    _runtime_report = _cached_runtime_report()
-    _runtime_icons = {"ok": "✅", "warning": "⚠️", "error": "❌"}
+    # ── 全局搜索 ─────────────────────────────────────
     st.markdown("---")
-    with st.expander(
-        f"{_runtime_icons[_runtime_report.status]} 系统状态 · {_runtime_report.summary}",
-        expanded=_runtime_report.status == "error",
-    ):
-        for check in _runtime_report.checks:
-            st.markdown(f"- {_runtime_icons[check.status]} **{check.label}**：{check.message}")
-            if check.hint and check.status != "ok":
-                st.caption(check.hint)
-        st.code(runtime_fingerprint(_runtime_report), language="text")
-
-    # Global search
-    st.markdown("---")
-    search_query = st.text_input("🔍 快速搜索功能", placeholder="输入功能/关键词，如：退休、ETF、记账…", key="_global_search")
-    recent_page_keys = get_recent_pages(st.session_state)
+    search_query = st.text_input(
+        "🔍 搜索功能",
+        placeholder="退休 / ETF / 记账…",
+        key="_global_search",
+        label_visibility="collapsed",
+    )
     if search_query:
-        results = search_pages(search_query, recent_keys=recent_page_keys)
+        results = search_pages(search_query, recent_keys=get_recent_pages(st.session_state))
         if results:
-            st.caption(f"找到 {len(results)} 个相关工具，点击即可跳转：")
+            st.caption(f"找到 {len(results)} 个工具：")
             for page in results:
                 _safe_page_link(page.key, label=page.title, icon=page.icon)
         else:
-            st.caption("未找到匹配功能，试试输入类别或英文关键词。")
+            st.caption("未找到，试试其他关键词。")
 
-    st.markdown("---")
+    # ── 最近访问 ─────────────────────────────────────
     recent_page_keys = get_recent_pages(st.session_state)
     if recent_page_keys:
-        st.markdown("### 🕘 最近访问")
+        st.markdown("---")
+        st.markdown("**🕘 最近访问**")
         for key in recent_page_keys[:3]:
             try:
                 visited_page = get_page(key)
             except KeyError:
                 continue
-            _safe_page_link(visited_page.key, label=f"↩ {visited_page.title}", icon=visited_page.icon)
-    else:
-        st.caption("首次访问先从左侧主线/搜索开始吧。")
+            _safe_page_link(visited_page.key, label=visited_page.title, icon=visited_page.icon)
 
+    # ── 主线进度 ─────────────────────────────────────
     st.markdown("---")
     journey_snapshot = get_product_journey_snapshot(st.session_state)
     journey_done, journey_total = journey_snapshot.completed, journey_snapshot.total
-    st.markdown("### 🧭 本次会话进度")
-    progress_cols = st.columns(3)
-    with progress_cols[0]:
-        st.metric("已完成", f"{journey_done}", delta=f"待补 {journey_snapshot.pending_count}")
-    with progress_cols[1]:
-        st.metric("主线进度", f"{journey_done}/{journey_total}")
-    with progress_cols[2]:
-        st.metric("完成率", f"{journey_snapshot.completion_ratio:.0%}")
-    st.progress(journey_snapshot.completion_ratio)
+    _ratio = journey_snapshot.completion_ratio
+    st.markdown("**🧭 主线进度**")
+    st.progress(_ratio, text=f"{journey_done}/{journey_total} · {_ratio:.0%}")
 
     next_step = get_next_journey_step(st.session_state)
     if next_step:
         next_page = get_page(next_step.page_key)
         with st.container(border=True):
             st.caption(f"下一步：{next_step.label}（约 {next_step.minutes} 分钟）")
-            st.caption(next_step.outcome_hint)
             _safe_page_link(next_step.page_key, label=f"继续：{next_page.title}", icon=next_page.icon)
         if journey_snapshot.pending_count <= 2:
-            st.caption("只差最后几步即可进入完整决策闭环。")
+            st.caption("🎯 只差最后几步即可完成主线！")
     else:
-        st.success("✅ 核心主线已填完，可直接查看“决策中枢”与首页的完整建议。")
+        st.success("🎉 主线已完成！")
         decision_page = get_page("decision")
         _safe_page_link(decision_page.key, label="前往决策中枢", icon=decision_page.icon)
 
-    st.markdown("---")
-    st.markdown("### ⏰ 提醒预览")
+    # ── 到期提醒 ─────────────────────────────────────
     due_reminders = get_due_reminders()
-    all_reminders = get_reminders()
     if due_reminders:
-        for reminder in due_reminders[:3]:
-            due_date = reminder.get("due_date", "-")
-            st.caption(f"⚠️ {reminder.get('title', '未命名提醒')}（{due_date}）")
-            st.caption(f"{reminder.get('description', '暂无说明')}")
-    else:
-        if all_reminders:
-            st.caption("当前无到期提醒，先留意明细提醒。")
-        else:
-            st.caption("暂无提醒，建议先在“财务提醒管理”创建。")
-    reminder_page = get_page("reminders")
-    _safe_page_link(reminder_page.key, label="打开提醒管理", icon=reminder_page.icon)
+        st.markdown("---")
+        st.markdown(f"**⏰ 到期提醒** `{len(due_reminders)}`")
+        for reminder in due_reminders[:2]:
+            with st.container(border=True):
+                st.caption(f"📌 {reminder.get('title', '未命名')}")
+                st.caption(f"到期：{reminder.get('due_date', '-')}")
+        reminder_page = get_page("reminders")
+        _safe_page_link(reminder_page.key, label="查看全部提醒", icon=reminder_page.icon)
 
+    # ── 常用场景 ─────────────────────────────────────
     st.markdown("---")
-    st.markdown("### ⚡ 常用场景")
+    st.markdown("**⚡ 常用场景**")
     for key in ("budget", "networth", "retirement", "loan", "insurance"):
-        with st.container():
-            key_page = get_page(key)
-            _safe_page_link(key_page.key, label=key_page.title, icon=key_page.icon)
+        key_page = get_page(key)
+        _safe_page_link(key_page.key, label=key_page.title, icon=key_page.icon)
 
+    # ── 系统状态（折叠） ──────────────────────────────
     st.markdown("---")
-    st.markdown("### Eugene Finance")
-    st.caption("✨ *Empower Your Knowledge, Enrich Your Life.*")
-    st.markdown("🔗 **旗下服务矩阵**")
-    st.page_link("https://financial-analysis-agent-eugenefinance02.streamlit.app/", label="Fin-Analysis", icon="🤖")
+    _runtime_report = _cached_runtime_report()
+    _runtime_icons = {"ok": "✅", "warning": "⚠️", "error": "❌"}
+    with st.expander(
+        f"{_runtime_icons[_runtime_report.status]} 系统状态",
+        expanded=_runtime_report.status == "error",
+    ):
+        for check in _runtime_report.checks:
+            st.caption(f"{_runtime_icons[check.status]} {check.label}：{check.message}")
+            if check.hint and check.status != "ok":
+                st.caption(f"  ↳ {check.hint}")
+
+    # ── 品牌区 ───────────────────────────────────────
+    st.markdown("---")
+    st.page_link("https://financial-analysis-agent-eugenefinance02.streamlit.app/", label="Fin-Analysis Agent", icon="🤖")
     st.page_link("https://github.com/hantrleko?tab=repositories", label="GitHub 开源生态", icon="🐙")
-    st.caption(f"OmniFinance {VERSION}")
+    st.caption(f"OmniFinance {VERSION} · Eugene Finance")
 
 # ── 模块分类与导航路由 (v2.2.0) ─────────────────────────
 _navigation_categories = pages_by_category()
