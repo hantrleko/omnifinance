@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from core.page_setup import init_page
 init_page("收支记账本", "📒", "ledger")
-from core.chart_config import build_layout
+from core.chart_config import build_layout, render_empty_state
 from core.currency import fmt, get_symbol
 
 st.title("📒 收支记账本")
@@ -85,7 +85,7 @@ with st.sidebar.expander("📊 月度预算设置"):
 
 # ── 主体：数据分析 ────────────────────────────────────────
 if not records:
-    st.info("暂无记录。请在左侧添加收支记录。")
+    render_empty_state("暂无收支记录", "请在左侧添加收支记录开始追踪。", "📒")
     st.stop()
 
 df = pd.DataFrame(records)
@@ -250,7 +250,7 @@ with tab_exp:
                         delta_color="inverse" if _total_actual > _total_budget else "normal")
             _bs3.metric("超支类别数", f"{len(_over_cats)} / {len(bdf)}")
     else:
-        st.info("暂无支出记录。")
+        render_empty_state("暂无支出记录", "本月尚未录入任何支出。", "💸")
 
 with tab_inc:
     inc_df = df[df["type"] == "收入"]
@@ -267,7 +267,7 @@ with tab_inc:
         fig_inc.update_layout(**build_layout(showlegend=True, height=400))
         st.plotly_chart(fig_inc, use_container_width=True)
     else:
-        st.info("暂无收入记录。")
+        render_empty_state("暂无收入记录", "本月尚未录入任何收入。", "💰")
 
 # ── 导出 ──────────────────────────────────────────────────
 st.markdown("---")

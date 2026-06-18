@@ -6,7 +6,7 @@ import streamlit as st
 from core.action_plan import build_action_impact_plan
 from core.benchmarks import BENCHMARKS
 from core.brief import build_decision_brief
-from core.chart_config import build_layout
+from core.chart_config import apply_chart_config, build_layout, COLORS, priority_color
 from core.currency import fmt, get_symbol
 from core.health import build_action_recommendations, build_health_report
 from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page, pages_by_category
@@ -83,8 +83,16 @@ def _build_action_review_markdown(
     return "\n".join(lines).strip() + "\n"
 
 
-st.title(f"🌟 全能理财家 (OmniFinance) `{VERSION}`")
-st.caption("✨ **Empower Your Knowledge, Enrich Your Life** | Eugene Finance 荣誉出品")
+# ── Hero header ──────────────────────────────────────────
+st.markdown(
+    f"""
+    <div style="margin-bottom: 0.5rem;">
+        <h1 style="margin-bottom: 0.2rem;">🌟 全能理财家 <span style="font-size:0.55em; font-weight:500; opacity:0.6;">OmniFinance {VERSION}</span></h1>
+        <p style="margin: 0; font-size: 0.9rem; opacity: 0.65;">✨ Empower Your Knowledge, Enrich Your Life &nbsp;·&nbsp; Eugene Finance 荣誉出品</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # 体验层：记忆最近访问，支持侧边栏“最近访问”快速定位
 track_recent_page(st.session_state, "home")
@@ -137,7 +145,7 @@ with st.expander("🧩 快速任务入口", expanded=False):
 
 # ── 快速导航卡片 ──────────────────────────────────────────
 st.markdown("### 🚀 快速开始")
-st.caption("选择一个场景直接进入工具；所有页面元数据由统一导航注册表驱动，后续新增功能只需维护一处。")
+st.caption("选择一个场景直接进入工具，左侧搜索框也支持快速定位。")
 
 _category_icons = {
     "基础理财管理": "💰",
@@ -158,8 +166,6 @@ for _row_start in range(0, len(_category_pages), 3):
                 st.page_link(page.path, label=page.title, icon=page.icon, help=page.description)
             if len(_pages) > 2:
                 st.caption(f"另有 {len(_pages) - 2} 个工具可在左侧导航中查看")
-
-st.caption("👈 也可以使用左侧搜索框快速定位；搜索结果现在支持直接跳转。")
 
 with st.expander("📋 版本历史", expanded=False):
     st.markdown("""
@@ -333,7 +339,7 @@ if has_data:
             x=[opportunity.impact_score for opportunity in opportunity_report.opportunities],
             y=[opportunity.title for opportunity in opportunity_report.opportunities],
             orientation="h",
-            marker_color=["#EF553B" if opportunity.priority == "高" else "#FECB52" if opportunity.priority == "中" else "#00CC96" for opportunity in opportunity_report.opportunities],
+            marker_color=[priority_color(opportunity.priority) for opportunity in opportunity_report.opportunities],
             text=[f"{opportunity.priority} · {opportunity.impact_score}" for opportunity in opportunity_report.opportunities],
             textposition="auto",
             hovertemplate="%{y}<br>影响力: %{x}/100<extra></extra>",
@@ -343,7 +349,7 @@ if has_data:
             xaxis=dict(range=[0, 100]),
             yaxis=dict(autorange="reversed"),
         )
-        st.plotly_chart(fig_opp, use_container_width=True)
+        apply_chart_config(fig_opp)
 
         st.markdown("#### 🎯 推荐机会卡")
         opportunity_cols = st.columns(min(3, len(opportunity_report.opportunities)))
@@ -391,7 +397,7 @@ if has_data:
         stress_cols[3].metric("最弱场景", weakest_scenario.title if weakest_scenario else "-", delta=f"韧性 {weakest_scenario.resilience_score}/100" if weakest_scenario else None)
         st.info(stress_report.summary)
 
-        _stress_colors = {"safe": "#00CC96", "watch": "#FECB52", "critical": "#EF553B"}
+        _stress_colors = {"safe": COLORS.POSITIVE, "watch": COLORS.WARNING, "critical": COLORS.NEGATIVE}
         fig_stress = go.Figure(go.Bar(
             x=[scenario.title for scenario in stress_report.scenarios],
             y=[scenario.buffer_months_after for scenario in stress_report.scenarios],
@@ -402,7 +408,7 @@ if has_data:
         ))
         fig_stress.add_hline(y=3, line_dash="dash", line_color="gray", annotation_text="3 个月基础线")
         fig_stress.update_layout(**build_layout(xaxis_title="压力场景", yaxis_title="冲击后安全垫（月）", showlegend=False, height=340))
-        st.plotly_chart(fig_stress, use_container_width=True)
+        apply_chart_config(fig_stress)
 
         scenario_cols = st.columns(min(3, len(stress_report.scenarios)))
         for scenario_col, scenario in zip(scenario_cols, stress_report.scenarios[:3], strict=False):
@@ -489,7 +495,7 @@ if has_data:
             x=[action.estimated_uplift for action in action_plan.actions],
             y=[action.title for action in action_plan.actions],
             orientation="h",
-            marker_color=["#EF553B" if action.priority == "高" else "#FECB52" if action.priority == "中" else "#00CC96" for action in action_plan.actions],
+            marker_color=[priority_color(action.priority) for action in action_plan.actions],
             text=[f"+{action.estimated_uplift} · {action.effort}努力" for action in action_plan.actions],
             textposition="auto",
             hovertemplate="%{y}<br>预计提升: +%{x}<extra></extra>",
@@ -498,7 +504,7 @@ if has_data:
             **build_layout(xaxis_title="预计动能提升", yaxis_title="", showlegend=False, height=320),
             yaxis=dict(autorange="reversed"),
         )
-        st.plotly_chart(fig_action, use_container_width=True)
+        apply_chart_config(fig_action)
 
         action_tabs = st.tabs(["行动卡", "第一周步骤", "计划导出"])
         with action_tabs[0]:
@@ -767,13 +773,13 @@ if has_data:
         fig_cf.add_trace(go.Bar(
             x=years_labels, y=cf_income,
             name="年度可用收入/储蓄",
-            marker_color="#00CC96",
+            marker_color=COLORS.POSITIVE,
             opacity=0.75,
         ))
         fig_cf.add_trace(go.Bar(
             x=years_labels, y=[-v for v in cf_expense],
             name="年度支出/还款",
-            marker_color="#EF553B",
+            marker_color=COLORS.NEGATIVE,
             opacity=0.75,
         ))
         fig_cf.add_trace(go.Scatter(
@@ -789,7 +795,7 @@ if has_data:
             **build_layout(xaxis_title="年份", yaxis_title=f"金额（{sym}）", yaxis_tickformat=","),
             barmode="relative",
         )
-        st.plotly_chart(fig_cf, use_container_width=True)
+        apply_chart_config(fig_cf)
 
         tightest_year_idx = cf_net.index(min(cf_net))
         if cf_net[tightest_year_idx] < 0:
@@ -907,7 +913,7 @@ else:
 # ── 综合财务诊断报告生成引擎 ─────────────────────────────────────
 st.markdown("---")
 st.subheader("📄 个人财务全景诊断归档")
-st.write("一键全维扫描您的交互记录，提取所有核心指标并瞬间熔铸，为您秒级生成可脱机离线查阅的专属企业级 HTML 视觉财报。特别适配深浅明暗多主题无感切换；极度推荐查阅时按下 `Ctrl/Cmd + P` 轻松转储为纯矢量高清 PDF。")
+st.caption("一键生成可离线查阅的企业级 HTML 财报，支持深浅主题切换。按 Ctrl/Cmd + P 可导出为高清 PDF。")
 
 metrics_dict = {}
 if dash_compound:
@@ -1040,4 +1046,9 @@ with st.expander("➕ 添加新提醒"):
         st.rerun()
 
 st.markdown("---")
-st.caption("***Eugene Finance 核心架构驱动 | Empower Your Knowledge, Enrich Your Life***")
+st.markdown(
+    "<p style='text-align:center; font-size:0.82rem; opacity:0.5;'>"
+    "Eugene Finance 核心架构驱动 &nbsp;·&nbsp; Empower Your Knowledge, Enrich Your Life"
+    "</p>",
+    unsafe_allow_html=True,
+)
