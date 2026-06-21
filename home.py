@@ -266,6 +266,58 @@ if has_data:
 
     st.caption("💡 提示：使用各工具后，仪表盘数据会自动更新。")
 
+    # ── 储蓄目标环形进度卡片 ──────────────────────────────────
+    if dash_savings and dash_savings.get("goal_amount", 0) > 0:
+        _cur = dash_savings.get("current_savings", 0)
+        _goal = dash_savings.get("goal_amount", 1)
+        _pct = min(1.0, _cur / _goal) * 100
+        _months_left = dash_savings.get("months_needed", 0)
+        _y_left, _m_left = _months_left // 12, _months_left % 12
+        _time_label = f"{_y_left}年{_m_left}个月" if _y_left > 0 else f"{_m_left}个月"
+
+        st.markdown("---")
+        st.subheader("🎯 储蓄目标进度")
+        _ring_col, _ring_info_col = st.columns([1, 2])
+        with _ring_col:
+            _ring_color = (
+                COLORS.POSITIVE if _pct >= 75
+                else COLORS.WARNING if _pct >= 40
+                else COLORS.NEGATIVE
+            )
+            _fig_ring = go.Figure(go.Pie(
+                values=[_pct, max(0, 100 - _pct)],
+                labels=["已完成", "剩余"],
+                hole=0.72,
+                marker_colors=[_ring_color, "rgba(100,100,100,0.15)"],
+                textinfo="none",
+                hovertemplate="%{label}: %{value:.1f}%<extra></extra>",
+                sort=False,
+            ))
+            _fig_ring.add_annotation(
+                text=f"<b>{_pct:.1f}%</b>",
+                x=0.5, y=0.55, showarrow=False,
+                font=dict(size=22, color=_ring_color),
+                xref="paper", yref="paper",
+            )
+            _fig_ring.add_annotation(
+                text="完成度",
+                x=0.5, y=0.38, showarrow=False,
+                font=dict(size=12, color="rgba(150,150,150,0.9)"),
+                xref="paper", yref="paper",
+            )
+            _fig_ring.update_layout(**build_layout(height=220, showlegend=False, margin=dict(t=10, b=10, l=10, r=10)))
+            apply_chart_config(_fig_ring)
+        with _ring_info_col:
+            _ri1, _ri2 = st.columns(2)
+            _ri1.metric("当前储蓄", fmt(_cur, decimals=0))
+            _ri2.metric("目标金额", fmt(_goal, decimals=0))
+            _ri3, _ri4 = st.columns(2)
+            _ri3.metric("距目标差额", fmt(max(0, _goal - _cur), decimals=0))
+            _ri4.metric("预计达成", _time_label)
+            _monthly = dash_savings.get("monthly_deposit", 0)
+            if _monthly > 0:
+                st.caption(f"📌 按每月投入 {fmt(_monthly, decimals=0)} 计算，复利贡献 {fmt(dash_savings.get('total_interest', 0), decimals=0)}")
+
     # ── Multi-Dimensional Health Score (#1) ───────────────
     st.markdown("---")
     st.subheader("🏥 财务健康多维评分")

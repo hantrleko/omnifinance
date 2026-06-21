@@ -16,7 +16,9 @@ from core.chart_config import build_layout, render_empty_state
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
 from core.export import dataframes_to_excel
+from core.glossary import render_glossary_sidebar
 from core.montecarlo import run_retirement_montecarlo
+render_glossary_sidebar(page_key="montecarlo")
 
 # ── 页面配置 ──────────────────────────────────────────────
 st.title("🎲 动态蒙特卡洛退休规划模拟")

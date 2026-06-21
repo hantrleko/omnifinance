@@ -129,6 +129,8 @@ st.session_state["dashboard_savings"] = {
     "months_needed": result.months_needed,
     "total_interest": result.total_interest,
     "monthly_deposit": result.monthly_deposit,
+    "current_savings": current_savings,
+    "goal_amount": goal_amount,
 }
 
 sym = get_symbol()

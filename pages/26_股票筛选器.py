@@ -18,7 +18,10 @@ import plotly.graph_objects as go
 import streamlit as st
 from core.page_setup import init_page
 init_page("股票筛选器", "🔎", "screener")
+render_glossary_sidebar(page_key="screener")
 from core.chart_config import build_layout
+from core.glossary import render_glossary_sidebar
+from core.market_cache import fetch_ticker_info
 
 st.title("🔎 股票筛选器")
 st.caption("自由输入任意股票代码，通过 PE/PB/股息率/市值等基本面指标快速筛选，找出符合条件的标的。")
@@ -121,15 +124,13 @@ with st.expander("⚙️ 筛选条件", expanded=True):
     mktcap_min = f4.number_input("市值 ≥（亿）", min_value=0.0, value=0.0, step=100.0, format="%.0f", disabled=not mktcap_enabled, key="mktcap_min")
     mktcap_max = f4.number_input("市值 ≤（亿）", min_value=0.0, value=50000.0, step=100.0, format="%.0f", disabled=not mktcap_enabled, key="mktcap_max")
 
-# ── 数据获取 ──────────────────────────────────────────────
+# ── 数据获取（使用磁盘缓存层）────────────────────────────
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
-    import yfinance as yf
-
     rows = []
     for ticker in tickers:
-        try:
-            info = yf.Ticker(ticker).info
+        info = fetch_ticker_info(ticker, ttl_hours=12)
+        if info:
             price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("regularMarketPreviousClose")
             mktcap = info.get("marketCap")
             div_yield = info.get("dividendYield")
@@ -147,9 +148,9 @@ def fetch_fundamentals(tickers: tuple[str, ...]) -> pd.DataFrame:
                 "ROE (%)": round(info.get("returnOnEquity", 0) * 100, 2) if info.get("returnOnEquity") else None,
                 "_ok": True,
             })
-        except Exception as e:
+        else:
             rows.append({
-                "代码": ticker, "公司名称": ticker, "行业": f"获取失败: {e}",
+                "代码": ticker, "公司名称": ticker, "行业": "获取失败",
                 "市价": None, "市盈率 PE": None, "市净率 PB": None,
                 "股息率 (%)": None, "市值（亿）": None,
                 "52周最高": None, "52周最低": None, "ROE (%)": None,

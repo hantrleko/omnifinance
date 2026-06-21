@@ -13,7 +13,9 @@ import plotly.graph_objects as go
 import streamlit as st
 from core.page_setup import init_page
 init_page("资产再平衡模拟器", "⚖️", "rebalance")
+render_glossary_sidebar(page_key="rebalance")
 from core.chart_config import build_layout
+from core.glossary import render_glossary_sidebar
 from core.config import MSG
 from core.currency import fmt, get_symbol
 from core.rebalance import generate_monthly_returns, run_all_strategies, simulate_strategy
