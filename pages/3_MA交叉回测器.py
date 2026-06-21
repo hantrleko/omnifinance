@@ -24,12 +24,13 @@ import requests
 import streamlit as st
 from core.page_setup import init_page
 init_page("策略回测器", "📈", "backtest")
+render_glossary_sidebar(page_key="backtest")
 from plotly.subplots import make_subplots
 
-import yfinance as yf
-
 from core.backtest import STRATEGY_NAMES, apply_strategy, compute_metrics, simulate_trades
+from core.market_cache import fetch_ohlcv
 from core.chart_config import build_layout
+from core.glossary import render_glossary_sidebar
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
 from core.storage import scheme_manager_ui
@@ -120,29 +121,9 @@ st.sidebar.caption("手续费/滑点说明：均为单边百分比，买入与�
 # ══════════════════════════════════════════════════════════
 
 def get_data(ticker: str, start: date, end: date) -> pd.DataFrame | None:
-    """从 yfinance 下载日线 OHLCV 数据。"""
-    try:
-        df = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=True)
-        if df.empty:
-            return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
-        df.index = pd.to_datetime(df.index)
-        df.sort_index(inplace=True)
-        return df
-    except (urllib.error.URLError, requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout) as exc:
-        # Network failure — log and return None so the UI can prompt CSV upload
-        _logger.warning("[get_data] 网络错误 (%s): %s", ticker, exc, exc_info=True)
-        return None
-    except (KeyError, ValueError) as exc:
-        # Unexpected data shape from yfinance
-        _logger.warning("[get_data] 数据解析错误 (%s): %s", ticker, exc, exc_info=True)
-        return None
-    except Exception as exc:  # noqa: BLE001 — last-resort: keep app running
-        _logger.error("[get_data] 未预期异常 (%s): %s", ticker, exc, exc_info=True)
-        return None
+    """从 market_cache 下载日线 OHLCV 数据（L1+L2 两级缓存）。"""
+    df = fetch_ohlcv(ticker, start, end)
+    return df if not df.empty else None
 
 
 def _run_portfolio_one(

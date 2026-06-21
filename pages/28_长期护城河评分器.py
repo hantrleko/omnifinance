@@ -10,10 +10,12 @@ from __future__ import annotations
 import streamlit as st
 
 from core.currency import fmt
+from core.glossary import render_glossary_sidebar
 from core.moat import compute_composite, fetch_signal_scores, weighted_score
 from core.page_setup import init_page
 
 init_page("长期护城河评分器", "🛡️", "moat")
+render_glossary_sidebar(page_key="moat")
 st.title("🛡️ 长期护城河评分器")
 st.caption("用主观判断补齐定性，结合公开财务与波动指标形成更稳定的护城河评估。")
 

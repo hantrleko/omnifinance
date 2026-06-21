@@ -20,6 +20,8 @@ from core.page_setup import init_page
 init_page("收支记账本", "📒", "ledger")
 from core.chart_config import build_layout, render_empty_state
 from core.currency import fmt, get_symbol
+from core.ledger_import import parse_upload
+from core.storage import load_document, save_document
 
 st.title("📒 收支记账本")
 st.caption("记录日常收支，追踪月度趋势，与预算对比，助力精细化财务管理。")
@@ -70,6 +72,44 @@ if st.sidebar.button("✅ 添加记录", type="primary", key="add_entry_btn"):
     _save_ledger(records)
     st.sidebar.success(f"已添加：{entry_type} {fmt(entry_amount)} — {entry_cat}")
     st.rerun()
+
+st.sidebar.divider()
+
+# ── 导入账单 ──────────────────────────────────────────────
+with st.sidebar.expander("📥 导入账单（支付宝/微信/通用）"):
+    st.caption("支持支付宝、微信支付导出的 CSV 文件，以及通用 CSV/Excel 格式。")
+    uploaded_file = st.file_uploader(
+        "选择账单文件",
+        type=["csv", "xlsx", "xls"],
+        key="ledger_import_file",
+        help="支付宝：账单中心导出 CSV；微信：钱包→账单→下载账单；通用：包含日期/金额/类型列的 CSV/Excel",
+    )
+    if uploaded_file is not None:
+        file_bytes = uploaded_file.read()
+        parsed_records, parse_errors, detected_fmt = parse_upload(
+            file_bytes, uploaded_file.name, dedup_existing=records
+        )
+        fmt_labels = {"alipay": "🟡 支付宝", "wechat": "🟢 微信支付", "generic": "⚪️ 通用格式"}
+        st.caption(f"检测格式：{fmt_labels.get(detected_fmt, detected_fmt)}")
+        if parse_errors:
+            for err in parse_errors:
+                st.warning(err)
+        if parsed_records:
+            st.success(f"解析到 **{len(parsed_records)}** 条新记录")
+            # Preview table
+            preview_df = pd.DataFrame(parsed_records)[["date", "type", "category", "amount", "note"]]
+            preview_df.columns = ["日期", "类型", "类别", "金额", "备注"]
+            st.dataframe(preview_df.head(10), use_container_width=True, hide_index=True)
+            if len(parsed_records) > 10:
+                st.caption(f"仅预览前 10 条，共 {len(parsed_records)} 条")
+            if st.button("✅ 确认导入", type="primary", key="confirm_import_btn"):
+                records.extend(parsed_records)
+                _save_ledger(records)
+                st.session_state["ledger_records"] = records
+                st.success(f"已成功导入 {len(parsed_records)} 条记录！")
+                st.rerun()
+        elif not parse_errors:
+            st.info("未解析到任何新记录（可能全部为重复数据）")
 
 st.sidebar.divider()
 

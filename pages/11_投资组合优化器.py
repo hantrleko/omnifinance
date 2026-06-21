@@ -19,9 +19,10 @@ import requests
 import streamlit as st
 from core.page_setup import init_page
 init_page("投资组合优化器", "📐", "portfolio")
-import yfinance as yf
-
+render_glossary_sidebar(page_key="portfolio")
 from core.chart_config import build_layout, render_empty_state
+from core.glossary import render_glossary_sidebar
+from core.market_cache import download_prices
 from core.config import CFG
 from core.currency import currency_selector
 from core.export import dataframes_to_excel
@@ -113,26 +114,11 @@ if len(raw_tickers) < 2:
     st.stop()
 
 
-# ── 数据下载 ──────────────────────────────────────────────
-@st.cache_data(ttl=600)
+# ── 数据下载（使用磁盘缓存层） ────────────────────────────
+@st.cache_data(ttl=600, show_spinner=False)
 def _download_prices(tickers: tuple[str, ...], period: str) -> pd.DataFrame:
-    """Download adjusted close prices from Yahoo Finance."""
-    try:
-        raw = yf.download(
-            list(tickers), period=period, progress=False, auto_adjust=True
-        )
-        if isinstance(raw.columns, pd.MultiIndex):
-            prices = raw["Close"]
-        else:
-            prices = raw[["Close"]] if "Close" in raw.columns else raw
-        return prices.dropna(how="all")
-    except (urllib.error.URLError, requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout) as exc:
-        _logger.warning("下载价格数据网络错误: %s", exc, exc_info=True)
-        return pd.DataFrame()
-    except Exception as exc:  # noqa: BLE001
-        _logger.error("下载价格数据未预期错误: %s", exc, exc_info=True)
-        return pd.DataFrame()
+    """Download adjusted close prices via market_cache (L1+L2 two-level cache)."""
+    return download_prices(tickers, period)
 
 
 with st.spinner("正在下载历史价格数据…"):
