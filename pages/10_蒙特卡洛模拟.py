@@ -18,6 +18,7 @@ from core.currency import currency_selector, fmt, get_symbol
 from core.export import dataframes_to_excel
 from core.glossary import render_glossary_sidebar
 from core.montecarlo import run_retirement_montecarlo
+from core.analytics import portfolio_var_cvar, var_cvar_table
 render_glossary_sidebar(page_key="montecarlo")
 
 # ── 页面配置 ──────────────────────────────────────────────
@@ -308,6 +309,72 @@ for col, label in _PERCENTILE_LABELS:
 st.dataframe(pd.DataFrame(dist_rows), use_container_width=True, hide_index=True)
 
 # ── 逐年中位数资产明细 ────────────────────────────────────
+# ── VaR / CVaR 风险量化（基于退休时资产分布） ─────────────────────────
+with st.expander("🛡️ 退休资产风险量化（VaR / CVaR）", expanded=False):
+    st.caption(
+        "基于蒙特卡洛模拟的退休时资产分布，计算不同置信度下的最差情境资产将跌至多少。"
+        "VaR 回答“最坏情况下不会亏损多少”，CVaR 回答“如果超过 VaR 阈值，平均会亏损多少”。"
+    )
+    _mc_conf = st.select_slider(
+        "置信度水平",
+        options=[0.90, 0.95, 0.99],
+        value=0.95,
+        format_func=lambda x: f"{x:.0%}",
+        key="mc_vc_conf",
+    )
+    _age_mask_vc = fp["年龄"] == retire_age
+    if _age_mask_vc.any():
+        _retire_vals = fp.loc[_age_mask_vc, ["p10", "p25", "p50", "p75", "p90"]].values.flatten()
+        _p50_val = float(fp.loc[_age_mask_vc, "p50"].iloc[0])
+        _retire_returns = (_retire_vals / _p50_val - 1) if _p50_val > 0 else _retire_vals * 0
+        _vc_mc = portfolio_var_cvar(_retire_returns, confidence=_mc_conf, capital=_p50_val)
+        _vc_mc_df = var_cvar_table(_vc_mc)
+
+        _mc_vc_c1, _mc_vc_c2, _mc_vc_c3, _mc_vc_c4 = st.columns(4)
+        _mc_vc_c1.metric(
+            f"VaR ({_mc_conf:.0%})",
+            f"{_vc_mc.var_pct:.2%}",
+            help=f"在 {_mc_conf:.0%} 置信度下，退休资产相对中位数的最大偏差",
+        )
+        _mc_vc_c2.metric(
+            f"CVaR ({_mc_conf:.0%})",
+            f"{_vc_mc.cvar_pct:.2%}",
+            help="超过 VaR 阈值时的平均偏差，反映极端情境的严重程度",
+        )
+        _mc_vc_c3.metric(
+            "VaR 资产下限",
+            fmt(float(_p50_val * (1 + _vc_mc.var_pct)), decimals=0),
+            help=f"在 {_mc_conf:.0%} 置信度下，退休时资产不会低于此値",
+        )
+        _mc_vc_c4.metric(
+            "CVaR 资产下限",
+            fmt(float(_p50_val * (1 + _vc_mc.cvar_pct)), decimals=0),
+            help="最差情境群组的平均资产水平",
+        )
+        _fig_mc_vc = go.Figure()
+        _fig_mc_vc.add_trace(go.Bar(
+            x=["p10 悲观", "p25", "p50 中位数", "p75", "p90 乐观"],
+            y=_retire_vals.tolist(),
+            marker_color=["#EF553B", "#FFA726", "#00CC96", "#636EFA", "#AB63FA"],
+            text=[fmt(float(v), decimals=0) for v in _retire_vals],
+            textposition="outside",
+            hovertemplate="%{x}<br>资产: %{y:,.0f}<extra></extra>",
+        ))
+        _fig_mc_vc.add_hline(
+            y=float(_p50_val * (1 + _vc_mc.var_pct)),
+            line_dash="dash", line_color="#FFA726",
+            annotation_text=f"VaR 下限 {_mc_conf:.0%}",
+            annotation_position="right",
+        )
+        _fig_mc_vc.update_layout(**build_layout(
+            xaxis_title="分位数情境", yaxis_title="退休时资产",
+            yaxis_tickformat=",", height=320, margin=dict(t=40, b=40),
+        ))
+        st.plotly_chart(_fig_mc_vc, use_container_width=True)
+        st.dataframe(_vc_mc_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("暂无退休年龄数据，请检查模拟参数。")
+
 with st.expander("📋 逐年百分位数明细"):
     display_fp = fp.copy()
     for col in ["p10", "p25", "p50", "p75", "p90"]:
