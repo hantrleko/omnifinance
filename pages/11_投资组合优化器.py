@@ -27,6 +27,12 @@ from core.config import CFG
 from core.currency import currency_selector
 from core.export import dataframes_to_excel
 from core.portfolio import EfficientFrontierResult, optimize_portfolio
+from core.analytics import (
+    compute_risk_contribution,
+    risk_contribution_dataframe,
+    portfolio_var_cvar,
+    var_cvar_table,
+)
 
 # ── 模块级 logger ─────────────────────────────────────────
 _logger = logging.getLogger(__name__)
@@ -361,6 +367,96 @@ st.plotly_chart(fig_corr, use_container_width=True)
 st.caption("值越接近 +1 正相关性越高（同涨同跌）；越接近 -1 负相关性越高（互相对冲）。组合中加入低相关资产可有效降低整体风险。")
 
 # ── 年化统计摘要 ──────────────────────────────────────────
+# ── 风险贡献分解 ──────────────────────────────────────────
+st.subheader("🎯 风险贡献分解（Risk Contribution）")
+st.caption("每个资产对组合总风险的贡献占比，帮助识别隐性风险集中点。如果单一资产贡献超过 50%，建议重新分配。")
+_rc_tab1, _rc_tab2 = st.tabs(["📊 最大夏普组合", "🛡️ 最小方差组合"])
+for _rc_tab, _rc_weights, _rc_label in [
+    (_rc_tab1, result.max_sharpe.weights, "最大夏普"),
+    (_rc_tab2, result.min_variance.weights, "最小方差"),
+]:
+    with _rc_tab:
+        _rc_weights_arr = [_rc_weights[t] for t in result.tickers]
+        _rc = compute_risk_contribution(_rc_weights_arr, result.cov_matrix.values)
+        _rc_df = risk_contribution_dataframe(result.tickers, _rc)
+        _rc_col1, _rc_col2 = st.columns([1, 1])
+        with _rc_col1:
+            _fig_rc = go.Figure()
+            _fig_rc.add_trace(go.Bar(
+                name="权重", x=_rc_df["标的"].tolist(), y=_rc_df["权重"].tolist(),
+                marker_color="#636EFA",
+                hovertemplate="%{x}<br>权重: %{y:.2%}<extra></extra>",
+            ))
+            _fig_rc.add_trace(go.Bar(
+                name="风险贡献", x=_rc_df["标的"].tolist(), y=_rc_df["风险贡献占比"].tolist(),
+                marker_color="#EF553B",
+                hovertemplate="%{x}<br>风险贡献: %{y:.2%}<extra></extra>",
+            ))
+            _fig_rc.update_layout(**build_layout(
+                barmode="group", xaxis_title="资产", yaxis_title="占比",
+                yaxis_tickformat=".0%", height=320, margin=dict(t=30, b=40),
+            ))
+            st.plotly_chart(_fig_rc, use_container_width=True)
+        with _rc_col2:
+            _fig_rc_pie = go.Figure(go.Pie(
+                labels=_rc_df["标的"].tolist(), values=_rc_df["风险贡献占比"].tolist(),
+                hole=0.4,
+                hovertemplate="%{label}<br>风险贡献: %{value:.2%}<extra></extra>",
+            ))
+            _fig_rc_pie.update_layout(**build_layout(
+                showlegend=True, height=320, margin=dict(t=30, b=40),
+            ))
+            st.plotly_chart(_fig_rc_pie, use_container_width=True)
+        st.dataframe(_rc_df.style.format({
+            "权重": "{:.2%}", "风险贡献": "{:.6f}",
+            "风险贡献占比": "{:.2%}", "边际风险贡献": "{:.6f}",
+        }), use_container_width=True, hide_index=True)
+
+# ── VaR / CVaR 风险量化 ──────────────────────────────────────
+with st.expander("🛡️ VaR / CVaR 风险量化", expanded=False):
+    st.caption("基于历史日收益率计算。VaR 为给定置信度下的最大预期亏损；CVaR（也称 ES）为超过 VaR 阈值时的平均亏损，更能刺穿尾部风险。")
+    _vc_conf = st.select_slider(
+        "置信度水平", options=[0.90, 0.95, 0.99], value=0.95,
+        format_func=lambda x: f"{x:.0%}", key="vc_conf",
+    )
+    _vc_capital = st.number_input("投资本金（元）", value=100_000, step=10_000, key="vc_capital")
+    _vc_tab1, _vc_tab2 = st.tabs(["📊 最大夏普组合", "🛡️ 最小方差组合"])
+    for _vc_tab, _vc_weights, _vc_label in [
+        (_vc_tab1, result.max_sharpe.weights, "最大夏普"),
+        (_vc_tab2, result.min_variance.weights, "最小方差"),
+    ]:
+        with _vc_tab:
+            _vc_weights_arr = [_vc_weights[t] for t in result.tickers]
+            _port_ret = returns_df[result.tickers].values @ _vc_weights_arr
+            _vc = portfolio_var_cvar(_port_ret, confidence=_vc_conf, capital=float(_vc_capital))
+            _vc_df = var_cvar_table(_vc)
+            _vc_c1, _vc_c2, _vc_c3, _vc_c4 = st.columns(4)
+            _vc_c1.metric(f"VaR ({_vc_conf:.0%})", f"{_vc.var_pct:.2%}",
+                          help=f"在 {_vc_conf:.0%} 置信度下，单日最大预期亏损不超过该比例")
+            _vc_c2.metric(f"CVaR ({_vc_conf:.0%})", f"{_vc.cvar_pct:.2%}",
+                          help="超过 VaR 阈值时的平均亏损，反映尾部风险的严重程度")
+            _vc_c3.metric("VaR 金额", f"¥{_vc.var_amount:,.0f}",
+                          help=f"基于投资本金 ¥{_vc_capital:,} 计算")
+            _vc_c4.metric("CVaR 金额", f"¥{_vc.cvar_amount:,.0f}")
+            _fig_vc = go.Figure()
+            _fig_vc.add_trace(go.Histogram(
+                x=_port_ret, nbinsx=60, name="日收益率分布",
+                marker_color="rgba(99,110,250,0.6)",
+                hovertemplate="收益率: %{x:.3%}<br>频次: %{y}<extra></extra>",
+            ))
+            _fig_vc.add_vline(x=_vc.var_pct, line_dash="dash", line_color="#FFA726",
+                              annotation_text=f"VaR {_vc.var_pct:.2%}",
+                              annotation_position="top right")
+            _fig_vc.add_vline(x=_vc.cvar_pct, line_dash="dot", line_color="#EF553B",
+                              annotation_text=f"CVaR {_vc.cvar_pct:.2%}",
+                              annotation_position="top left")
+            _fig_vc.update_layout(**build_layout(
+                xaxis_title="日收益率", yaxis_title="频次",
+                xaxis_tickformat=".1%", height=320, margin=dict(t=40, b=40),
+            ))
+            st.plotly_chart(_fig_vc, use_container_width=True)
+            st.dataframe(_vc_df, use_container_width=True, hide_index=True)
+
 with st.expander("📋 各标的年化统计"):
     stats_rows = []
     for ticker in result.tickers:

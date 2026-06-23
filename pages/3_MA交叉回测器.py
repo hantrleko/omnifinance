@@ -34,6 +34,11 @@ from core.glossary import render_glossary_sidebar
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
 from core.storage import scheme_manager_ui
+from core.analytics import (
+    compute_rolling_metrics,
+    compute_benchmark_metrics,
+    build_sensitivity_grid,
+)
 
 # ── 模块级 logger ─────────────────────────────────────────
 _logger = logging.getLogger(__name__)
@@ -411,6 +416,112 @@ fig_equity.update_layout(
 )
 st.plotly_chart(fig_equity, use_container_width=True)
 
+# ── 基准对比指标（Alpha / Beta / 信息比率） ───────────────────
+bm_metrics = compute_benchmark_metrics(
+    result_df["Equity"],
+    result_df["Benchmark"],
+    risk_free_annual_pct=risk_free_rate,
+)
+bm_c1, bm_c2, bm_c3, bm_c4 = st.columns(4)
+bm_c1.metric(
+    "超额总收益",
+    f"{bm_metrics.excess_total_return:+.2%}",
+    help="策略总回报 − 买入持有总回报",
+    delta=f"策略 {bm_metrics.strategy_total_return:+.2%} vs 持有 {bm_metrics.benchmark_total_return:+.2%}",
+    delta_color="normal" if bm_metrics.excess_total_return >= 0 else "inverse",
+)
+bm_c2.metric(
+    "Jensen's Alpha（年化）",
+    f"{bm_metrics.alpha_annual:+.2%}",
+    help="扣除市场风险后的超额年化收益，正值代表策略创造了超额价值",
+)
+bm_c3.metric(
+    "Beta（市场敏感度）",
+    f"{bm_metrics.beta:.3f}",
+    help="策略收益对市场收益的敏感程度。1.0=与市场同步，>1=放大市场波动",
+)
+bm_c4.metric(
+    "信息比率（IR）",
+    f"{bm_metrics.information_ratio:.3f}",
+    help="主动收益 / 追踪误差，衡量超额收益的稳定性。>0.5 为较好，>1.0 为优秀",
+)
+
+# ── 滚动收益 / 波动率 / 回撤图 ────────────────────────────
+with st.expander("📉 滚动绩效分析（滚动收益 / 波动率 / 回撤）", expanded=False):
+    roll_window = st.select_slider(
+        "滚动窗口（交易日）",
+        options=[21, 42, 63, 126, 252],
+        value=63,
+        format_func=lambda x: {21: "1个月", 42: "2个月", 63: "1季度", 126: "半年", 252: "1年"}.get(x, str(x)),
+        key="roll_window",
+    )
+    rm = compute_rolling_metrics(result_df["Equity"], window=roll_window, risk_free_annual_pct=risk_free_rate)
+    rm_bm = compute_rolling_metrics(result_df["Benchmark"], window=roll_window, risk_free_annual_pct=risk_free_rate)
+
+    # ── 滚动年化收益率 ──
+    fig_roll_ret = go.Figure()
+    fig_roll_ret.add_trace(go.Scatter(
+        x=rm.dates, y=rm.rolling_return,
+        mode="lines", name="策略滚动收益",
+        line=dict(color="#00CC96", width=2),
+        hovertemplate="%{x|%Y-%m-%d}<br>策略: %{y:.2%}<extra></extra>",
+    ))
+    fig_roll_ret.add_trace(go.Scatter(
+        x=rm_bm.dates, y=rm_bm.rolling_return,
+        mode="lines", name="买入持有",
+        line=dict(color="#636EFA", width=1.5, dash="dash"),
+        hovertemplate="%{x|%Y-%m-%d}<br>持有: %{y:.2%}<extra></extra>",
+    ))
+    fig_roll_ret.add_hline(y=0, line_color="gray", line_width=1)
+    fig_roll_ret.update_layout(**build_layout(
+        xaxis_title="日期", yaxis_title="滚动年化收益率",
+        yaxis_tickformat=".0%", height=280,
+        margin=dict(t=30, b=20),
+    ))
+    st.caption(f"📈 滚动年化收益率（{roll_window} 日窗口）")
+    st.plotly_chart(fig_roll_ret, use_container_width=True)
+
+    # ── 滚动夏普比率 ──
+    fig_roll_sharpe = go.Figure()
+    fig_roll_sharpe.add_trace(go.Scatter(
+        x=rm.dates, y=rm.rolling_sharpe,
+        mode="lines", name="策略夏普",
+        line=dict(color="#FFA726", width=2),
+        hovertemplate="%{x|%Y-%m-%d}<br>夏普: %{y:.3f}<extra></extra>",
+    ))
+    fig_roll_sharpe.add_hline(y=1.0, line_dash="dash", line_color="#00CC96",
+                              annotation_text="1.0 优秀线", annotation_position="top right")
+    fig_roll_sharpe.add_hline(y=0, line_color="gray", line_width=1)
+    fig_roll_sharpe.update_layout(**build_layout(
+        xaxis_title="日期", yaxis_title="滚动夏普比率",
+        height=260, margin=dict(t=30, b=20),
+    ))
+    st.caption(f"⚖️ 滚动夏普比率（{roll_window} 日窗口）")
+    st.plotly_chart(fig_roll_sharpe, use_container_width=True)
+
+    # ── 水下曲线（回撤） ──
+    fig_dd = go.Figure()
+    fig_dd.add_trace(go.Scatter(
+        x=rm.dates, y=rm.drawdown,
+        mode="lines", name="策略回撤",
+        fill="tozeroy", fillcolor="rgba(239,85,59,0.25)",
+        line=dict(color="#EF553B", width=1.5),
+        hovertemplate="%{x|%Y-%m-%d}<br>回撤: %{y:.2%}<extra></extra>",
+    ))
+    fig_dd.add_trace(go.Scatter(
+        x=rm_bm.dates, y=rm_bm.drawdown,
+        mode="lines", name="持有回撤",
+        line=dict(color="#636EFA", width=1.2, dash="dash"),
+        hovertemplate="%{x|%Y-%m-%d}<br>持有回撤: %{y:.2%}<extra></extra>",
+    ))
+    fig_dd.update_layout(**build_layout(
+        xaxis_title="日期", yaxis_title="回撤幅度",
+        yaxis_tickformat=".0%", height=260,
+        margin=dict(t=30, b=20),
+    ))
+    st.caption("🌊 水下曲线（Drawdown Chart）— 负值越深代表亏损越大")
+    st.plotly_chart(fig_dd, use_container_width=True)
+
 # ── 指数基准超额收益对比 ──────────────────────────────────
 if enable_benchmark and benchmark_ticker.strip():
     st.subheader(f"📊 超额收益对比（vs {benchmark_ticker.strip().upper()}）")
@@ -705,6 +816,35 @@ with st.expander("🔍 参数网格搜索"):
             grid_df = pd.DataFrame(grid_results).sort_values("夏普比率", ascending=False)
             st.success(MSG.backtest_grid_done.format(n=len(grid_results)))
             st.dataframe(grid_df.head(10), use_container_width=True, hide_index=True)
+
+            # ── 敏感性热力图（仅 MA 交叉 / MACD / 布林带支持双参数） ──
+            _p1_key, _p2_key = "参数1", "参数2"
+            if strategy in ("MA 交叉", "MACD", "布林带") and _p1_key in grid_df.columns and _p2_key in grid_df.columns:
+                for _metric_key in ("夏普比率", "年化回报(%)"):
+                    _sg = build_sensitivity_grid(grid_results, _p1_key, _p2_key, _metric_key)
+                    if _sg is not None:
+                        import plotly.graph_objects as _go
+                        _fig_heat = _go.Figure(_go.Heatmap(
+                            z=_sg.grid,
+                            x=[str(v) for v in _sg.param2_values],
+                            y=[str(v) for v in _sg.param1_values],
+                            colorscale="RdYlGn",
+                            text=[[f"{v:.3f}" if not __import__('numpy').isnan(v) else "" for v in row] for row in _sg.grid],
+                            texttemplate="%{text}",
+                            hovertemplate="参数1: %{y}<br>参数2: %{x}<br>" + _metric_key + ": %{z:.3f}<extra></extra>",
+                        ))
+                        _fig_heat.add_annotation(
+                            x=str(_sg.best_p2), y=str(_sg.best_p1),
+                            text="★", showarrow=False,
+                            font=dict(size=16, color="white"),
+                        )
+                        _fig_heat.update_layout(**build_layout(
+                            xaxis_title="参数2", yaxis_title="参数1",
+                            showlegend=False, height=360,
+                            margin=dict(t=40, b=40),
+                        ))
+                        st.caption(f"🌡️ {_metric_key} 敏感性热力图（★ 标识最优参数组合）")
+                        st.plotly_chart(_fig_heat, use_container_width=True)
         else:
             st.warning(MSG.backtest_grid_none)
 
