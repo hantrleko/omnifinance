@@ -54,10 +54,10 @@ Focus: strengthen the investment analysis engine while keeping it understandable
 
 Possible future extensions:
 
-- Black-Litterman allocation.
-- Risk parity allocation.
-- Walk-forward testing.
-- Out-of-sample validation.
+- [x] Black-Litterman allocation. *(shipped in `core/allocation.py` + 高级资产配置 page)*
+- [x] Risk parity allocation. *(shipped in `core/allocation.py`)*
+- [x] Walk-forward testing. *(shipped in `core/walkforward.py`, integrated into the backtester)*
+- [x] Out-of-sample validation. *(stitched OOS equity curve + overfit verdict)*
 - Multi-asset portfolio backtesting.
 
 ---
@@ -91,9 +91,9 @@ Focus: help users turn calculations into decisions.
 
 - [ ] Improve Markdown and HTML report templates.
 - [ ] Add a one-page financial diagnosis report.
-- [ ] Add action status tracking: planned, in progress, completed, skipped.
-- [ ] Add monthly review summary.
-- [ ] Add comparison between previous and current financial health scores.
+- [x] Add action status tracking: planned, in progress, completed, skipped. *(复盘中心 action board)*
+- [x] Add monthly review summary. *(exportable Markdown report)*
+- [x] Add comparison between previous and current financial health scores. *(automatic health snapshots + trend chart)*
 - [ ] Add exportable decision logs for major financial choices.
 
 ---

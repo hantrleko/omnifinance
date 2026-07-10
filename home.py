@@ -9,6 +9,7 @@ from core.brief import build_decision_brief
 from core.chart_config import apply_chart_config, build_layout, COLORS, priority_color
 from core.currency import fmt, get_symbol
 from core.health import build_action_recommendations, build_health_report
+from core.review import record_health_snapshot
 from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page, pages_by_category
 from core.navigation import (
     get_product_journey,
@@ -336,6 +337,12 @@ if has_data:
 
     if health_report.dimensions and overall_score is not None:
         st.metric("💯 综合财务健康评分", f"{overall_score}/100", delta=overall_grade)
+
+        # 自动记录健康分快照，供「🔁 复盘中心」追踪趋势与月度复盘
+        record_health_snapshot(
+            overall_score,
+            {dimension.name: dimension.score for dimension in health_report.dimensions},
+        )
 
         _n_dim_cols = min(3, len(health_report.dimensions))
         dim_cols = st.columns(_n_dim_cols)

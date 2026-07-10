@@ -98,6 +98,8 @@ SEARCH_SYNONYMS: dict[str, tuple[str, ...]] = {
     "记账": ("收支", "账本", "账务"),
     "模拟": ("蒙卡", "蒙特卡洛", "回测"),
     "护城河": ("moat", "竞争优势", "壁垒", "长期护城河", "竞争壁垒"),
+    "配置": ("资产配置", "风险平价", "allocation", "black-litterman", "bl"),
+    "复盘": ("回顾", "review", "行动看板", "月度复盘", "健康分趋势"),
 }
 
 NAVIGATION_POPULARITY: dict[str, int] = {
@@ -115,6 +117,8 @@ NAVIGATION_POPULARITY: dict[str, int] = {
     "reminders": 52,
     "moat": 48,
     "compound": 50,
+    "allocation": 46,
+    "review": 54,
 }
 
 
@@ -146,11 +150,13 @@ PAGES: tuple[PageInfo, ...] = (
     PageInfo("rebalance", "资产再平衡模拟器", "⚖️", "pages/17_资产再平衡模拟器.py", "投资分析引擎", "模拟定期再平衡、偏离阈值与交易影响", ("再平衡", "rebalance")),
     PageInfo("fx", "外汇对冲计算器", "💱", "pages/16_外汇对冲计算器.py", "投资分析引擎", "评估汇率风险、对冲成本与敞口管理", ("外汇", "汇率", "对冲", "fx")),
     PageInfo("moat", "长期护城河评分器", "🛡️", "pages/28_长期护城河评分器.py", "投资分析引擎", "用财务指标与主观评估打分，快速判断企业的长期竞争优势", ("护城河", "moat", "竞争壁垒", "长期优势")),
+    PageInfo("allocation", "高级资产配置", "🧬", "pages/29_高级资产配置.py", "投资分析引擎", "风险平价与 Black-Litterman 配置，并与最大夏普组合对比", ("配置", "风险平价", "allocation", "black-litterman")),
     PageInfo("retirement", "退休金估算器", "🏖️", "pages/7_退休金估算器.py", "高级人生规划", "估算退休缺口、月存需求与敏感度", ("退休", "养老", "retirement")),
     PageInfo("montecarlo", "蒙特卡洛模拟", "🎲", "pages/10_蒙特卡洛模拟.py", "高级人生规划", "用随机模拟评估目标达成概率与风险分布", ("蒙卡", "模拟", "monte carlo")),
     PageInfo("withdrawal", "税务优化提款策略", "🏦", "pages/20_税务优化提款策略.py", "高级人生规划", "比较退休提款顺序、税务影响与资金寿命", ("提款", "税务提款", "withdrawal")),
     PageInfo("historical", "历史回测储蓄模拟", "📜", "pages/19_历史回测储蓄模拟.py", "高级人生规划", "用历史市场数据验证储蓄和投资路径", ("历史", "储蓄回测", "historical")),
     PageInfo("diary", "财务日记", "📔", "pages/25_财务日记.py", "高级人生规划", "记录财务决策、复盘和情绪标签", ("日记", "记录", "diary")),
+    PageInfo("review", "复盘中心", "🔁", "pages/30_复盘中心.py", "高级人生规划", "健康分趋势、行动看板与月度复盘报告", ("复盘", "review", "行动看板", "月度复盘")),
     PageInfo("tax", "税务计算器", "🧾", "pages/12_税务计算器.py", "分析与工具", "估算个税、专项扣除和税后收入", ("个税", "税", "tax")),
     PageInfo("scenario", "场景对比分析器", "🔬", "pages/18_场景对比分析器.py", "分析与工具", "并排对比不同收入、收益率和目标假设", ("场景", "对比", "scenario")),
     PageInfo("calendar", "财务日历", "📅", "pages/21_财务日历.py", "分析与工具", "集中管理账单、还款、保费和投资日期", ("日历", "calendar")),
