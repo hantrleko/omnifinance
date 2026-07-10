@@ -39,6 +39,7 @@ from core.analytics import (
     compute_benchmark_metrics,
     build_sensitivity_grid,
 )
+from core.walkforward import overfit_verdict, run_walk_forward, walk_forward_table
 
 # ── 模块级 logger ─────────────────────────────────────────
 _logger = logging.getLogger(__name__)
@@ -896,6 +897,73 @@ with st.expander("📊 组合回测（多标的）"):
                 st.plotly_chart(fig_port, use_container_width=True)
 
 # ── 导出报告 ──────────────────────────────────────────────
+# ── 走查样本外检验 (Walk-Forward) ──────────────────────────
+with st.expander("🧪 走查样本外检验（评估参数是否过拟合）", expanded=False):
+    st.caption(
+        "把历史切成多个「训练→测试」滚动窗口：每个窗口在训练段重新寻优参数，"
+        "再在从未见过的测试段验证。样本外收益相对训练期的衰减幅度是最直接的过拟合信号。"
+    )
+    wf_c1, wf_c2 = st.columns(2)
+    with wf_c1:
+        wf_folds = st.slider("走查窗口数", 2, 6, 3, key="wf_folds")
+    with wf_c2:
+        wf_train_ratio = st.slider("训练集占比", 0.55, 0.90, 0.70, 0.05, key="wf_ratio")
+
+    if st.button("🧪 运行走查检验", key="wf_run"):
+        # 为当前策略构造一个紧凑的参数网格（围绕典型参数区间）
+        if strategy == "MA 交叉":
+            wf_grid: dict[str, list] = {"short_window": [5, 10, 15, 20], "long_window": [30, 40, 60, 90]}
+        elif strategy == "RSI":
+            wf_grid = {"period": [7, 14, 21], "oversold": [25, 30, 35], "overbought": [65, 70, 75]}
+        elif strategy == "MACD":
+            wf_grid = {"fast": [8, 12, 16], "slow": [20, 26, 34], "signal_period": [9]}
+        else:  # 布林带
+            wf_grid = {"period": [10, 20, 30], "num_std": [1.5, 2.0, 2.5]}
+
+        try:
+            with st.spinner("正在运行走查检验（逐窗口寻优 + 样本外验证）…"):
+                wf_result = run_walk_forward(
+                    data,
+                    strategy,
+                    wf_grid,
+                    n_folds=int(wf_folds),
+                    train_ratio=float(wf_train_ratio),
+                    initial_capital=float(initial_capital),
+                    fee_rate_pct=float(fee_rate),
+                    slippage_pct=float(slippage_rate),
+                )
+        except ValueError as exc:
+            st.error(f"走查检验失败：{exc}")
+        else:
+            wf_m1, wf_m2, wf_m3, wf_m4 = st.columns(4)
+            wf_m1.metric("训练期平均收益", f"{wf_result.avg_train_return_pct:+.2f}%")
+            wf_m2.metric("样本外平均收益", f"{wf_result.avg_test_return_pct:+.2f}%")
+            wf_m3.metric("样本外累计收益", f"{wf_result.oos_total_return_pct:+.2f}%")
+            wf_m4.metric("正收益窗口占比", f"{wf_result.consistency_pct:.0f}%")
+
+            verdict_level, verdict_msg = overfit_verdict(wf_result)
+            if verdict_level == "good":
+                st.success(f"✅ {verdict_msg}")
+            elif verdict_level == "warning":
+                st.warning(f"⚠️ {verdict_msg}")
+            else:
+                st.error(f"🚨 {verdict_msg}")
+
+            st.dataframe(walk_forward_table(wf_result), use_container_width=True, hide_index=True)
+
+            fig_wf = go.Figure(go.Scatter(
+                x=wf_result.oos_equity.index,
+                y=wf_result.oos_equity.values,
+                mode="lines",
+                name="样本外拼接净值",
+            ))
+            fig_wf.update_layout(**build_layout(
+                title="样本外（Out-of-Sample）拼接净值曲线",
+                xaxis_title="日期", yaxis_title="净值", yaxis_tickformat=",", height=360,
+            ))
+            st.plotly_chart(fig_wf, use_container_width=True)
+            st.caption("💡 每段测试区间使用的都是前一段训练区间寻优出的参数 — 更接近真实交易中「用过去参数交易未来」的情形。")
+
 st.subheader("📤 导出报告")
 
 def _build_bt_report() -> str:
