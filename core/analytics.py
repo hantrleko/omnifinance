@@ -14,8 +14,7 @@ from pages or tested independently.
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -185,10 +184,9 @@ def compute_risk_contribution(
         w = np.asarray(weights, dtype=float)
 
     cov = cov_matrix.values.astype(float)
-    if annualise:
-        # Only annualise if values look like daily covariance (< 0.01 typical)
-        if cov.max() < 0.01:
-            cov = cov * 252
+    # Only annualise if values look like daily covariance (< 0.01 typical)
+    if annualise and cov.max() < 0.01:
+        cov = cov * 252
 
     portfolio_var = float(w @ cov @ w)
     portfolio_vol = float(np.sqrt(max(portfolio_var, 0.0)))

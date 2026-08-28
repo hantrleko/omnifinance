@@ -5,8 +5,6 @@ network calls are made.
 """
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from core.moat import (
@@ -15,7 +13,6 @@ from core.moat import (
     to_float,
     weighted_score,
 )
-
 
 # ── to_float ──────────────────────────────────────────────
 

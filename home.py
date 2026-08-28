@@ -6,14 +6,15 @@ import streamlit as st
 from core.action_plan import build_action_impact_plan
 from core.benchmarks import BENCHMARKS
 from core.brief import build_decision_brief
-from core.chart_config import apply_chart_config, build_layout, COLORS, priority_color
+from core.chart_config import COLORS, apply_chart_config, build_layout, priority_color
 from core.currency import fmt, get_symbol
 from core.health import build_action_recommendations, build_health_report
-from core.review import record_health_snapshot
-from core.navigation import DASHBOARD_PROGRESS_ITEMS, get_page, pages_by_category
 from core.navigation import (
+    DASHBOARD_PROGRESS_ITEMS,
+    get_page,
     get_product_journey,
     get_product_journey_snapshot,
+    pages_by_category,
     track_recent_page,
 )
 from core.opportunity import build_90_day_sprint, build_opportunity_radar
@@ -29,6 +30,7 @@ from core.persistence import (
 )
 from core.reminders import add_reminder, complete_reminder, get_due_reminders, get_reminders
 from core.report_generator import generate_html_report
+from core.review import record_health_snapshot
 from core.stress import build_stress_report
 from core.version import VERSION
 
@@ -137,7 +139,7 @@ _render_journey_status_card()
 
 with st.expander("🧩 快速任务入口", expanded=False):
     quick_cols = st.columns(3)
-    for col, step in zip(quick_cols, PRODUCT_JOURNEY[:3]):
+    for col, step in zip(quick_cols, PRODUCT_JOURNEY[:3], strict=False):
         quick_page = get_page(step.page_key)
         with col.container(border=True):
             st.caption(f"第 {step.step_no} 步 · {step.label}")

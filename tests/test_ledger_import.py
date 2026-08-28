@@ -5,16 +5,15 @@ import pandas as pd
 import pytest
 
 from core.ledger_import import (
+    _map_category,
+    _normalize_date,
+    _parse_alipay,
+    _parse_amount,
+    _parse_generic,
+    _parse_wechat,
     detect_format,
     parse_upload,
-    _parse_alipay,
-    _parse_wechat,
-    _parse_generic,
-    _parse_amount,
-    _normalize_date,
-    _map_category,
 )
-
 
 # ── _parse_amount ─────────────────────────────────────────────────────────────
 
@@ -86,19 +85,19 @@ def test_map_category_no_match_returns_other():
 # ── detect_format ─────────────────────────────────────────────────────────────
 
 def test_detect_format_alipay_by_content():
-    content = "支付宝交易记录明细查询\n交易时间,交易分类,交易对方\n".encode("utf-8")
+    content = "支付宝交易记录明细查询\n交易时间,交易分类,交易对方\n".encode()
     result = detect_format(content, "alipay_export.csv")
     assert result == "alipay"
 
 
 def test_detect_format_wechat_by_content():
-    content = "微信支付账单明细\n交易时间,交易类型,交易对方\n".encode("utf-8")
+    content = "微信支付账单明细\n交易时间,交易类型,交易对方\n".encode()
     result = detect_format(content, "wechat_bill.csv")
     assert result == "wechat"
 
 
 def test_detect_format_generic_by_filename():
-    content = "日期,金额,类别\n2024-01-01,100,餐饮\n".encode("utf-8")
+    content = "日期,金额,类别\n2024-01-01,100,餐饮\n".encode()
     result = detect_format(content, "my_records.csv")
     assert result in ("generic", "alipay", "wechat")
 
@@ -179,7 +178,7 @@ def test_parse_alipay_returns_tuple():
         "交易时间,交易分类,交易对方,商品说明,收/支,金额（元）,收/支,备注\n"
         "2024-01-15 12:30:00,餐饮美食,美团外卖,午餐,支出,35.50,,\n"
         "---------------------------------\n"
-    ).encode("utf-8")
+    ).encode()
     records, errors = _parse_alipay(alipay_csv)
     assert isinstance(records, list)
     assert isinstance(errors, list)
@@ -200,7 +199,7 @@ def test_parse_wechat_returns_tuple():
         "----\n"
         "交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号,商户单号,备注\n"
         "2024-01-15 14:00:00,商户消费,星巴克,咖啡,支出,¥38.00,零钱,支付成功,xxx,yyy,\n"
-    ).encode("utf-8")
+    ).encode()
     records, errors = _parse_wechat(wechat_csv)
     assert isinstance(records, list)
     assert isinstance(errors, list)
@@ -256,7 +255,7 @@ def test_parse_upload_alipay_format():
         "交易时间,交易分类,交易对方,商品说明,收/支,金额（元）,收/支,备注\n"
         "2024-01-15 12:30:00,餐饮美食,美团外卖,午餐,支出,35.50,,\n"
         "---------------------------------\n"
-    ).encode("utf-8")
+    ).encode()
     records, errors, fmt = parse_upload(alipay_csv, "alipay_export.csv")
     assert fmt == "alipay"
     assert isinstance(records, list)

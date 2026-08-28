@@ -6,9 +6,7 @@ arguments.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call, patch
-
-import pytest
+from unittest.mock import patch
 
 
 class TestInitPage:
@@ -24,6 +22,7 @@ class TestInitPage:
             # We need to re-import inside the patch context so the module
             # picks up the mocked versions.
             import importlib
+
             import core.page_setup as ps
             importlib.reload(ps)
 

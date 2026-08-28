@@ -17,7 +17,6 @@ from __future__ import annotations
 import math
 from typing import Any
 
-
 # ── Type aliases ──────────────────────────────────────────
 
 ScoreMap = dict[str, float | None]
@@ -153,7 +152,7 @@ def weighted_score(values: list[float | None], weights: list[float]) -> float:
     """
     if not values:
         return 0.0
-    valid = [(v, w) for v, w in zip(values, weights) if v is not None]
+    valid = [(v, w) for v, w in zip(values, weights, strict=False) if v is not None]
     if not valid:
         return 0.0
     total_w = sum(w for _, w in valid)
@@ -202,13 +201,7 @@ def fetch_signal_scores(symbol: str) -> ScoreMap:
         debt_to_equity = to_float(info.get("debtToEquity"))
         revenue_growth = to_float(info.get("revenueGrowth"))
 
-        # Normalise percentages that yfinance sometimes returns as 0-100 scale
-        for val_name, val in [
-            ("gross_margin", gross_margin),
-            ("op_margin", op_margin),
-            ("roa", roa),
-        ]:
-            pass  # normalisation applied inline below
+        # Normalise percentages that yfinance sometimes returns as 0-100 scale.
 
         if gross_margin is not None and gross_margin > 1:
             gross_margin /= 100

@@ -47,7 +47,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import shutil
 import time
 import urllib.error
 from datetime import date, datetime

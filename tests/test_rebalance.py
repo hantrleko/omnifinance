@@ -13,7 +13,6 @@ from core.rebalance import (
     simulate_strategy,
 )
 
-
 # ── generate_monthly_returns ──────────────────────────────
 
 class TestGenerateMonthlyReturns:
