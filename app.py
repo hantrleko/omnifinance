@@ -1,16 +1,16 @@
 import streamlit as st
 
 from core.currency import currency_selector
-from core.reminders import get_due_reminders, get_reminders
 from core.navigation import (
-    get_recent_pages,
     get_next_journey_step,
     get_page,
     get_product_journey_snapshot,
+    get_recent_pages,
     pages_by_category,
     search_pages,
 )
-from core.runtime_checks import build_runtime_report, runtime_fingerprint
+from core.reminders import get_due_reminders
+from core.runtime_checks import build_runtime_report
 from core.theme import inject_theme, load_dark_mode_pref, save_dark_mode_pref
 from core.version import VERSION
 

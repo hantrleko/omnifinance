@@ -7,7 +7,7 @@ sidebar search, and dashboard quick-start UI.
 from __future__ import annotations
 
 import re
-from typing import Mapping, MutableMapping
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
 
 

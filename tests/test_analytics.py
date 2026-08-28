@@ -2,29 +2,31 @@
 from __future__ import annotations
 
 import math
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from core.analytics import (
-    # VaR / CVaR
-    portfolio_var_cvar,
-    var_cvar_table,
-    VaRResult,
-    # Risk contribution
-    compute_risk_contribution,
-    risk_contribution_dataframe,
-    RiskContributionResult,
-    # Rolling metrics
-    compute_rolling_metrics,
-    RollingMetrics,
-    # Benchmark metrics
-    compute_benchmark_metrics,
     BenchmarkMetrics,
+    RiskContributionResult,
+    RollingMetrics,
+    SensitivityGrid,
+    VaRResult,
     # Sensitivity grid
     build_sensitivity_grid,
-    SensitivityGrid,
+    # Benchmark metrics
+    compute_benchmark_metrics,
+    # Risk contribution
+    compute_risk_contribution,
+    # Rolling metrics
+    compute_rolling_metrics,
+    # VaR / CVaR
+    portfolio_var_cvar,
+    risk_contribution_dataframe,
+    var_cvar_table,
 )
+
 RiskContribution = RiskContributionResult  # alias for test readability
 
 
@@ -293,14 +295,14 @@ class TestBuildSensitivityGrid:
         """Simulated MA cross grid search results."""
         rows = []
         for s in range(10, 51, 10):
-            for l in range(50, 201, 50):
-                if s < l:
+            for long_window in range(50, 201, 50):
+                if s < long_window:
                     rows.append({
                         "参数1": s,
-                        "参数2": l,
-                        "夏普比率": round(0.5 + s / 100 - l / 1000, 3),
+                        "参数2": long_window,
+                        "夏普比率": round(0.5 + s / 100 - long_window / 1000, 3),
                         "年化回报(%)": round(8.0 + s / 20, 2),
-                        "最大回撤(%)": round(-15.0 - l / 100, 2),
+                        "最大回撤(%)": round(-15.0 - long_window / 100, 2),
                     })
         return rows
 
@@ -327,7 +329,6 @@ class TestBuildSensitivityGrid:
 
     def test_best_value_is_maximum(self, grid_results):
         sg = build_sensitivity_grid(grid_results, "参数1", "参数2", "夏普比率")
-        all_values = [r["夏普比率"] for r in grid_results]
         # best_p1 and best_p2 should correspond to the row with maximum metric value
         best_row = max(grid_results, key=lambda r: r["夏普比率"])
         assert sg.best_p1 == best_row["参数1"]

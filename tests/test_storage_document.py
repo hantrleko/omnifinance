@@ -13,7 +13,6 @@ import pytest
 
 import core.storage as storage
 
-
 # ── Fixtures ──────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)

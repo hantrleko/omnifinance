@@ -1,5 +1,4 @@
 """Tests for core/glossary.py — 金融概念小白科普模块"""
-import pytest
 from unittest.mock import MagicMock, patch
 
 
@@ -7,7 +6,6 @@ from unittest.mock import MagicMock, patch
 def test_glossary_module_importable():
     """glossary module can be imported without streamlit running."""
     with patch.dict("sys.modules", {"streamlit": MagicMock()}):
-        import importlib
         import sys
         # Remove cached module if present
         sys.modules.pop("core.glossary", None)

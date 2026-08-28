@@ -16,7 +16,6 @@ from typing import Any
 
 import numpy as np
 
-
 # ── Type aliases ──────────────────────────────────────────
 
 SimResult = dict[str, Any]
@@ -126,21 +125,16 @@ def simulate_strategy(
 
         # Determine whether to rebalance
         should_rebal = False
-        if strategy == "monthly":
+        if strategy == "monthly" or strategy == "quarterly" and (m + 1) % 3 == 0 or strategy == "annually" and (m + 1) % 12 == 0:
             should_rebal = True
-        elif strategy == "quarterly" and (m + 1) % 3 == 0:
-            should_rebal = True
-        elif strategy == "annually" and (m + 1) % 12 == 0:
-            should_rebal = True
-        elif strategy == "threshold":
-            if total > 0:
-                current_weights = allocations / total
-                max_drift = max(
-                    abs(current_weights[i] - target_weights[i])
-                    for i in range(n_assets)
-                )
-                if max_drift >= threshold_pct / 100:
-                    should_rebal = True
+        elif strategy == "threshold" and total > 0:
+            current_weights = allocations / total
+            max_drift = max(
+                abs(current_weights[i] - target_weights[i])
+                for i in range(n_assets)
+            )
+            if max_drift >= threshold_pct / 100:
+                should_rebal = True
 
         if should_rebal and strategy != "buy_and_hold":
             fee = total * rebal_fee_pct / 100

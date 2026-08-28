@@ -5,10 +5,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
 
 import core.market_cache as mc
-
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -70,16 +68,20 @@ def test_download_prices_returns_dataframe_on_success():
         {"Close": [150.0, 152.0, 148.0]},
         index=pd.date_range("2024-01-01", periods=3),
     )
-    with patch("yfinance.download", return_value=mock_df):
-        with patch.object(mc, "_is_fresh", return_value=False):
-            result = mc.download_prices(["AAPL"], period="1mo")
+    with (
+        patch("yfinance.download", return_value=mock_df),
+        patch.object(mc, "_is_fresh", return_value=False),
+    ):
+        result = mc.download_prices(["AAPL"], period="1mo")
     assert isinstance(result, pd.DataFrame)
 
 
 def test_download_prices_returns_dataframe_on_error():
-    with patch("yfinance.download", side_effect=Exception("timeout")):
-        with patch.object(mc, "_is_fresh", return_value=False):
-            result = mc.download_prices(["INVALID_XYZ"], period="1mo")
+    with (
+        patch("yfinance.download", side_effect=Exception("timeout")),
+        patch.object(mc, "_is_fresh", return_value=False),
+    ):
+        result = mc.download_prices(["INVALID_XYZ"], period="1mo")
     assert isinstance(result, pd.DataFrame)
 
 
@@ -88,16 +90,20 @@ def test_download_prices_returns_dataframe_on_error():
 def test_fetch_ticker_info_returns_dict_on_success():
     mock_ticker = MagicMock()
     mock_ticker.info = {"shortName": "Apple Inc.", "trailingPE": 28.5}
-    with patch("yfinance.Ticker", return_value=mock_ticker):
-        with patch.object(mc, "_is_fresh", return_value=False):
-            result = mc.fetch_ticker_info("AAPL")
+    with (
+        patch("yfinance.Ticker", return_value=mock_ticker),
+        patch.object(mc, "_is_fresh", return_value=False),
+    ):
+        result = mc.fetch_ticker_info("AAPL")
     assert isinstance(result, dict)
 
 
 def test_fetch_ticker_info_returns_dict_on_error():
-    with patch("yfinance.Ticker", side_effect=Exception("network error")):
-        with patch.object(mc, "_is_fresh", return_value=False):
-            result = mc.fetch_ticker_info("INVALID_TICKER_XYZ")
+    with (
+        patch("yfinance.Ticker", side_effect=Exception("network error")),
+        patch.object(mc, "_is_fresh", return_value=False),
+    ):
+        result = mc.fetch_ticker_info("INVALID_TICKER_XYZ")
     assert isinstance(result, dict)
 
 
@@ -124,17 +130,21 @@ def test_fetch_ohlcv_returns_dataframe_on_success():
     )
     mock_ticker = MagicMock()
     mock_ticker.history.return_value = mock_hist
-    with patch("yfinance.Ticker", return_value=mock_ticker):
-        with patch.object(mc, "_is_fresh", return_value=False):
-            result = mc.fetch_ohlcv("AAPL", _date(2024, 1, 1), _date(2024, 3, 1))
+    with (
+        patch("yfinance.Ticker", return_value=mock_ticker),
+        patch.object(mc, "_is_fresh", return_value=False),
+    ):
+        result = mc.fetch_ohlcv("AAPL", _date(2024, 1, 1), _date(2024, 3, 1))
     assert isinstance(result, pd.DataFrame)
 
 
 def test_fetch_ohlcv_returns_dataframe_on_error():
     from datetime import date as _date
-    with patch("yfinance.Ticker", side_effect=Exception("error")):
-        with patch.object(mc, "_is_fresh", return_value=False):
-            result = mc.fetch_ohlcv("INVALID", _date(2024, 1, 1), _date(2024, 3, 1))
+    with (
+        patch("yfinance.Ticker", side_effect=Exception("error")),
+        patch.object(mc, "_is_fresh", return_value=False),
+    ):
+        result = mc.fetch_ohlcv("INVALID", _date(2024, 1, 1), _date(2024, 3, 1))
     assert isinstance(result, pd.DataFrame)
 
 
