@@ -17,11 +17,12 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from core.glossary import render_glossary_sidebar
 from core.page_setup import init_page
+
 init_page("投资组合优化器", "📐", "portfolio")
 render_glossary_sidebar(page_key="portfolio")
 from core.chart_config import build_layout, render_empty_state
-from core.glossary import render_glossary_sidebar
 from core.market_cache import download_prices
 from core.config import CFG
 from core.currency import currency_selector
@@ -633,4 +634,3 @@ with st.expander("ℹ️ Black-Litterman 说明"):
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption("📐 投资组合优化器 | 仅供参考，不构成投资建议 | 运行：`streamlit run app.py`")
-

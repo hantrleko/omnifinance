@@ -16,11 +16,12 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from core.glossary import render_glossary_sidebar
 from core.page_setup import init_page
+
 init_page("股票筛选器", "🔎", "screener")
 render_glossary_sidebar(page_key="screener")
 from core.chart_config import build_layout
-from core.glossary import render_glossary_sidebar
 from core.market_cache import fetch_ticker_info
 
 st.title("🔎 股票筛选器")
@@ -319,4 +320,3 @@ except Exception:
 
 st.divider()
 st.caption("🔎 股票筛选器 | 数据由 Yahoo Finance 提供，A股需加 .SS/.SZ 后缀 | 仅供参考，不构成投资建议。")
-

@@ -22,7 +22,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+from core.glossary import render_glossary_sidebar
 from core.page_setup import init_page
+
 init_page("策略回测器", "📈", "backtest")
 render_glossary_sidebar(page_key="backtest")
 from plotly.subplots import make_subplots
@@ -30,7 +32,6 @@ from plotly.subplots import make_subplots
 from core.backtest import STRATEGY_NAMES, apply_strategy, compute_metrics, simulate_trades
 from core.market_cache import fetch_ohlcv
 from core.chart_config import build_layout
-from core.glossary import render_glossary_sidebar
 from core.config import CFG, MSG
 from core.currency import currency_selector, fmt, get_symbol
 from core.storage import scheme_manager_ui
@@ -993,4 +994,3 @@ st.caption("提示：打开 HTML 文件后按 Ctrl+P 可打印/另存为 PDF。"
 # ── 页脚 ──────────────────────────────────────────────────
 st.divider()
 st.caption(MSG.backtest_footer)
-
